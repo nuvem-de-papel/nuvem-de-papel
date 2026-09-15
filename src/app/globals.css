@@ -1,0 +1,64 @@
+@import url("https://fonts.googleapis.com/css2?family=Sniglet:wght@400;800&family=Quicksand:wght@400;500;600;700&display=swap");
+
+:root {
+  --bg-cotton: #fffdfb;
+  --bg-cloud: #f8f6fe;
+  --blue-100: #dceef7;
+  --blue-300: #a8d4e8;
+  --blue-600: #5fa8c7;
+  --pink-100: #fbe4ed;
+  --pink-300: #f2b8ce;
+  --pink-600: #e084ac;
+  --lilac-100: #ece6fb;
+  --lilac-300: #cbb8f0;
+  --lilac-600: #9b7fde;
+  --ink: #4a4256;
+  --ink-soft: #8a8296;
+  --ink-faint: #c9c2d4;
+  --ink-2: #3a3346;
+  --white: #ffffff;
+  --shadow-soft: 0 10px 28px rgba(155, 127, 222, 0.16);
+  --shadow-card: 0 4px 16px rgba(155, 127, 222, 0.1);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "Quicksand", sans-serif;
+  background: var(--bg-cotton);
+  color: var(--ink);
+}
+
+h1,
+h2,
+h3,
+.display {
+  font-family: "Sniglet", cursive;
+  font-weight: 800;
+  margin: 0;
+}
+
+a {
+  color: var(--pink-600);
+  text-decoration: none;
+}
+a:hover {
+  color: var(--lilac-600);
+}
+
+button {
+  font-family: "Quicksand", sans-serif;
+  cursor: pointer;
+  border: none;
+}
+
+.navlink {
+  color: var(--ink);
+  text-decoration: none;
+}
+.navlink:hover {
+  color: var(--pink-600);
+}
