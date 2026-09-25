@@ -9,7 +9,7 @@ export function Header() {
     { href: "/", label: "Home", bold: true },
     { href: "/produtos", label: "Produtos", bold: false },
     { href: "/publicacoes", label: "Publicações", bold: false },
-    { href: "/conta", label: "Área do Cliente", bold: false },
+    { href: "/configuracoes/cadastro", label: "Configurações", bold: false },
     { href: "/crm", label: "CRM", bold: false, isAdmin: true },
   ];
 
