@@ -5,10 +5,10 @@ insert into publications (tenant_id, slug, title, category, excerpt, reading_min
 values
   (
     '00000000-0000-0000-0000-000000000001',
-    'bullet-journal-fofo-outubro',
-    '5 ideias de bullet journal fofo pra outubro',
+    'ideias-de-bullet-journal-outubro',
+    '5 ideias de bullet journal para outubro',
     'Dica de organização',
-    'Layouts simples e fofos pra organizar outubro sem perder tempo.',
+    'Layouts simples e práticos para organizar outubro sem perder tempo.',
     4,
     '2026-10-03T00:00:00Z'
   ),

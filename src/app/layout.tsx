@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { Header } from "@/components/Header";
+import { Footer, FloatingSocial } from "@/components/Footer";
 import { getBrandingCssVars } from "@/lib/branding";
 
 export const dynamic = "force-dynamic";
@@ -24,7 +25,9 @@ export default async function RootLayout({
       </head>
       <body>
         <Header />
+        <FloatingSocial />
         {children}
+        <Footer />
       </body>
     </html>
   );

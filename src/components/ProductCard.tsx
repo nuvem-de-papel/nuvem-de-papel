@@ -8,15 +8,16 @@ export function ProductCard({ produto }: { produto: VarejoProduct }) {
   return (
     <div
       style={{
-        background: "white",
-        borderRadius: 24,
+        background: "var(--bg-cloud)",
+        border: "1px solid var(--ink-faint)",
+        borderRadius: "var(--radius-card)",
         padding: 16,
         boxShadow: "var(--shadow-card)",
       }}
     >
       <div
         style={{
-          borderRadius: 18,
+          borderRadius: 10,
           background: "linear-gradient(135deg,var(--blue-100),var(--lilac-100))",
           aspectRatio: "1",
         }}
@@ -38,10 +39,11 @@ export function ProductCard({ produto }: { produto: VarejoProduct }) {
       )}
       <h3
         style={{
-          fontFamily: "Quicksand",
-          fontWeight: 700,
+          fontFamily: "Open Sans",
+          fontWeight: 600,
           fontSize: 15,
           margin: "4px 0",
+          color: "var(--ink)",
         }}
       >
         {produto.name}
@@ -63,7 +65,7 @@ export function ProductCard({ produto }: { produto: VarejoProduct }) {
             color: "var(--pink-600)",
             width: 38,
             height: 38,
-            borderRadius: 999,
+            borderRadius: 10,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",

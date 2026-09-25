@@ -8,7 +8,7 @@ with novo_item as (
   insert into catalog_items (tenant_id, sku, name, category)
   values
     ('00000000-0000-0000-0000-000000000001', 'CAD-NUV-PAS-10M', 'Caderno Nuvem Pastel 10 Matérias', 'Cadernos'),
-    ('00000000-0000-0000-0000-000000000001', 'PLN-FOF-SEM-2027', 'Planner Semanal Fofura 2027', 'Planners'),
+    ('00000000-0000-0000-0000-000000000001', 'PLN-FOF-SEM-2027', 'Planner Semanal 2027', 'Planners'),
     ('00000000-0000-0000-0000-000000000001', 'ADS-NUV-LUA-120', 'Kit Adesivos Nuvem & Lua (120un)', 'Adesivos'),
     ('00000000-0000-0000-0000-000000000001', 'EST-BOX-NDP', 'Estojo Box Nuvem de Papel', 'Material Escolar'),
     ('00000000-0000-0000-0000-000000000001', 'CAN-NUV-ALGODAO', 'Caneca Nuvem de Algodão', 'Presentes'),

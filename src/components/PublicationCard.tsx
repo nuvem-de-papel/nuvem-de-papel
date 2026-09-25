@@ -16,7 +16,7 @@ export function PublicationCard({ publicacao, index }: { publicacao: Publication
   const style = STYLES[index % STYLES.length];
 
   return (
-    <div style={{ background: "white", borderRadius: 24, overflow: "hidden", boxShadow: "var(--shadow-card)" }}>
+    <div style={{ background: "var(--bg-cloud)", border: "1px solid var(--ink-faint)", borderRadius: "var(--radius-card)", overflow: "hidden", boxShadow: "var(--shadow-card)" }}>
       <div style={{ height: 150, background: style.gradient }} />
       <div style={{ padding: 20 }}>
         <span
@@ -26,12 +26,12 @@ export function PublicationCard({ publicacao, index }: { publicacao: Publication
             fontSize: 11,
             fontWeight: 700,
             padding: "4px 10px",
-            borderRadius: 999,
+            borderRadius: "var(--radius-chip)",
           }}
         >
           {publicacao.category}
         </span>
-        <h3 style={{ fontFamily: "Quicksand", fontWeight: 700, fontSize: 16, margin: "12px 0 8px" }}>
+        <h3 style={{ fontFamily: "Open Sans", fontWeight: 600, fontSize: 16, margin: "12px 0 8px", color: "var(--ink)" }}>
           {publicacao.title}
         </h3>
         <div style={{ fontSize: 12, color: "var(--ink-soft)" }}>
