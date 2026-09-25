@@ -18,7 +18,7 @@ O desenvolvedor lendo isso tem TDAH. Formate TODAS as respostas para que um cér
 | Produção | `F:\Projetos\nuvem-de-papel` | `main` | Supabase `zychcqlvfblwmibfnold` (nuvem-de-papel) | Vercel Production — dispara em push/merge em `main` |
 | Staging/dev | `F:\Projetos\nuvem-de-papel-staging` | `staging` (ou qualquer branch != `main`) | Supabase `wvdvyglbunsquauxdqxj` (nuvem-de-papel-staging) | Vercel Preview — dispara em push de qualquer branch != `main` |
 
-Repositório único: https://github.com/satcyber003-sketch/nuvem-de-papel
+Repositório único: https://github.com/nuvem-de-papel/nuvem-de-papel
 
 ## Fluxo obrigatório para qualquer mudança de código ou de banco
 
@@ -29,6 +29,18 @@ Repositório único: https://github.com/satcyber003-sketch/nuvem-de-papel
 5. Só depois de validado, fazer merge em `main` — esse é o único gatilho que deve tocar produção de verdade.
 
 Essa regra vale para qualquer IA ou pessoa trabalhando neste projeto a partir desta data, mesmo sem ser lembrada a cada tarefa.
+
+Merge é local, sem PR no GitHub: com CI verde, `git fetch` → `git merge origin/staging` na pasta de produção → `git push origin main` (Vercel deploya).
+
+## Regras permanentes de sessão (auto-aplicáveis)
+
+Valem para qualquer sessão/IA, mesmo sem ser lembradas na conversa:
+
+1. **Validação antes de qualquer commit** — toda alteração é feita e validada em `F:\Projetos\nuvem-de-papel-staging`: `npm run type-check` → `npm run lint` → `npm run build`, com o dev server **parado** antes do build (build com dev aberto corrompe `.next` e gera erro de módulo ausente).
+2. **Migrations — conferir a numeração na pasta antes de criar** — listar `supabase/migrations/` e usar o próximo número disponível; nunca confiar em memória de sessão anterior. A migration nasce e é testada no staging; o mesmo SQL vai para produção só depois de validada.
+3. **Este arquivo faz parte da entrega** — toda decisão/padrão novo relevante (regra de ambiente, fluxo, arquitetura, paleta, convenção) entra neste AGENTS.md **no mesmo commit** da mudança de código. Editou algo relevante → atualizou este arquivo → commit junto.
+4. **Documentação viva** — decisões relevantes ficam em arquivos `.md` (ex.: paleta e mockups em `F:\Projetos\nuvem-de-papel-documentacao\`); comentário datado no código só em pontos não-óbvios, mínimo e com contexto.
+5. **CI obrigatória** — todo push roda `.github/workflows/ci.yml` (lint → type-check → build). CI vermelha = não fazer merge.
 
 ## Stack
 
