@@ -108,7 +108,7 @@ const css = String.raw`
 .ct-btns{display:flex;gap:6px;flex-wrap:wrap}
 .ct-sw{padding:8px 16px;border-radius:999px;border:1.5px solid rgba(255,255,255,.25);background:transparent;color:#cfd8e3;font-weight:700;font-size:.82rem;cursor:pointer}
 .ct-sw:hover{border-color:var(--cta);color:#fff}
-.ct-sw.on{background:var(--cta);border-color:var(--cta);color:var(--navy)}
+.ct-sw.on{background:var(--cta);border-color:var(--cta);color:#fff}
 .ct-screen{max-width:1240px;margin:20px auto 60px;padding:0 24px}
 .ct-window{background:#fff;border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow-soft);overflow:hidden}
 .ct-header{display:flex;align-items:center;gap:10px;flex-wrap:nowrap;padding:10px 22px;border-bottom:1px solid var(--border);background:var(--bg-cotton);overflow-x:auto}

@@ -1,4 +1,5 @@
 import type { VarejoProduct } from "@/lib/products";
+import { ProductImage } from "@/components/ProductImage";
 
 function formatPrice(value: number) {
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
@@ -15,13 +16,7 @@ export function ProductCard({ produto }: { produto: VarejoProduct }) {
         boxShadow: "var(--shadow-card)",
       }}
     >
-      <div
-        style={{
-          borderRadius: 10,
-          background: "linear-gradient(135deg,var(--blue-100),var(--lilac-100))",
-          aspectRatio: "1",
-        }}
-      />
+      <ProductImage category={produto.category} />
       {produto.category && (
         <span
           style={{

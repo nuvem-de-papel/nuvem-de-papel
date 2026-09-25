@@ -1,8 +1,9 @@
 @import url("https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&family=Open+Sans:wght@400;500;600;700&display=swap");
 
-/* Identidade visual 2026 — pink-600 como principal + Azul Noturno + Amarelo Sol.
+/* Identidade visual 2026 — paleta v2 (aprovada 25/09/2026):
+   botão = Pink-600 #E084AC · fundo de seção = Pink-100 #FBE4ED · amarelo = só a marca.
    Fontes: Poppins (títulos) + Open Sans (corpo). Tema claro.
-   Aprovado pelo cliente — mockup: mockup-pink600-principal.html */
+   Mockup: mockup-produtos-combinado.html */
 :root {
   /* Fundos */
   --bg-cotton: #F8F9FA;
@@ -18,9 +19,9 @@
   --pink-600: #E084AC;
   --pink-600-dark: #D06A97;
 
-  /* Amarelo Sol — CTAs, botões de compra */
-  --cta: #FFD166;
-  --cta-hover: #FFC233;
+  /* Pink-600 — CTAs, botões de compra (paleta v2 aprovada) */
+  --cta: #E084AC;
+  --cta-hover: #D06A97;
 
   /* Compatibilidade com componentes existentes */
   --blue-100: #E6F0F4;

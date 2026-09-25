@@ -132,7 +132,7 @@ export function Footer() {
               Nuvem de Papel
             </span>
           </div>
-          <p style={{ margin: 0, fontStyle: "italic", color: "#FFD166", fontSize: 12 }}>
+          <p style={{ margin: 0, fontStyle: "italic", color: "#E084AC", fontSize: 12 }}>
             Organização e Criatividade que transforma a rotina
           </p>
           <p style={{ maxWidth: 240, lineHeight: 1.5, margin: "10px 0 0" }}>

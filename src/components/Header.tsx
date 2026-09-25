@@ -146,13 +146,13 @@ export function Header() {
           </div>
           <button
             style={{
-              background: "#FFD166",
-              color: "#073B4C",
+              background: "#E084AC",
+              color: "#FFFFFF",
               padding: "10px 18px",
               borderRadius: "var(--radius-control)",
               fontWeight: 700,
               fontSize: 13,
-              boxShadow: "0 2px 8px rgba(255,209,102,0.3)",
+              boxShadow: "0 2px 8px rgba(224,132,172,0.35)",
             }}
             className="cta-button"
           >

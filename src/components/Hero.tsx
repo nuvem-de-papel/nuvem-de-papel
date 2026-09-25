@@ -214,12 +214,12 @@ export function Hero() {
             <button
               style={{
                 background: "var(--cta)",
-                color: "var(--navy)",
+                color: "#FFFFFF",
                 padding: "16px 32px",
                 borderRadius: "var(--radius-control)",
                 fontWeight: 700,
                 fontSize: 16,
-                boxShadow: "0 4px 16px rgba(255,209,102,0.35)",
+                boxShadow: "0 4px 16px rgba(224,132,172,0.35)",
               }}
             >
               Ver produtos
@@ -346,7 +346,7 @@ export function Hero() {
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                color: "var(--navy)",
+                color: "#FFFFFF",
                 fontWeight: 700,
                 fontSize: 13,
               }}

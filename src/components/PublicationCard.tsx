@@ -17,7 +17,32 @@ export function PublicationCard({ publicacao, index }: { publicacao: Publication
 
   return (
     <div style={{ background: "var(--bg-cloud)", border: "1px solid var(--ink-faint)", borderRadius: "var(--radius-card)", overflow: "hidden", boxShadow: "var(--shadow-card)" }}>
-      <div style={{ height: 150, background: style.gradient }} />
+      <div
+        style={{
+          height: 150,
+          background: style.gradient,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <svg
+          width="52"
+          height="52"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="#073B4C"
+          strokeOpacity="0.3"
+          strokeWidth="1.3"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M4 4h13a2 2 0 0 1 2 2v12a2 2 0 0 0 2 2H6a2 2 0 0 1-2-2V4z" />
+          <line x1="8" y1="8" x2="15" y2="8" />
+          <line x1="8" y1="12" x2="15" y2="12" />
+          <line x1="8" y1="16" x2="12" y2="16" />
+        </svg>
+      </div>
       <div style={{ padding: 20 }}>
         <span
           style={{
