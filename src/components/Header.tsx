@@ -9,8 +9,6 @@ export function Header() {
     { href: "/", label: "Home", bold: true },
     { href: "/produtos", label: "Produtos", bold: false },
     { href: "/publicacoes", label: "Publicações", bold: false },
-    { href: "/configuracoes/cadastro", label: "Configurações", bold: false },
-    { href: "/crm", label: "CRM", bold: false, isAdmin: true },
   ];
 
   return (
@@ -80,32 +78,16 @@ export function Header() {
               style={{
                 fontWeight: link.bold ? 700 : 600,
                 fontSize: 14,
-                color: link.isAdmin ? "rgba(255,255,255,0.55)" : "#FFFFFF",
+                color: "#FFFFFF",
                 textDecoration: "none",
                 display: "flex",
                 alignItems: "center",
                 gap: 4,
               }}
               onMouseEnter={(e) => (e.currentTarget.style.color = "#FFD166")}
-              onMouseLeave={(e) =>
-                (e.currentTarget.style.color = link.isAdmin ? "rgba(255,255,255,0.55)" : "#FFFFFF")
-              }
+              onMouseLeave={(e) => (e.currentTarget.style.color = "#FFFFFF")}
             >
               {link.label}
-              {link.isAdmin && (
-                <span
-                  style={{
-                    background: "rgba(255,209,102,0.2)",
-                    color: "#FFD166",
-                    fontSize: 9,
-                    fontWeight: 700,
-                    padding: "2px 6px",
-                    borderRadius: "var(--radius-chip)",
-                  }}
-                >
-                  admin
-                </span>
-              )}
             </a>
           ))}
         </nav>
@@ -144,7 +126,8 @@ export function Header() {
               3
             </span>
           </div>
-          <button
+          <a
+            href="/login"
             style={{
               background: "#E084AC",
               color: "#FFFFFF",
@@ -153,11 +136,13 @@ export function Header() {
               fontWeight: 700,
               fontSize: 13,
               boxShadow: "0 2px 8px rgba(224,132,172,0.35)",
+              textDecoration: "none",
+              whiteSpace: "nowrap",
             }}
             className="cta-button"
           >
             Entrar / Criar Conta
-          </button>
+          </a>
         </div>
       </div>
 
@@ -181,29 +166,27 @@ export function Header() {
               style={{
                 fontWeight: link.bold ? 700 : 600,
                 fontSize: 16,
-                color: link.isAdmin ? "rgba(255,255,255,0.55)" : "#FFFFFF",
+                color: "#FFFFFF",
                 padding: "8px 0",
                 textDecoration: "none",
               }}
             >
               {link.label}
-              {link.isAdmin && (
-                <span
-                  style={{
-                    background: "rgba(255,209,102,0.2)",
-                    color: "#FFD166",
-                    fontSize: 10,
-                    fontWeight: 700,
-                    padding: "2px 8px",
-                    borderRadius: "var(--radius-chip)",
-                    marginLeft: 8,
-                  }}
-                >
-                  admin
-                </span>
-              )}
             </a>
           ))}
+          <a
+            href="/login"
+            onClick={() => setMenuOpen(false)}
+            style={{
+              fontWeight: 700,
+              fontSize: 16,
+              color: "#E084AC",
+              padding: "8px 0",
+              textDecoration: "none",
+            }}
+          >
+            Entrar / Criar Conta
+          </a>
         </div>
       )}
     </header>

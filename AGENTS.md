@@ -15,17 +15,21 @@ O desenvolvedor lendo isso tem TDAH. Formate TODAS as respostas para que um cér
 
 | Ambiente | Pasta local | Branch git | Banco/Backend | Deploy |
 |---|---|---|---|---|
-| Produção | `F:\Projetos\nuvem-de-papel` | `main` | Supabase `zychcqlvfblwmibfnold` (nuvem-de-papel) | Vercel Production — dispara em push/merge em `main` |
-| Staging/dev | `F:\Projetos\nuvem-de-papel-staging` | `staging` (ou qualquer branch != `main`) | Supabase `wvdvyglbunsquauxdqxj` (nuvem-de-papel-staging) | Vercel Preview — dispara em push de qualquer branch != `main` |
+| Produção | `F:\Projetos\nuvem-de-papel` | `main` | Supabase `cbnmnpnpioukbzircmzn` (nuvem-de-papel) | Vercel Production — dispara em push/merge em `main` |
+| Staging/dev | `F:\Projetos\nuvem-de-papel-staging` | `staging` (ou qualquer branch != `main`) | Supabase `urlfwxeflxpdmmxkuuur` (nuvem-de-papel-staging) | Vercel Preview — dispara em push de qualquer branch != `main` |
 
 Repositório único: https://github.com/nuvem-de-papel/nuvem-de-papel
+
+Migrations aplicadas via Management API do Supabase (helper da sessão
+25/09/2026) — o `supabase db push` exige a senha do banco, que não está no
+repo; antes de criar a próxima, conferir a numeração real em `supabase/migrations/`.
 
 ## Fluxo obrigatório para qualquer mudança de código ou de banco
 
 1. Trabalhar sempre na pasta de staging/dev (`nuvem-de-papel-staging`), nunca editar direto na pasta de produção.
 2. Validar local primeiro (`npm run build`, `npm run lint`, `npm run type-check`).
 3. Commit + push numa branch nova (ou na branch `staging`), nunca direto em `main`.
-4. Mudança em migrations — testar primeiro contra o banco de staging (`wvdvyglbunsquauxdqxj`), nunca contra produção diretamente.
+4. Mudança em migrations — testar primeiro contra o banco de staging (`urlfwxeflxpdmmxkuuur`), nunca contra produção diretamente.
 5. Só depois de validado, fazer merge em `main` — esse é o único gatilho que deve tocar produção de verdade.
 
 Essa regra vale para qualquer IA ou pessoa trabalhando neste projeto a partir desta data, mesmo sem ser lembrada a cada tarefa.

@@ -2,6 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
+import { createClient } from "@/lib/supabase/client";
 
 const LINKS: { href: string; label: string; icon: ReactNode }[] = [
   {
@@ -128,10 +129,37 @@ export function AdminMenu() {
           );
         })}
 
+        <button
+          onClick={async () => {
+            await createClient().auth.signOut();
+            window.location.href = "/login";
+          }}
+          style={{
+            marginLeft: "auto",
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            fontSize: 13,
+            fontWeight: 700,
+            color: "var(--pink-600)",
+            background: "transparent",
+            border: "none",
+            whiteSpace: "nowrap",
+            padding: "14px 0 14px 16px",
+            cursor: "pointer",
+          }}
+        >
+          Sair
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+            <polyline points="16 17 21 12 16 7" />
+            <line x1="21" y1="12" x2="9" y2="12" />
+          </svg>
+        </button>
+
         <a
           href="/"
           style={{
-            marginLeft: "auto",
             display: "flex",
             alignItems: "center",
             gap: 6,
@@ -140,7 +168,8 @@ export function AdminMenu() {
             color: "var(--navy)",
             textDecoration: "none",
             whiteSpace: "nowrap",
-            padding: "14px 0",
+            padding: "14px 0 14px 18px",
+            borderLeft: "1px solid var(--border)",
           }}
         >
           Ver loja
