@@ -2,6 +2,7 @@
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { NUVEM_DE_PAPEL_TENANT_ID } from "@/lib/tenant";
+import { emailAvisos, enviarEmail, templateRevendaSolicitada } from "@/lib/email";
 
 // Pedido de conta de revenda (F6): cria o usuário no Auth já confirmado e o
 // perfil em status 'pendente' — o master aprova no console de usuários
@@ -67,6 +68,13 @@ export async function pedirRevenda(input: {
     // trilha é best-effort: pedido já criado
     console.error("pedirRevenda audit:", erroAudit.message);
   }
+
+  // aviso ao time (F6.5, best-effort): novo pedido de revenda pendente
+  const tRevenda = templateRevendaSolicitada(nome, email);
+  await enviarEmail(emailAvisos(), tRevenda.assunto, tRevenda.html, {
+    relatedEntity: "profiles",
+    relatedId: criado.user.id,
+  });
 
   return { ok: true };
 }

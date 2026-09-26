@@ -6,6 +6,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { NUVEM_DE_PAPEL_TENANT_ID } from "@/lib/tenant";
 import { checkoutAberto } from "@/lib/checkout";
 import { criarPreferencia, mpConfigurado } from "@/lib/mercadopago";
+import { enviarEmail, templatePedidoCriado, codigoPedido } from "@/lib/email";
 
 // Finalização de compra (F3/F6). Regras de ouro:
 //  - preço/título NUNCA vêm do navegador: item_prices é lido aqui com o canal
@@ -288,6 +289,14 @@ export async function finalizarCheckout(input: {
   } else {
     aviso = "Pedido registrado. O pagamento online será ativado em breve.";
   }
+
+  // 7) aviso de pedido registrado (F6.5, best-effort: falha de e-mail nunca
+  // derruba o checkout — a trilha fica em email_messages)
+  const tPedido = templatePedidoCriado(snapshot.recipientName, codigoPedido(pedido.id), total);
+  await enviarEmail(email, tPedido.assunto, tPedido.html, {
+    relatedEntity: "orders",
+    relatedId: pedido.id,
+  });
 
   revalidatePath("/conta/pedidos");
   return { ok: true, pedidoId: pedido.id, initPoint, aviso };

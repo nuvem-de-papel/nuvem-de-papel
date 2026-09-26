@@ -5,6 +5,7 @@ import { PAPEIS_GESTAO } from "@/lib/rbac";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { NUVEM_DE_PAPEL_TENANT_ID } from "@/lib/tenant";
+import { enviarEmail, templatePedidoCompra } from "@/lib/email";
 
 // Compras (F6): fornecedores e pedidos de compra. Escrita deny-all no banco —
 // tudo via service_role; recebimento em si acontece na RPC purchase_receive
@@ -122,7 +123,7 @@ export async function criarPedidoCompra(input: {
 
   const { data: fornecedor } = await admin
     .from("suppliers")
-    .select("id")
+    .select("id, contact_email, user_id")
     .eq("id", input.supplierId)
     .maybeSingle();
   if (!fornecedor) return { ok: false, erro: "Fornecedor não encontrado." };
@@ -173,6 +174,25 @@ export async function criarPedidoCompra(input: {
     // compensação: não deixa PO sem itens
     await admin.from("purchase_orders").delete().eq("id", poId);
     return { ok: false, erro: `Falha ao registrar itens: ${erroItens.message}` };
+  }
+
+  // aviso ao fornecedor (F6.5, best-effort): contact_email > perfil vinculado
+  let destinoFornecedor = fornecedor.contact_email;
+  if (!destinoFornecedor && fornecedor.user_id) {
+    const { data: perfil } = await admin
+      .from("profiles")
+      .select("email")
+      .eq("id", fornecedor.user_id)
+      .maybeSingle();
+    destinoFornecedor = perfil?.email ?? null;
+  }
+  if (destinoFornecedor) {
+    const tPo = templatePedidoCompra(codigo, total);
+    await enviarEmail(destinoFornecedor, tPo.assunto, tPo.html, {
+      actorUserId: gestor.id,
+      relatedEntity: "purchase_orders",
+      relatedId: poId,
+    });
   }
 
   revalidatePath("/compras");

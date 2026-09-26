@@ -5,7 +5,7 @@ import { PAPEIS, PAPEIS_GESTAO, podeGerenciar } from "@/lib/rbac";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { NUVEM_DE_PAPEL_TENANT_ID } from "@/lib/tenant";
-import { enviarEmail, templateConvite } from "@/lib/email";
+import { enviarEmail, templateConvite, templateRevendaAprovada, templateRevendaRejeitada } from "@/lib/email";
 
 // Console de usuários (Fase 2). Toda escrita:
 //  1) revalida a sessão + papel de gestão no servidor (fail-closed);
@@ -142,7 +142,7 @@ export async function alterarPapel(input: {
   const admin = createAdminClient();
   const { data: alvo } = await admin
     .from("profiles")
-    .select("id, email, role, status")
+    .select("id, email, full_name, role, status")
     .eq("id", input.userId)
     .maybeSingle();
   if (!alvo) return { ok: false, erro: "Usuário não encontrado." };
@@ -187,7 +187,7 @@ export async function alternarStatus(input: {
   const admin = createAdminClient();
   const { data: alvo } = await admin
     .from("profiles")
-    .select("id, email, role, status")
+    .select("id, email, full_name, role, status")
     .eq("id", input.userId)
     .maybeSingle();
   if (!alvo) return { ok: false, erro: "Usuário não encontrado." };
@@ -226,6 +226,20 @@ export async function alternarStatus(input: {
   const auditOk = await auditar(gestor, auditAction, input.userId, { status: alvo.status }, {
     status: input.novoStatus,
   });
+
+  // notificação da trilha de revenda (F6.5, best-effort)
+  if (auditAction === "revenda.aprovada" || auditAction === "revenda.rejeitada") {
+    const nomeAlvo = alvo.full_name || alvo.email;
+    const tRevenda =
+      auditAction === "revenda.aprovada"
+        ? templateRevendaAprovada(nomeAlvo)
+        : templateRevendaRejeitada(nomeAlvo);
+    await enviarEmail(alvo.email, tRevenda.assunto, tRevenda.html, {
+      actorUserId: gestor.id,
+      relatedEntity: "profiles",
+      relatedId: input.userId,
+    });
+  }
 
   atualizarTelas();
   return auditOk

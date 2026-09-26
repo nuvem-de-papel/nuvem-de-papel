@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { NUVEM_DE_PAPEL_TENANT_ID } from "@/lib/tenant";
 import { buscarPagamento, validarAssinaturaWebhook } from "@/lib/mercadopago";
+import { enviarEmail, templatePedidoPago, codigoPedido } from "@/lib/email";
 
 // Webhook Mercado Pago (F3) + estoque (F4). Fail-closed: sem MP_WEBHOOK_SECRET
 // → 503. Idempotência: webhook_events (provider, external_id, event_type) único.
@@ -90,15 +91,32 @@ export async function POST(req: NextRequest) {
   const ref = pagamento.externalReference;
 
   if (pagamento.status === "approved") {
-    const { error } = await admin
+    const { data: transicionado, error } = await admin
       .from("orders")
       .update({ status: "pago", mp_payment_id: externalId })
       .eq("id", ref)
       .eq("tenant_id", NUVEM_DE_PAPEL_TENANT_ID)
-      .in("status", ["aguardando_pagamento"]);
+      .in("status", ["aguardando_pagamento"])
+      .select("id, customer_id");
     if (error) {
       await admin.from("webhook_events").delete().eq("id", eventoId);
       return NextResponse.json({ erro: error.message }, { status: 500 });
+    }
+    // aviso de pagamento confirmado (F6.5): só na transição real, 1x — um
+    // retry não repete (best-effort: nunca derruba o webhook)
+    if (transicionado && transicionado.length === 1) {
+      const { data: cliente } = await admin
+        .from("customers")
+        .select("name, email")
+        .eq("id", transicionado[0].customer_id)
+        .maybeSingle();
+      if (cliente?.email) {
+        const tPago = templatePedidoPago(cliente.name ?? "", codigoPedido(ref));
+        await enviarEmail(cliente.email, tPago.assunto, tPago.html, {
+          relatedEntity: "orders",
+          relatedId: ref,
+        });
+      }
     }
     // settle só quando o pedido chegou (ou já está) em fase pós-pagamento —
     // cobre retry após falha parcial (status ok, estoque falhou antes);
