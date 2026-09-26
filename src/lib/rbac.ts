@@ -26,6 +26,7 @@ export const PAPEIS_POR_MODULO: Record<string, string[]> = {
   "/pdv": PAPEIS_OPERACIONAIS,
   "/financeiro": PAPEIS_GESTAO,
   "/compras": PAPEIS_GESTAO,
+  "/email": PAPEIS_GESTAO,
   "/portal/fornecedor": ["fornecedor"],
 };
 

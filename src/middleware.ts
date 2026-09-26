@@ -74,6 +74,7 @@ export const config = {
     "/pdv/:path*",
     "/financeiro/:path*",
     "/compras/:path*",
+    "/email/:path*",
     "/portal/:path*",
   ],
 };
