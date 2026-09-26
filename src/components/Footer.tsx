@@ -104,7 +104,7 @@ export function Footer() {
   return (
     <footer
       style={{
-        background: "linear-gradient(180deg, #073B4C 0%, #062E3A 100%)",
+        background: "#3D3D3D",
         color: "rgba(255,255,255,0.75)",
         marginTop: 80,
         padding: "56px 32px 28px",

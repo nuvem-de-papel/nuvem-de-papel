@@ -1,9 +1,21 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
 
 export function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [logado, setLogado] = useState(false);
+
+  useEffect(() => {
+    const supabase = createClient();
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setLogado(!!session?.user);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
 
   const navLinks = [
     { href: "/", label: "Home", bold: true },
@@ -17,7 +29,7 @@ export function Header() {
         position: "sticky",
         top: 0,
         zIndex: 50,
-        background: "linear-gradient(180deg, #073B4C 0%, #0A4E63 100%)",
+        background: "#3D3D3D",
         borderBottom: "1px solid rgba(255,255,255,0.1)",
       }}
     >
@@ -127,7 +139,7 @@ export function Header() {
             </span>
           </div>
           <a
-            href="/login"
+            href={logado ? "/crm" : "/login"}
             style={{
               background: "#E084AC",
               color: "#FFFFFF",
@@ -141,7 +153,7 @@ export function Header() {
             }}
             className="cta-button"
           >
-            Entrar / Criar Conta
+            {logado ? "Painel" : "Entrar / Criar Conta"}
           </a>
         </div>
       </div>
@@ -175,7 +187,7 @@ export function Header() {
             </a>
           ))}
           <a
-            href="/login"
+            href={logado ? "/crm" : "/login"}
             onClick={() => setMenuOpen(false)}
             style={{
               fontWeight: 700,
@@ -185,7 +197,7 @@ export function Header() {
               textDecoration: "none",
             }}
           >
-            Entrar / Criar Conta
+            {logado ? "Painel" : "Entrar / Criar Conta"}
           </a>
         </div>
       )}

@@ -60,7 +60,7 @@ export function AdminMenu() {
   return (
     <div
       style={{
-        background: "#FFFFFF",
+        background: "var(--bg-cloud)",
         borderBottom: "1px solid var(--border)",
         boxShadow: "0 2px 8px rgba(7,59,76,0.06)",
       }}

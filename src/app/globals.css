@@ -1,15 +1,14 @@
 @import url("https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&family=Open+Sans:wght@400;500;600;700&display=swap");
 
-/* Identidade visual 2026 — paleta v2 (aprovada 25/09/2026):
-   botão = Pink-600 #E084AC · fundo de seção = Pink-100 #FBE4ED · amarelo = só a marca.
-   Fontes: Poppins (títulos) + Open Sans (corpo). Tema claro.
-   Mockup: mockup-produtos-combinado.html */
+/* Identidade visual 2026 — paleta v3 cinza (aprovada 25/09/2026):
+   fundos #E0E0E0 · barras topo/rodapé #3D3D3D · botão = Pink-600 #E084AC · amarelo = só a marca.
+   Fontes: Poppins (títulos) + Open Sans (corpo). */
 :root {
   /* Fundos */
-  --bg-cotton: #F8F9FA;
-  --bg-cloud: #FFFFFF;
+  --bg-cotton: #E0E0E0;
+  --bg-cloud: #E0E0E0;
 
-  /* Azul Noturno — texto forte, títulos, rodapé */
+  /* Azul Noturno — texto forte e títulos */
   --navy: #073B4C;
   --navy-light: #0D5268;
 
@@ -34,15 +33,15 @@
   /* Texto */
   --ink: #1A2B33;
   --ink-soft: #5A6577;
-  --ink-faint: #E2E6EA;
+  --ink-faint: #CFCFCF;
   --ink-2: #073B4C;
   --white: #FFFFFF;
   --on-accent: #FFFFFF;
 
   /* Bordas e sombras */
-  --border: #E2E6EA;
-  --shadow-soft: 0 6px 20px rgba(7, 59, 76, 0.10);
-  --shadow-card: 0 1px 3px rgba(7, 59, 76, 0.08);
+  --border: #C9C9C9;
+  --shadow-soft: 0 6px 20px rgba(0, 0, 0, 0.15);
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.10);
 
   /* Raios */
   --radius-card: 12px;

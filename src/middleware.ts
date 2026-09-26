@@ -1,11 +1,11 @@
 ﻿import { NextRequest, NextResponse } from "next/server";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
+import { PAPEIS_OPERACIONAIS } from "@/lib/rbac";
 
 // Protege /crm e /configuracoes: exige sessao Supabase Auth + papel
 // operacional em profiles (RBAC - migration 0004). Substitui o Basic Auth
 // legado (Fase 1 do parecer-acesso-enterprise.md). Fail-closed: sem env de
 // Supabase configuradas, bloqueia com 503.
-const PAPEIS_OPERACIONAIS = ["master", "gerente", "operador", "vendedor"];
 
 export async function middleware(request: NextRequest) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;

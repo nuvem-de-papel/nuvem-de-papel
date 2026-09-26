@@ -1,13 +1,36 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { PAPEIS_OPERACIONAIS } from "@/lib/rbac";
+
+// Aceita apenas caminhos internos (evita open redirect via ?next=).
+function destinoPadrao(): string {
+  const raw = new URLSearchParams(window.location.search).get("next");
+  if (raw && raw.startsWith("/") && !raw.startsWith("//")) return raw;
+  return "/crm";
+}
 
 export function LoginForm() {
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
   const [erro, setErro] = useState<string | null>(null);
   const [carregando, setCarregando] = useState(false);
+
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
+      if (!user) return;
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .maybeSingle();
+      if (profile && PAPEIS_OPERACIONAIS.includes(profile.role)) {
+        window.location.replace(destinoPadrao());
+      }
+    });
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -23,8 +46,7 @@ export function LoginForm() {
       return;
     }
 
-    const next = new URLSearchParams(window.location.search).get("next") || "/crm";
-    window.location.href = next;
+    window.location.replace(destinoPadrao());
   }
 
   return (

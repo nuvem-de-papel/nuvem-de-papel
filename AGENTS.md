@@ -50,6 +50,14 @@ Valem para qualquer sessão/IA, mesmo sem ser lembradas na conversa:
 
 Next.js (App Router) + TypeScript + Supabase/PostgreSQL + Vercel + Mercado Pago + Docker + Ngrok.
 
+## Identidade visual — paleta v3 cinza (aprovada pelo cliente 25/09/2026)
+
+1. Fundos de página e cards: `#E0E0E0` (`--bg-cotton` e `--bg-cloud` em `src/app/globals.css`); bordas `#C9C9C9`, texto fraco `#CFCFCF`, sombras neutras `rgba(0,0,0,…)`.
+2. Barras de topo (Header) e rodapé (Footer): `#3D3D3D` sólido (antes: gradiente navy).
+3. Mantidos: navy `#073B4C` (títulos/texto), CTA pink `#E084AC` (hover `#D06A97`), amarelo `#FFD166` só na marca, fontes Poppins + Open Sans.
+4. Hero da home: vídeo full-bleed com rotação de 4 clipes Pexels 720p em `public/videos/` (crossfade no fim de cada clipe, pausa via IntersectionObserver + visibilitychange), overlay navy e fade do conteúdo na rolagem; `prefers-reduced-motion` ou Save-Data → cena SVG estática, sem vídeo e sem parallax.
+5. Referência visual: `F:\Projetos\nuvem-de-papel-documentacao\Diversos4\preview-identidade-v2.html` (paleta + hero com vídeo).
+
 ## Regras de modelagem de dados (definidas no parecer de migração ConnectionCyber)
 
 Aplicadas desde a primeira migration, para permitir migração futura sem dano estrutural
