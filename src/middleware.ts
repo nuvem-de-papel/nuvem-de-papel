@@ -1,11 +1,12 @@
 ﻿import { NextRequest, NextResponse } from "next/server";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
-import { PAPEIS_OPERACIONAIS, papelPermitidoNoModulo } from "@/lib/rbac";
+import { papelPermitidoNoModulo } from "@/lib/rbac";
 
-// Protege /crm e /configuracoes: exige sessao Supabase Auth, perfil ativo e
-// papel autorizado pelo módulo (RBAC - migrations 0004/0005). Substitui o
-// Basic Auth legado (Fase 1 do parecer-acesso-enterprise.md). Fail-closed:
-// sem env de Supabase configuradas, bloqueia com 503.
+// Protege areas privadas (/crm, /configuracoes, /pdv, /financeiro, /compras,
+// /portal): exige sessao Supabase Auth, perfil ativo e papel autorizado pelo
+// módulo (RBAC - migrations 0004/0005/0009). Substitui o Basic Auth legado
+// (Fase 1 do parecer-acesso-enterprise.md). Fail-closed: sem env de Supabase
+// configuradas, bloqueia com 503.
 
 export async function middleware(request: NextRequest) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -48,8 +49,8 @@ export async function middleware(request: NextRequest) {
     .eq("id", user.id)
     .maybeSingle();
 
-  if (!profile || !PAPEIS_OPERACIONAIS.includes(profile.role)) {
-    return new NextResponse("Acesso restrito: perfil operacional nao encontrado.", { status: 403 });
+  if (!profile) {
+    return new NextResponse("Acesso restrito: perfil nao encontrado.", { status: 403 });
   }
 
   if (profile.status !== "ativo") {
@@ -63,8 +64,16 @@ export async function middleware(request: NextRequest) {
   }
 
   return response;
-}
+};
 
 export const config = {
-  matcher: ["/crm/:path*", "/configuracoes/:path*", "/logistica/:path*", "/pdv/:path*", "/financeiro/:path*"],
+  matcher: [
+    "/crm/:path*",
+    "/configuracoes/:path*",
+    "/logistica/:path*",
+    "/pdv/:path*",
+    "/financeiro/:path*",
+    "/compras/:path*",
+    "/portal/:path*",
+  ],
 };

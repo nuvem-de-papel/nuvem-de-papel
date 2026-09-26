@@ -238,39 +238,84 @@ export function ConsoleUsuarios({
                   <td style={{ padding: "12px 0" }}>
                     <span
                       style={{
-                        background: u.status === "ativo" ? "var(--blue-100)" : "var(--bg-cotton)",
-                        color: u.status === "ativo" ? "var(--blue-600)" : "var(--ink-soft)",
+                        background:
+                          u.status === "ativo"
+                            ? "var(--blue-100)"
+                            : u.status === "pendente"
+                              ? "#FEF3C7"
+                              : "var(--bg-cotton)",
+                        color:
+                          u.status === "ativo"
+                            ? "var(--blue-600)"
+                            : u.status === "pendente"
+                              ? "#B45309"
+                              : "var(--ink-soft)",
                         fontSize: 11,
                         fontWeight: 700,
                         padding: "3px 10px",
                         borderRadius: "var(--radius-chip)",
                       }}
                     >
-                      {u.status === "ativo" ? "Ativo" : "Inativo"}
+                      {u.status === "ativo" ? "Ativo" : u.status === "pendente" ? "Pendente" : "Inativo"}
                     </span>
                   </td>
                   <td style={{ padding: "12px 0", color: "var(--ink-soft)", whiteSpace: "nowrap" }}>
                     {dataCurta(u.created_at)}
                   </td>
                   <td style={{ padding: "12px 0", textAlign: "right" }}>
-                    <button
-                      disabled={!editavel || pendente}
-                      onClick={() =>
-                        executar(() =>
-                          alternarStatus({
-                            userId: u.id,
-                            novoStatus: u.status === "ativo" ? "inativo" : "ativo",
-                          })
-                        )
-                      }
-                      style={{
-                        ...BTN,
-                        background: u.status === "ativo" ? "var(--ink-soft)" : "var(--blue-600)",
-                        opacity: !editavel || pendente ? 0.5 : 1,
-                      }}
-                    >
-                      {u.status === "ativo" ? "Desativar" : "Ativar"}
-                    </button>
+                    {u.status === "pendente" ? (
+                      <span style={{ display: "inline-flex", gap: 8 }}>
+                        <button
+                          disabled={!editavel || pendente}
+                          onClick={() =>
+                            executar(() =>
+                              alternarStatus({ userId: u.id, novoStatus: "ativo" })
+                            )
+                          }
+                          style={{
+                            ...BTN,
+                            background: "var(--blue-600)",
+                            opacity: !editavel || pendente ? 0.5 : 1,
+                          }}
+                        >
+                          Aprovar
+                        </button>
+                        <button
+                          disabled={!editavel || pendente}
+                          onClick={() =>
+                            executar(() =>
+                              alternarStatus({ userId: u.id, novoStatus: "inativo" })
+                            )
+                          }
+                          style={{
+                            ...BTN,
+                            background: "var(--ink-soft)",
+                            opacity: !editavel || pendente ? 0.5 : 1,
+                          }}
+                        >
+                          Rejeitar
+                        </button>
+                      </span>
+                    ) : (
+                      <button
+                        disabled={!editavel || pendente}
+                        onClick={() =>
+                          executar(() =>
+                            alternarStatus({
+                              userId: u.id,
+                              novoStatus: u.status === "ativo" ? "inativo" : "ativo",
+                            })
+                          )
+                        }
+                        style={{
+                          ...BTN,
+                          background: u.status === "ativo" ? "var(--ink-soft)" : "var(--blue-600)",
+                          opacity: !editavel || pendente ? 0.5 : 1,
+                        }}
+                      >
+                        {u.status === "ativo" ? "Desativar" : "Ativar"}
+                      </button>
+                    )}
                   </td>
                 </tr>
               );

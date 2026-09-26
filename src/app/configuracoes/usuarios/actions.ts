@@ -214,13 +214,18 @@ export async function alternarStatus(input: {
     .eq("id", input.userId);
   if (error) return { ok: false, erro: `Falha ao alterar status: ${error.message}` };
 
-  const auditOk = await auditar(
-    gestor,
-    input.novoStatus === "inativo" ? "usuario.desativado" : "usuario.reativado",
-    input.userId,
-    { status: alvo.status },
-    { status: input.novoStatus }
-  );
+  // aprovação de pedido de revenda (F6) tem trilha propria
+  const auditAction =
+    alvo.status === "pendente"
+      ? input.novoStatus === "ativo"
+        ? "revenda.aprovada"
+        : "revenda.rejeitada"
+      : input.novoStatus === "inativo"
+        ? "usuario.desativado"
+        : "usuario.reativado";
+  const auditOk = await auditar(gestor, auditAction, input.userId, { status: alvo.status }, {
+    status: input.novoStatus,
+  });
 
   atualizarTelas();
   return auditOk

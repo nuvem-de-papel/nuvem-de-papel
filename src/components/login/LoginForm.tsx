@@ -2,13 +2,21 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { PAPEIS_OPERACIONAIS } from "@/lib/rbac";
+import { PAPEIS } from "@/lib/rbac";
 
 // Aceita apenas caminhos internos (evita open redirect via ?next=).
 function destinoPadrao(): string {
   const raw = new URLSearchParams(window.location.search).get("next");
   if (raw && raw.startsWith("/") && !raw.startsWith("//")) return raw;
   return "/crm";
+}
+
+// Revenda compra no /produtos; fornecedor vai ao proprio portal. Areas
+// privadas seguem o ?next= do middleware.
+function destinoParaPapel(role: string): string {
+  if (role === "revenda") return "/produtos";
+  if (role === "fornecedor") return "/portal/fornecedor";
+  return destinoPadrao();
 }
 
 export function LoginForm() {
@@ -29,9 +37,9 @@ export function LoginForm() {
       if (
         profile &&
         profile.status === "ativo" &&
-        PAPEIS_OPERACIONAIS.includes(profile.role)
+        PAPEIS.includes(profile.role)
       ) {
-        window.location.replace(destinoPadrao());
+        window.location.replace(destinoParaPapel(profile.role));
       }
     });
   }, []);
@@ -55,14 +63,21 @@ export function LoginForm() {
       .select("role, status")
       .maybeSingle();
 
-    if (!profile || profile.status !== "ativo" || !PAPEIS_OPERACIONAIS.includes(profile.role)) {
+    if (profile && profile.status === "pendente") {
+      await supabase.auth.signOut();
+      setErro("Cadastro em análise — aguarde aprovação.");
+      setCarregando(false);
+      return;
+    }
+
+    if (!profile || profile.status !== "ativo" || !PAPEIS.includes(profile.role)) {
       await supabase.auth.signOut();
       setErro("Perfil sem acesso a esta área.");
       setCarregando(false);
       return;
     }
 
-    window.location.replace(destinoPadrao());
+    window.location.replace(destinoParaPapel(profile.role));
   }
 
   return (

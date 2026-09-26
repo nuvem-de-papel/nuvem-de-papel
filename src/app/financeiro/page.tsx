@@ -25,15 +25,21 @@ export default async function FinanceiroPage() {
   if (!user) redirect("/login?next=/financeiro");
 
   const admin = createAdminClient();
-  const [meuRes, parcelasRes, liqRes, pedidosRes, custosRes] = await Promise.all([
+  const [meuRes, parcelasRes, pagarRes, liqRes, pedidosRes, custosRes] = await Promise.all([
     admin.from("profiles").select("role, status").eq("id", user.id).maybeSingle(),
     admin
       .from("financial_installments")
       .select(
-        "id, number, status, due_date, principal_amount, paid_amount, financial_titles(code, status, customer_id)"
+        "id, number, status, due_date, principal_amount, paid_amount, financial_titles!inner(code, status, customer_id, direction)"
       )
+      .eq("financial_titles.direction", "receivable")
       .order("due_date", { ascending: true })
       .limit(200),
+    admin
+      .from("financial_installments")
+      .select("status, principal_amount, paid_amount, financial_titles!inner(direction)")
+      .eq("financial_titles.direction", "payable")
+      .limit(500),
     admin
       .from("financial_settlements")
       .select("amount, created_at")
@@ -98,6 +104,10 @@ export default async function FinanceiroPage() {
   const vencidos = emAberto
     .filter((p) => p.vencimento < hoje)
     .reduce((a, p) => a + p.saldo, 0);
+  // contas a pagar (recebimentos de compra — F6): saldo em aberto
+  const pagar = (pagarRes.data ?? [])
+    .filter((p) => p.status !== "liquidado" && p.status !== "cancelado")
+    .reduce((a, p) => a + Number(p.principal_amount) - Number(p.paid_amount), 0);
   const liquidadoMes = (liqRes.data ?? []).reduce((a, r) => a + Number(r.amount), 0);
 
   const faixas = [
@@ -148,6 +158,7 @@ export default async function FinanceiroPage() {
   const resumo: ResumoFinanceiro = {
     receber,
     vencidos,
+    pagar,
     liquidadoMes,
     faturamento30d: faturamento,
     margem30d: margemBase - custo,

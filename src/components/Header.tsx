@@ -7,6 +7,7 @@ import { useCart } from "@/components/carrinho/CartProvider";
 export function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [logado, setLogado] = useState(false);
+  const [role, setRole] = useState<string | null>(null);
   const { totalItens } = useCart();
 
   useEffect(() => {
@@ -15,9 +16,28 @@ export function Header() {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setLogado(!!session?.user);
+      if (session?.user) {
+        supabase
+          .from("profiles")
+          .select("role")
+          .eq("id", session.user.id)
+          .maybeSingle()
+          .then(({ data }) => setRole(data?.role ?? null));
+      } else {
+        setRole(null);
+      }
     });
     return () => subscription.unsubscribe();
   }, []);
+
+  // Cada papel entra pela propria area: revenda compra, fornecedor ao portal.
+  const destinoPainel = logado
+    ? role === "revenda"
+      ? "/produtos"
+      : role === "fornecedor"
+        ? "/portal/fornecedor"
+        : "/crm"
+    : "/login";
 
   const navLinks = [
     { href: "/", label: "Home", bold: true },
@@ -145,7 +165,7 @@ export function Header() {
             )}
           </a>
           <a
-            href={logado ? "/crm" : "/login"}
+            href={destinoPainel}
             style={{
               background: "#E084AC",
               color: "#FFFFFF",
@@ -193,7 +213,7 @@ export function Header() {
             </a>
           ))}
           <a
-            href={logado ? "/crm" : "/login"}
+            href={destinoPainel}
             onClick={() => setMenuOpen(false)}
             style={{
               fontWeight: 700,

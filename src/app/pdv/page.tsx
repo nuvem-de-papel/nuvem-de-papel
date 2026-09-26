@@ -29,7 +29,7 @@ export default async function PdvPage() {
     admin
       .from("catalog_items")
       .select(
-        "id, sku, name, item_stock(stock_available), item_prices(channel, price)"
+        "id, sku, name, item_stock(stock_available), item_prices(channel, price, min_quantity, valid_from, valid_until)"
       )
       .eq("active", true)
       .order("name", { ascending: true }),
@@ -54,13 +54,31 @@ export default async function PdvPage() {
       }
     : null;
 
+  const agoraMs = Date.now();
   const itens: ItemPdv[] = (itensRes.data ?? [])
     .map((r) => {
       const estRaw = r.item_stock as unknown;
       const est = (Array.isArray(estRaw) ? estRaw[0] : estRaw) as { stock_available: number } | null;
-      const precos = (r.item_prices ?? []) as { channel: string; price: number | string }[];
-      const varejo = precos.find((p) => p.channel === "varejo");
-      const atacado = precos.find((p) => p.channel === "atacado");
+      const precos = (r.item_prices ?? []) as {
+        channel: string;
+        price: number | string;
+        min_quantity: number;
+        valid_from: string | null;
+        valid_until: string | null;
+      }[];
+      // com faixas por canal (F6) cada canal tem N linhas: escolhe a base
+      // vigente (menor min_quantity) — as faixas por qtd no PDV ficam p/ depois
+      const vigente = (p: (typeof precos)[number]) => {
+        const vf = p.valid_from ? Date.parse(p.valid_from) : 0;
+        const vt = p.valid_until ? Date.parse(p.valid_until) : Number.POSITIVE_INFINITY;
+        return vf <= agoraMs && vt > agoraMs;
+      };
+      const base = (canal: string) =>
+        precos
+          .filter((p) => p.channel === canal && vigente(p))
+          .sort((a, b) => a.min_quantity - b.min_quantity)[0] ?? null;
+      const varejo = base("varejo");
+      const atacado = base("atacado");
       const pVarejo = varejo ? Number(varejo.price) : null;
       const pAtacado = atacado ? Number(atacado.price) : pVarejo;
       if (pVarejo === null && pAtacado === null) return null;

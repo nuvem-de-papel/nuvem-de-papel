@@ -19,6 +19,7 @@ export type ParcelaPendente = {
 export type ResumoFinanceiro = {
   receber: number;
   vencidos: number;
+  pagar: number;
   liquidadoMes: number;
   faturamento30d: number;
   margem30d: number;
@@ -142,6 +143,20 @@ export function ConsoleFinanceiro({
           <div style={{ fontSize: 12, fontWeight: 700, color: "var(--navy)" }}>A receber</div>
           <div style={{ fontSize: 22, fontWeight: 800, color: "var(--navy)" }} aria-label="A receber">
             {brl(resumo.receber)}
+          </div>
+        </div>
+        <div style={{ ...CARD, background: resumo.pagar > 0 ? "#FEF3C7" : "var(--bg-cloud)" }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: resumo.pagar > 0 ? "#B45309" : "var(--navy)" }}>
+            A pagar
+          </div>
+          <div
+            style={{ fontSize: 22, fontWeight: 800, color: resumo.pagar > 0 ? "#B45309" : "var(--navy)" }}
+            aria-label="A pagar"
+          >
+            {brl(resumo.pagar)}
+          </div>
+          <div style={{ fontSize: 11.5, color: "var(--ink-soft)", marginTop: 6 }}>
+            fornecedores
           </div>
         </div>
         <div style={{ ...CARD, background: resumo.vencidos > 0 ? "#FEE2E2" : "var(--bg-cloud)" }}>

@@ -7,9 +7,10 @@ import { NUVEM_DE_PAPEL_TENANT_ID } from "@/lib/tenant";
 import { checkoutAberto } from "@/lib/checkout";
 import { criarPreferencia, mpConfigurado } from "@/lib/mercadopago";
 
-// Finalização de compra (F3). Regras de ouro:
-//  - preço/título NUNCA vêm do navegador: item_prices channel=varejo é lido
-//    aqui (regras de faixa por min_quantity respeitadas);
+// Finalização de compra (F3/F6). Regras de ouro:
+//  - preço/título NUNCA vêm do navegador: item_prices é lido aqui com o canal
+//    do usuário (revenda → atacado) e vigência ativa — faixas por
+//    min_quantity respeitadas;
 //  - pedido nasce 'aguardando_pagamento' com snapshot de endereço + itens;
 //  - checkout abre só com MP configurado ou CHECKOUT_LIBERADO=1 (fail-closed
 //    para não vender sem meio de pagamento em produção).
@@ -79,7 +80,17 @@ export async function finalizarCheckout(input: {
 
   const admin = createAdminClient();
 
-  // 1) catálogo (ativo) + preços de varejo — servidor manda
+  // canal de precificação: revenda ativa compra no atacado (F6)
+  const { data: meuPerfil } = await supabase
+    .from("profiles")
+    .select("role, status")
+    .eq("id", user.id)
+    .maybeSingle();
+  const canal: "varejo" | "atacado" =
+    meuPerfil?.status === "ativo" && meuPerfil.role === "revenda" ? "atacado" : "varejo";
+
+  // 1) catálogo (ativo) + preços vigentes do canal — servidor manda
+  const agora = new Date().toISOString();
   const [catalogoRes, precosRes] = await Promise.all([
     admin
       .from("catalog_items")
@@ -89,9 +100,11 @@ export async function finalizarCheckout(input: {
       .eq("active", true),
     admin
       .from("item_prices")
-      .select("item_id, price, min_quantity")
-      .eq("channel", "varejo")
-      .in("item_id", ids),
+      .select("item_id, price, min_quantity, valid_from, valid_until")
+      .eq("channel", canal)
+      .in("item_id", ids)
+      .lte("valid_from", agora)
+      .or(`valid_until.is.null,valid_until.gt.${agora}`),
   ]);
   if (catalogoRes.error || precosRes.error) {
     return { ok: false, erro: "Não foi possível ler o catálogo agora." };
@@ -118,7 +131,7 @@ export async function finalizarCheckout(input: {
   for (const [itemId, qty] of porId) {
     const regras = precosPorItem.get(itemId);
     if (!regras || regras.length === 0) {
-      return { ok: false, erro: "Item sem preço de varejo configurado." };
+      return { ok: false, erro: `Item sem preço de ${canal} configurado.` };
     }
     // faixa: maior min_quantity <= qty; fallback = menor faixa disponível
     const elegiveis = regras.filter((r) => r.min_quantity <= qty);
@@ -208,7 +221,7 @@ export async function finalizarCheckout(input: {
       tenant_id: NUVEM_DE_PAPEL_TENANT_ID,
       customer_id: clienteRes.id,
       user_id: user.id,
-      channel: "varejo",
+      channel: canal,
       status: "aguardando_pagamento",
       total_amount: total,
       payment_method: input.pagamento,

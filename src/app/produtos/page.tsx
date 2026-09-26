@@ -1,5 +1,5 @@
 import { Fragment } from "react";
-import { getVarejoProducts, type VarejoProduct } from "@/lib/products";
+import { getStoreProducts, type VarejoProduct } from "@/lib/products";
 import { BannerSlider } from "@/components/produtos/BannerSlider";
 import { CategoryCarousel } from "@/components/produtos/CategoryCarousel";
 import { PromoStrip, PROMO_ICONS } from "@/components/produtos/PromoStrip";
@@ -35,7 +35,7 @@ function groupProducts(produtos: VarejoProduct[]): Group[] {
 }
 
 export default async function ProdutosPage() {
-  const produtos = await getVarejoProducts();
+  const produtos = await getStoreProducts();
   const groups = groupProducts(produtos);
 
   const midBanners = [

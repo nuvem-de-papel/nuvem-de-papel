@@ -3,11 +3,11 @@ import { CategoryHighlights } from "@/components/CategoryHighlights";
 import { ClubBanner } from "@/components/ClubBanner";
 import { ProductCard } from "@/components/ProductCard";
 import { PublicationCard } from "@/components/PublicationCard";
-import { getVarejoProducts } from "@/lib/products";
+import { getStoreProducts } from "@/lib/products";
 import { getPublications } from "@/lib/publications";
 
 export default async function HomePage() {
-  const [produtos, publicacoes] = await Promise.all([getVarejoProducts(), getPublications()]);
+  const [produtos, publicacoes] = await Promise.all([getStoreProducts(), getPublications()]);
   const destaque = produtos.slice(0, 3);
   const novidades = publicacoes.slice(0, 3);
 
