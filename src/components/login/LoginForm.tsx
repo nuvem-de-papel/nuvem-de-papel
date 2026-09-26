@@ -23,10 +23,14 @@ export function LoginForm() {
       if (!user) return;
       const { data: profile } = await supabase
         .from("profiles")
-        .select("role")
+        .select("role, status")
         .eq("id", user.id)
         .maybeSingle();
-      if (profile && PAPEIS_OPERACIONAIS.includes(profile.role)) {
+      if (
+        profile &&
+        profile.status === "ativo" &&
+        PAPEIS_OPERACIONAIS.includes(profile.role)
+      ) {
         window.location.replace(destinoPadrao());
       }
     });
@@ -42,6 +46,18 @@ export function LoginForm() {
 
     if (error) {
       setErro("E-mail ou senha inválidos.");
+      setCarregando(false);
+      return;
+    }
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role, status")
+      .maybeSingle();
+
+    if (!profile || profile.status !== "ativo" || !PAPEIS_OPERACIONAIS.includes(profile.role)) {
+      await supabase.auth.signOut();
+      setErro("Perfil sem acesso a esta área.");
       setCarregando(false);
       return;
     }

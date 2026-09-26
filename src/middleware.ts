@@ -1,11 +1,11 @@
 ﻿import { NextRequest, NextResponse } from "next/server";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
-import { PAPEIS_OPERACIONAIS } from "@/lib/rbac";
+import { PAPEIS_OPERACIONAIS, papelPermitidoNoModulo } from "@/lib/rbac";
 
-// Protege /crm e /configuracoes: exige sessao Supabase Auth + papel
-// operacional em profiles (RBAC - migration 0004). Substitui o Basic Auth
-// legado (Fase 1 do parecer-acesso-enterprise.md). Fail-closed: sem env de
-// Supabase configuradas, bloqueia com 503.
+// Protege /crm e /configuracoes: exige sessao Supabase Auth, perfil ativo e
+// papel autorizado pelo módulo (RBAC - migrations 0004/0005). Substitui o
+// Basic Auth legado (Fase 1 do parecer-acesso-enterprise.md). Fail-closed:
+// sem env de Supabase configuradas, bloqueia com 503.
 
 export async function middleware(request: NextRequest) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -44,12 +44,22 @@ export async function middleware(request: NextRequest) {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("role")
+    .select("role, status")
     .eq("id", user.id)
     .maybeSingle();
 
   if (!profile || !PAPEIS_OPERACIONAIS.includes(profile.role)) {
     return new NextResponse("Acesso restrito: perfil operacional nao encontrado.", { status: 403 });
+  }
+
+  if (profile.status !== "ativo") {
+    return new NextResponse("Acesso restrito: perfil desativado.", { status: 403 });
+  }
+
+  if (!papelPermitidoNoModulo(request.nextUrl.pathname, profile.role)) {
+    return new NextResponse("Acesso restrito: seu papel nao tem permissao neste modulo.", {
+      status: 403,
+    });
   }
 
   return response;

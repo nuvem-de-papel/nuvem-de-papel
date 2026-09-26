@@ -30,6 +30,30 @@ const LINKS: { href: string; label: string; icon: ReactNode }[] = [
     ),
   },
   {
+    href: "/configuracoes/usuarios",
+    label: "Usuários",
+    icon: (
+      <>
+        <circle cx="9" cy="8" r="3.2" />
+        <path d="M3.5 19a5.5 5.5 0 0 1 11 0" />
+        <line x1="17" y1="11" x2="17" y2="17" />
+        <line x1="14" y1="14" x2="20" y2="14" />
+      </>
+    ),
+  },
+  {
+    href: "/configuracoes/auditoria",
+    label: "Auditoria",
+    icon: (
+      <>
+        <rect x="5" y="4" width="14" height="17" rx="2" />
+        <line x1="9" y1="9" x2="15" y2="9" />
+        <line x1="9" y1="13" x2="15" y2="13" />
+        <line x1="9" y1="17" x2="12" y2="17" />
+      </>
+    ),
+  },
+  {
     href: "/produtos",
     label: "Catálogo",
     icon: (
