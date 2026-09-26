@@ -18,6 +18,18 @@ const LINKS: { href: string; label: string; icon: ReactNode }[] = [
     ),
   },
   {
+    href: "/logistica",
+    label: "Logística",
+    icon: (
+      <>
+        <path d="M3 7h11v8H3z" />
+        <path d="M14 10h4l3 3v2h-7" />
+        <circle cx="7" cy="18" r="2" />
+        <circle cx="17" cy="18" r="2" />
+      </>
+    ),
+  },
+  {
     href: "/configuracoes/cadastro",
     label: "Cadastros",
     icon: (

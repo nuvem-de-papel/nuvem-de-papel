@@ -119,8 +119,14 @@ export function CategoryCarousel({ title, products }: { title: string; products:
                   {formatPrice(p.price)}
                 </span>
                 <button
-                  aria-label={`Adicionar ${p.name}`}
+                  aria-label={
+                    p.estoque === 0
+                      ? `${p.name} esgotado`
+                      : `Adicionar ${p.name}`
+                  }
+                  disabled={p.estoque === 0}
                   onClick={() => {
+                    if (p.estoque === 0) return;
                     addItem({ id: p.id, sku: p.sku, name: p.name, price: p.price });
                     setAdicionado(p.id);
                     window.setTimeout(() => setAdicionado((atual) => (atual === p.id ? null : atual)), 1200);
@@ -128,19 +134,40 @@ export function CategoryCarousel({ title, products }: { title: string; products:
                   style={{
                     display: "block",
                     marginTop: 12,
-                    background: adicionado === p.id ? "var(--blue-600)" : "var(--pink-600)",
-                    color: "#FFFFFF",
+                    background:
+                      p.estoque === 0
+                        ? "var(--ink-faint)"
+                        : adicionado === p.id
+                          ? "var(--blue-600)"
+                          : "var(--pink-600)",
+                    color: p.estoque === 0 ? "var(--ink-soft)" : "#FFFFFF",
                     border: "none",
                     width: "100%",
                     padding: 10,
                     borderRadius: 999,
                     fontWeight: 700,
                     fontSize: 14,
-                    cursor: "pointer",
+                    cursor: p.estoque === 0 ? "not-allowed" : "pointer",
                   }}
                 >
-                  {adicionado === p.id ? "Adicionado ✓" : "Adicionar"}
+                  {p.estoque === 0
+                    ? "Esgotado"
+                    : adicionado === p.id
+                      ? "Adicionado ✓"
+                      : "Adicionar"}
                 </button>
+                {p.estoque !== null && p.estoque > 0 && p.estoque <= 5 && (
+                  <div
+                    style={{
+                      marginTop: 6,
+                      fontSize: 11,
+                      fontWeight: 700,
+                      color: "var(--blue-600)",
+                    }}
+                  >
+                    Últimas {p.estoque} unidades
+                  </div>
+                )}
               </div>
             </div>
           ))}

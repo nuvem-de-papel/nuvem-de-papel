@@ -238,6 +238,24 @@ export async function finalizarCheckout(input: {
     return { ok: false, erro: `Falha ao registrar itens: ${erroItens.message}` };
   }
 
+  // 5.1) reserva de estoque (F4): função atômica — se QUALQUER item não tem
+  // saldo, tudo derruba dentro da função e o pedido é compensado (cascade).
+  // Corrida de última unidade: o segundo recebimento leva ESTOQUE_INSUFICIENTE.
+  const { error: erroReserva } = await admin.rpc("reserve_order_stock", {
+    p_order_id: pedido.id,
+  });
+  if (erroReserva) {
+    await admin.from("orders").delete().eq("id", pedido.id);
+    const m = /ESTOQUE_INSUFICIENTE: reserva \(([0-9a-f-]{36})\)/i.exec(erroReserva.message ?? "");
+    const linha = m ? linhas.find((l) => l.item_id === m[1]) : undefined;
+    return {
+      ok: false,
+      erro: linha
+        ? `Estoque insuficiente para "${linha.name}". Atualize o carrinho.`
+        : "Estoque insuficiente para um dos itens. Atualize o carrinho.",
+    };
+  }
+
   // 6) preferência Mercado Pago (quando configurado)
   let initPoint: string | null = null;
   let aviso: string | undefined;

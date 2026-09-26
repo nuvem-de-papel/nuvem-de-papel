@@ -55,8 +55,38 @@ export function ProductCard({ produto }: { produto: VarejoProduct }) {
         <span className="display" style={{ fontSize: 18 }}>
           {formatPrice(produto.price)}
         </span>
-        <AddToCartButton produto={produto} />
+        <AddToCartButton produto={produto} disabled={produto.estoque === 0} />
       </div>
+      {produto.estoque === 0 && (
+        <span
+          style={{
+            display: "block",
+            marginTop: 8,
+            fontSize: 11,
+            fontWeight: 700,
+            color: "#FFFFFF",
+            background: "var(--pink-600)",
+            borderRadius: 999,
+            padding: "3px 10px",
+            width: "fit-content",
+          }}
+        >
+          Esgotado
+        </span>
+      )}
+      {produto.estoque !== null && produto.estoque > 0 && produto.estoque <= 5 && (
+        <span
+          style={{
+            display: "block",
+            marginTop: 8,
+            fontSize: 11,
+            fontWeight: 700,
+            color: "var(--blue-600)",
+          }}
+        >
+          Últimas {produto.estoque} unidades
+        </span>
+      )}
     </div>
   );
 }

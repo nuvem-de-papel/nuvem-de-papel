@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "e2e": "node e2e/f2.cjs && node e2e/f3.cjs && node e2e/f4.cjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.5.2",
@@ -22,6 +23,7 @@
     "@types/react-dom": "^18.3.1",
     "eslint": "^8.57.1",
     "eslint-config-next": "14.2.16",
+    "playwright-core": "^1.63.0",
     "typescript": "^5.6.3"
   }
 }
