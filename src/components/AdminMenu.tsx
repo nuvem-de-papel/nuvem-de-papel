@@ -6,6 +6,29 @@ import { createClient } from "@/lib/supabase/client";
 
 const LINKS: { href: string; label: string; icon: ReactNode }[] = [
   {
+    href: "/pdv",
+    label: "PDV",
+    icon: (
+      <>
+        <rect x="3" y="4" width="18" height="12" rx="1.5" />
+        <line x1="7" y1="20" x2="17" y2="20" />
+        <line x1="12" y1="16" x2="12" y2="20" />
+        <line x1="7" y1="8" x2="13" y2="8" />
+      </>
+    ),
+  },
+  {
+    href: "/financeiro",
+    label: "Financeiro",
+    icon: (
+      <>
+        <rect x="3" y="5" width="18" height="14" rx="2" />
+        <line x1="3" y1="10" x2="21" y2="10" />
+        <line x1="7" y1="15" x2="12" y2="15" />
+      </>
+    ),
+  },
+  {
     href: "/crm",
     label: "Painel CRM",
     icon: (

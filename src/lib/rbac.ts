@@ -23,6 +23,8 @@ export const PAPEIS_POR_MODULO: Record<string, string[]> = {
   "/configuracoes": PAPEIS_GESTAO,
   "/crm": PAPEIS_OPERACIONAIS,
   "/logistica": PAPEIS_OPERACIONAIS,
+  "/pdv": PAPEIS_OPERACIONAIS,
+  "/financeiro": PAPEIS_GESTAO,
 };
 
 // Hierarquia de gestão: quem pode criar/editar quem.
