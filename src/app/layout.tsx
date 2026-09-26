@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { Header } from "@/components/Header";
 import { Footer, FloatingSocial } from "@/components/Footer";
+import { CartProvider } from "@/components/carrinho/CartProvider";
 import { getBrandingCssVars } from "@/lib/branding";
 
 export const dynamic = "force-dynamic";
@@ -24,10 +25,12 @@ export default async function RootLayout({
         {brandingCss && <style dangerouslySetInnerHTML={{ __html: brandingCss }} />}
       </head>
       <body>
-        <Header />
-        <FloatingSocial />
-        {children}
-        <Footer />
+        <CartProvider>
+          <Header />
+          <FloatingSocial />
+          {children}
+          <Footer />
+        </CartProvider>
       </body>
     </html>
   );

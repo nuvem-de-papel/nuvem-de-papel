@@ -2,10 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { useCart } from "@/components/carrinho/CartProvider";
 
 export function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [logado, setLogado] = useState(false);
+  const { totalItens } = useCart();
 
   useEffect(() => {
     const supabase = createClient();
@@ -21,6 +23,7 @@ export function Header() {
     { href: "/", label: "Home", bold: true },
     { href: "/produtos", label: "Produtos", bold: false },
     { href: "/publicacoes", label: "Publicações", bold: false },
+    ...(logado ? [{ href: "/conta/pedidos", label: "Meus pedidos", bold: false }] : []),
   ];
 
   return (
@@ -112,32 +115,35 @@ export function Header() {
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
             <path d="M20.8 8.6a5.5 5.5 0 0 0-9.8-3.4 5.5 5.5 0 0 0-9.8 3.4c0 6 9.8 11.4 9.8 11.4s9.8-5.4 9.8-11.4Z" />
           </svg>
-          <div style={{ position: "relative" }}>
+          <a href="/carrinho" aria-label={`Carrinho com ${totalItens} itens`} style={{ position: "relative", display: "flex", padding: 4 }}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="9" cy="21" r="1.4" />
               <circle cx="18" cy="21" r="1.4" />
               <path d="M2.5 3h2l2.6 12.6a2 2 0 0 0 2 1.6h8.2a2 2 0 0 0 2-1.6L21 7.5H6" />
             </svg>
-            <span
-              style={{
-                position: "absolute",
-                top: -6,
-                right: -8,
-                background: "#E084AC",
-                color: "#FFFFFF",
-                fontSize: 9,
-                fontWeight: 700,
-                width: 14,
-                height: 14,
-                borderRadius: 999,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              3
-            </span>
-          </div>
+            {totalItens > 0 && (
+              <span
+                style={{
+                  position: "absolute",
+                  top: -6,
+                  right: -8,
+                  background: "#E084AC",
+                  color: "#FFFFFF",
+                  fontSize: 9,
+                  fontWeight: 700,
+                  minWidth: 14,
+                  height: 14,
+                  padding: "0 3px",
+                  borderRadius: 999,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                {totalItens}
+              </span>
+            )}
+          </a>
           <a
             href={logado ? "/crm" : "/login"}
             style={{

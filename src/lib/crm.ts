@@ -92,9 +92,13 @@ export async function getCrmSummary(): Promise<CrmSummary> {
   const campaigns = campaignsRes.data ?? [];
 
   const ordersMes = orders.filter((o) => new Date(o.created_at) >= startOfMonth);
-  const receitaMes = ordersMes.reduce((sum, o) => sum + Number(o.total_amount), 0);
+  // receita/ticket contam só pedido que virou dinheiro (não cancelado, não pendente)
+  const receitaveis = ordersMes.filter(
+    (o) => o.status !== "cancelado" && o.status !== "aguardando_pagamento"
+  );
+  const receitaMes = receitaveis.reduce((sum, o) => sum + Number(o.total_amount), 0);
   const novosClientesMes = customers.filter((c) => new Date(c.created_at) >= startOfMonth).length;
-  const ticketMedio = ordersMes.length > 0 ? receitaMes / ordersMes.length : 0;
+  const ticketMedio = receitaveis.length > 0 ? receitaMes / receitaveis.length : 0;
 
   const porCliente = new Map<string, ClienteRecente>();
   for (const o of orders) {
@@ -115,7 +119,7 @@ export async function getCrmSummary(): Promise<CrmSummary> {
     .sort((a, b) => b.totalGasto - a.totalGasto)
     .slice(0, 5);
 
-  const statusOrder = ["entregue", "em_rota", "processando", "cancelado"];
+  const statusOrder = ["aguardando_pagamento", "pago", "entregue", "em_rota", "processando", "cancelado"];
   const pedidosPorStatus: PedidoStatusResumo[] = statusOrder.map((status) => ({
     status,
     count: orders.filter((o) => o.status === status).length,

@@ -1,5 +1,6 @@
 import type { VarejoProduct } from "@/lib/products";
 import { ProductImage } from "@/components/ProductImage";
+import { AddToCartButton } from "@/components/carrinho/AddToCartButton";
 
 function formatPrice(value: number) {
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
@@ -54,33 +55,7 @@ export function ProductCard({ produto }: { produto: VarejoProduct }) {
         <span className="display" style={{ fontSize: 18 }}>
           {formatPrice(produto.price)}
         </span>
-        <button
-          style={{
-            background: "var(--pink-100)",
-            color: "var(--pink-600)",
-            width: 38,
-            height: 38,
-            borderRadius: 10,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <svg
-            width="17"
-            height="17"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.9"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <circle cx="9" cy="21" r="1.4" />
-            <circle cx="18" cy="21" r="1.4" />
-            <path d="M2.5 3h2l2.6 12.6a2 2 0 0 0 2 1.6h8.2a2 2 0 0 0 2-1.6L21 7.5H6" />
-          </svg>
-        </button>
+        <AddToCartButton produto={produto} />
       </div>
     </div>
   );

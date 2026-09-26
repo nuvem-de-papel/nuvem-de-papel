@@ -11,6 +11,8 @@ const STATUS_LABEL: Record<string, string> = {
   em_rota: "Em rota",
   processando: "Processando",
   cancelado: "Cancelado",
+  aguardando_pagamento: "Aguardando pgto",
+  pago: "Pago",
 };
 
 const STATUS_COLOR: Record<string, string> = {
@@ -18,6 +20,8 @@ const STATUS_COLOR: Record<string, string> = {
   em_rota: "var(--blue-600)",
   processando: "var(--lilac-600)",
   cancelado: "var(--ink-faint)",
+  aguardando_pagamento: "var(--ink-soft)",
+  pago: "var(--blue-600)",
 };
 
 // Nota: --pink-600 é o accent corporativo (teal escuro), não rosa — nome da

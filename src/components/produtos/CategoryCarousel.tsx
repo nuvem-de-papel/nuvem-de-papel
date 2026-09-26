@@ -1,8 +1,9 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import type { VarejoProduct } from "@/lib/products";
 import { ProductImage } from "@/components/ProductImage";
+import { useCart } from "@/components/carrinho/CartProvider";
 
 function formatPrice(value: number) {
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
@@ -10,6 +11,8 @@ function formatPrice(value: number) {
 
 export function CategoryCarousel({ title, products }: { title: string; products: VarejoProduct[] }) {
   const trackRef = useRef<HTMLDivElement>(null);
+  const { addItem } = useCart();
+  const [adicionado, setAdicionado] = useState<string | null>(null);
 
   const scroll = (dir: 1 | -1) => {
     trackRef.current?.scrollBy({ left: dir * 520, behavior: "smooth" });
@@ -116,10 +119,16 @@ export function CategoryCarousel({ title, products }: { title: string; products:
                   {formatPrice(p.price)}
                 </span>
                 <button
+                  aria-label={`Adicionar ${p.name}`}
+                  onClick={() => {
+                    addItem({ id: p.id, sku: p.sku, name: p.name, price: p.price });
+                    setAdicionado(p.id);
+                    window.setTimeout(() => setAdicionado((atual) => (atual === p.id ? null : atual)), 1200);
+                  }}
                   style={{
                     display: "block",
                     marginTop: 12,
-                    background: "var(--pink-600)",
+                    background: adicionado === p.id ? "var(--blue-600)" : "var(--pink-600)",
                     color: "#FFFFFF",
                     border: "none",
                     width: "100%",
@@ -130,7 +139,7 @@ export function CategoryCarousel({ title, products }: { title: string; products:
                     cursor: "pointer",
                   }}
                 >
-                  Adicionar
+                  {adicionado === p.id ? "Adicionado ✓" : "Adicionar"}
                 </button>
               </div>
             </div>
