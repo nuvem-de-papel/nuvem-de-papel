@@ -142,11 +142,14 @@ export async function enviarEmail(
       signal: AbortSignal.timeout(15000),
     });
     const corpo = (await resp.json().catch(() => null)) as {
+      id?: string;
       data?: { id?: string };
       message?: string;
       name?: string;
     } | null;
-    if (!resp.ok || !corpo?.data?.id) {
+    // a API do Resend devolve {id} no topo (o wrapper data é legado)
+    const resendId = corpo?.id ?? corpo?.data?.id;
+    if (!resp.ok || !resendId) {
       const motivo = corpo?.name || corpo?.message || `http_${resp.status}`;
       return await falhar(motivo);
     }
@@ -154,7 +157,7 @@ export async function enviarEmail(
       .from("email_messages")
       .update({
         status: "sent",
-        resend_id: corpo.data.id,
+        resend_id: resendId,
         updated_at: new Date().toISOString(),
       })
       .eq("id", linha.id);

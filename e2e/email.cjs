@@ -162,7 +162,7 @@ let vendedorId = null;
         direction: "inbound",
         status: "received",
         source: "system",
-        from_email: "remetente-e2e@example.com",
+        from_email: "delivered@resend.dev",
         from_name: "Remetente E2E",
         to_emails: ["contatos@nuvemdepapel.com.br"],
         subject: `${marcador} inbound`,
@@ -305,7 +305,7 @@ let vendedorId = null;
     if (await itemOut.isVisible({ timeout: 5000 }).catch(() => false)) {
       check("S17 aba Enviados lista a mensagem", true);
       await itemOut.click();
-      await page.frameLocator('iframe[title="Mensagem"]').waitFor({ timeout: 15000 });
+      await page.locator('iframe[title="Mensagem"]').waitFor({ timeout: 15000 });
       check("S18 leitor abre a mensagem enviada", true);
     } else {
       // sem credencial nada foi gravado na fila (no-op por design)
@@ -321,7 +321,7 @@ let vendedorId = null;
         `subject.ilike.%${marcador}%,external_message_id.eq.e2e-${EPOCH}`
       );
       await admin.from("webhook_events").delete().like("external_id", `e2e-%${EPOCH}`);
-      await admin.from("email_messages").delete().eq("from_email", "remetente-e2e@example.com");
+      await admin.from("email_messages").delete().eq("from_email", "delivered@resend.dev");
       if (vendedorId) await admin.auth.admin.deleteUser(vendedorId);
     } catch (e) {
       console.log("aviso cleanup:", e instanceof Error ? e.message : e);

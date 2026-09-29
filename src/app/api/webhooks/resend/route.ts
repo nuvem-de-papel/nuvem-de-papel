@@ -131,7 +131,8 @@ async function processarRecebido(
     headers: auth,
     signal: AbortSignal.timeout(15000),
   });
-  if (resp.status === 404) {
+  // 404 = id inexistente; 422 = id fora do formato esperado (não recuperável)
+  if (resp.status === 404 || resp.status === 422) {
     return { status: 200, corpo: { status: "email_ausente" } };
   }
   if (!resp.ok) {
