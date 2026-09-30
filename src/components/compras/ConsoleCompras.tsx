@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { criarFornecedor, criarPedidoCompra } from "@/app/compras/actions";
+import { PageHeader } from "@/components/admin/PageHeader";
 
 export type Fornecedor = {
   id: string;
@@ -171,13 +172,11 @@ export function ConsoleCompras({
 
   return (
     <main style={{ maxWidth: 1240, margin: "0 auto", padding: "40px 32px 72px" }}>
-      <h1 className="display" style={{ fontSize: 32, marginBottom: 8, color: "var(--ink)" }}>
-        Compras
-      </h1>
-      <p style={{ color: "var(--ink-soft)", fontSize: 15, marginBottom: 32 }}>
-        Pedidos de compra ao fornecedor. O recebimento é registrado pelo fornecedor
-        no portal dele — dá entrada no estoque e gera o título a pagar.
-      </p>
+      <PageHeader
+        titulo="Compras"
+        subtitulo="Pedidos de compra ao fornecedor. O recebimento é registrado pelo fornecedor no portal dele — dá entrada no estoque e gera o título a pagar."
+        voltarPara="/crm"
+      />
 
       {feedback && (
         <p

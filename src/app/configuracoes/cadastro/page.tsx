@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { CadastrosTelaUnica } from "@/components/conta/CadastrosTelaUnica";
+import { PageHeader } from "@/components/admin/PageHeader";
 
 export const metadata: Metadata = {
   title: "Configurações · Cadastro — Nuvem de Papel",
@@ -7,5 +8,14 @@ export const metadata: Metadata = {
 };
 
 export default function CadastroPage() {
-  return <CadastrosTelaUnica />;
+  return (
+    <>
+      <PageHeader
+        titulo="Cadastros"
+        subtitulo="Clientes, produtos e dados da empresa emitente — tudo em um lugar só."
+        voltarPara="/crm"
+      />
+      <CadastrosTelaUnica />
+    </>
+  );
 }

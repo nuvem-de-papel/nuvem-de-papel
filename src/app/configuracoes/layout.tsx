@@ -1,11 +1,6 @@
 import type { ReactNode } from "react";
-import { AdminMenu } from "@/components/AdminMenu";
+import { AdminShell } from "@/components/admin/AdminShell";
 
 export default function ConfiguracoesLayout({ children }: { children: ReactNode }) {
-  return (
-    <>
-      <AdminMenu />
-      {children}
-    </>
-  );
+  return <AdminShell>{children}</AdminShell>;
 }

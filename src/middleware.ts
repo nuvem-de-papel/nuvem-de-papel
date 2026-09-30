@@ -3,7 +3,7 @@ import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { papelPermitidoNoModulo } from "@/lib/rbac";
 
 // Protege areas privadas (/crm, /configuracoes, /pdv, /financeiro, /compras,
-// /portal): exige sessao Supabase Auth, perfil ativo e papel autorizado pelo
+// /vendas, /portal): exige sessao Supabase Auth, perfil ativo e papel autorizado pelo
 // módulo (RBAC - migrations 0004/0005/0009). Substitui o Basic Auth legado
 // (Fase 1 do parecer-acesso-enterprise.md). Fail-closed: sem env de Supabase
 // configuradas, bloqueia com 503.
@@ -74,6 +74,7 @@ export const config = {
     "/pdv/:path*",
     "/financeiro/:path*",
     "/compras/:path*",
+    "/vendas/:path*",
     "/email/:path*",
     "/portal/:path*",
   ],

@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { liquidarParcela } from "@/app/financeiro/actions";
+import { PageHeader } from "@/components/admin/PageHeader";
 
 export type ParcelaPendente = {
   id: string;
@@ -106,12 +107,11 @@ export function ConsoleFinanceiro({
 
   return (
     <div style={{ maxWidth: 1240, margin: "0 auto", padding: "26px 24px 60px" }}>
-      <h1 className="display" style={{ fontSize: 26, color: "var(--navy)", margin: "0 0 4px" }}>
-        Financeiro
-      </h1>
-      <p style={{ fontSize: 13.5, color: "var(--ink-soft)", margin: "0 0 18px" }}>
-        Contas a receber dos cartões no PDV, liquidações e faturamento dos últimos 30 dias.
-      </p>
+      <PageHeader
+        titulo="Financeiro"
+        subtitulo="Contas a receber dos cartões no PDV, liquidações e faturamento dos últimos 30 dias."
+        voltarPara="/crm"
+      />
 
       {aviso && (
         <div

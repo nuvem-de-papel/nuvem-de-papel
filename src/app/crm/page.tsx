@@ -1,4 +1,5 @@
 import { getCrmSummary } from "@/lib/crm";
+import { PageHeader } from "@/components/admin/PageHeader";
 
 export const dynamic = "force-dynamic";
 
@@ -40,12 +41,11 @@ export default async function CrmPage() {
 
   return (
     <main style={{ maxWidth: 1240, margin: "0 auto", padding: "40px 32px 72px" }}>
-      <h1 className="display" style={{ fontSize: 32, marginBottom: 8, color: "var(--ink)" }}>
-        CRM
-      </h1>
-      <p style={{ color: "var(--ink-soft)", fontSize: 15, marginBottom: 32 }}>
-        Painel administrativo — dado real do Supabase, atrás de login básico.
-      </p>
+      <PageHeader
+        titulo="Painel CRM"
+        subtitulo="Painel administrativo — dado real do Supabase, atrás de login básico."
+        voltarPara="/"
+      />
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 20, marginBottom: 32 }}>
         {[

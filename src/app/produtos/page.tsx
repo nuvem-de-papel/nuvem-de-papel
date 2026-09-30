@@ -3,6 +3,7 @@ import { getStoreProducts, type VarejoProduct } from "@/lib/products";
 import { BannerSlider } from "@/components/produtos/BannerSlider";
 import { CategoryCarousel } from "@/components/produtos/CategoryCarousel";
 import { PromoStrip, PROMO_ICONS } from "@/components/produtos/PromoStrip";
+import { PageHeader } from "@/components/admin/PageHeader";
 
 const GROUP_DEFS: { title: string; test: RegExp }[] = [
   { title: "Cadernos & agendas", test: /caderno|agenda|planner|fichari|bloco|bloqu/ },
@@ -58,12 +59,11 @@ export default async function ProdutosPage() {
   return (
     <main style={{ paddingBottom: 72 }}>
       <section style={{ maxWidth: 1240, margin: "0 auto", padding: "40px 32px 24px" }}>
-        <h1 className="display" style={{ fontSize: 32, marginBottom: 8 }}>
-          Produtos
-        </h1>
-        <p style={{ color: "var(--ink-soft)", fontSize: 15 }}>
-          {produtos.length} produtos no catálogo — direto do banco de dados.
-        </p>
+        <PageHeader
+          titulo="Produtos"
+          subtitulo={<>{produtos.length} produtos no catálogo — direto do banco de dados.</>}
+          voltarPara="/"
+        />
       </section>
 
       <BannerSlider />

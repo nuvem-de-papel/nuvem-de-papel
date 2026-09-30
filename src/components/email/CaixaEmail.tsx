@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { PageHeader } from "@/components/admin/PageHeader";
 import {
   baixarAnexo,
   enviarManual,
@@ -358,13 +359,11 @@ export function CaixaEmail({
 
   return (
     <main style={{ maxWidth: 1240, margin: "0 auto", padding: "40px 32px 72px" }}>
-      <h1 className="display" style={{ fontSize: 32, marginBottom: 8, color: "var(--ink)" }}>
-        E-mail
-      </h1>
-      <p style={{ color: "var(--ink-soft)", fontSize: 15, marginBottom: 24 }}>
-        Caixa da empresa — {naoLidas > 0 ? `${naoLidas} não lida(s) · ` : ""}envio e recebimento via
-        Resend.
-      </p>
+      <PageHeader
+        titulo="E-mail"
+        subtitulo="Caixa da empresa — envio e recebimento via Resend."
+        voltarPara="/crm"
+      />
 
       <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
         {(["entrada", "enviados", "compor"] as const).map((nome) => (
@@ -389,6 +388,7 @@ export function CaixaEmail({
             }}
           >
             {nome}
+            {nome === "entrada" && naoLidas > 0 ? ` (${naoLidas} não lida${naoLidas > 1 ? "s" : ""})` : ""}
           </button>
         ))}
       </div>

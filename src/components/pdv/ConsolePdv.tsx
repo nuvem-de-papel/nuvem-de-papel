@@ -2,6 +2,7 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { PageHeader } from "@/components/admin/PageHeader";
 import { abrirCaixa, fecharCaixa, movimentoCaixa, registrarVendaPdv } from "@/app/pdv/actions";
 
 export type SessaoCaixa = { id: string; abertura: number; aberta_em: string };
@@ -193,12 +194,11 @@ export function ConsolePdv({
   if (!sessao) {
     return (
       <div style={{ maxWidth: 900, margin: "0 auto", padding: "26px 24px 60px" }}>
-        <h1 className="display" style={{ fontSize: 26, color: "var(--navy)", margin: "0 0 4px" }}>
-          PDV
-        </h1>
-        <p style={{ fontSize: 13.5, color: "var(--ink-soft)", margin: "0 0 18px" }}>
-          Frente de caixa. Abra o caixa para começar a vender.
-        </p>
+        <PageHeader
+          titulo="PDV"
+          subtitulo="Frente de caixa. Abra o caixa para começar a vender."
+          voltarPara="/crm"
+        />
 
         {aviso && (
           <div
@@ -249,12 +249,11 @@ export function ConsolePdv({
   // -------------------------------------------------------------- com caixa --
   return (
     <div style={{ maxWidth: 1240, margin: "0 auto", padding: "26px 24px 60px" }}>
-      <h1 className="display" style={{ fontSize: 26, color: "var(--navy)", margin: "0 0 4px" }}>
-        PDV
-      </h1>
-      <p style={{ fontSize: 13.5, color: "var(--ink-soft)", margin: "0 0 18px" }}>
-        Caixa aberto {dataCurta(sessao.aberta_em)} · fundo {brl(sessao.abertura)}.
-      </p>
+      <PageHeader
+        titulo="PDV"
+        subtitulo={<>Caixa aberto {dataCurta(sessao.aberta_em)} · fundo {brl(sessao.abertura)}.</>}
+        voltarPara="/crm"
+      />
 
       {aviso && (
         <div

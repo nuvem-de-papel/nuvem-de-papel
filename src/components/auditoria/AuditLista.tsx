@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { PageHeader } from "@/components/admin/PageHeader";
 
 export type Linha = {
   id: string;
@@ -51,12 +52,15 @@ export function AuditLista({ linhas }: { linhas: Linha[] }) {
 
   return (
     <main style={{ maxWidth: 1240, margin: "0 auto", padding: "40px 32px 72px" }}>
-      <h1 className="display" style={{ fontSize: 32, marginBottom: 8, color: "var(--ink)" }}>
-        Auditoria
-      </h1>
-      <p style={{ color: "var(--ink-soft)", fontSize: 15, marginBottom: 24 }}>
-        Trilha “quem fez o quê, quando” — últimas 200 ações registradas automaticamente.
-      </p>
+      <PageHeader
+        titulo="Auditoria"
+        subtitulo={
+          <>
+            Trilha “quem fez o quê, quando” — últimas 200 ações registradas automaticamente.
+          </>
+        }
+        voltarPara="/configuracoes/cadastro"
+      />
 
       <input
         type="search"

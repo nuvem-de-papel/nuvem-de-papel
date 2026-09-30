@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { PAPEIS, PAPEIS_QUE_GERENCIA, podeGerenciar } from "@/lib/rbac";
+import { PageHeader } from "@/components/admin/PageHeader";
 import {
   alterarPapel,
   alternarStatus,
@@ -98,12 +99,11 @@ export function ConsoleUsuarios({
 
   return (
     <main style={{ maxWidth: 1240, margin: "0 auto", padding: "40px 32px 72px" }}>
-      <h1 className="display" style={{ fontSize: 32, marginBottom: 8, color: "var(--ink)" }}>
-        Usuários
-      </h1>
-      <p style={{ color: "var(--ink-soft)", fontSize: 15, marginBottom: 32 }}>
-        Gestão da equipe e papéis (RBAC). Toda alteração fica registrada na trilha de auditoria.
-      </p>
+      <PageHeader
+        titulo="Usuários"
+        subtitulo="Gestão da equipe e papéis (RBAC). Toda alteração fica registrada na trilha de auditoria."
+        voltarPara="/configuracoes/cadastro"
+      />
 
       {feedback && (
         <p

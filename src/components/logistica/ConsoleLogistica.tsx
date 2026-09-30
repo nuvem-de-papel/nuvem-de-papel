@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { PageHeader } from "@/components/admin/PageHeader";
 import {
   avancarExpedicao,
   cancelarPedidoNaoPago,
@@ -87,12 +88,11 @@ export function ConsoleLogistica({ fila, estoque }: { fila: PedidoFila[]; estoqu
 
   return (
     <div style={{ maxWidth: 1240, margin: "0 auto", padding: "26px 24px 60px" }}>
-      <h1 className="display" style={{ fontSize: 26, color: "var(--navy)", margin: "0 0 4px" }}>
-        Logística
-      </h1>
-      <p style={{ fontSize: 13.5, color: "var(--ink-soft)", margin: "0 0 18px" }}>
-        Fila de expedição dos pedidos pagos e estoque da loja.
-      </p>
+      <PageHeader
+        titulo="Logística"
+        subtitulo="Fila de expedição dos pedidos pagos e estoque da loja."
+        voltarPara="/crm"
+      />
 
       {aviso && (
         <div
