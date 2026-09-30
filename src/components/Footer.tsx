@@ -17,21 +17,24 @@ const iconProps = {
   fill: "currentColor",
 } as const;
 
-// Botão social. `preto` = estilo do flutuante (fundo #000, borda laranja,
-// ícone branco — pedido do cliente); o rodapé mantém o estilo translúcido.
+// Botão social do padrão da casa (pedido do cliente): circulo uniforme,
+// glifo claro, hover rosa. `rodape` = translucido sobre o fundo escuro do
+// rodape; `flutuante` = cinza solido (#4D4D4D = aparece igual ao do rodape)
+// para os icones continuarem legiveis sobre o fundo claro da loja.
 function SocialButton({
   href,
   label,
   icon,
   size = 18,
-  preto = false,
+  variante = "rodape",
 }: {
   href: string;
   label: string;
   icon: string;
   size?: number;
-  preto?: boolean;
+  variante?: "rodape" | "flutuante";
 }) {
+  const fundo = variante === "flutuante" ? "#4D4D4D" : "rgba(255,255,255,0.1)";
   return (
     <a
       href={href}
@@ -43,8 +46,8 @@ function SocialButton({
         width: size + 18,
         height: size + 18,
         borderRadius: 999,
-        background: preto ? "#000000" : "rgba(255,255,255,0.1)",
-        border: preto ? "1.5px solid #F97316" : "1px solid rgba(255,255,255,0.2)",
+        background: fundo,
+        border: "1px solid rgba(255,255,255,0.2)",
         color: "#FFFFFF",
         display: "flex",
         alignItems: "center",
@@ -52,11 +55,11 @@ function SocialButton({
         transition: "background 0.2s, transform 0.2s",
       }}
       onMouseEnter={(e) => {
-        e.currentTarget.style.background = preto ? "#141414" : "#E084AC";
+        e.currentTarget.style.background = "#E084AC";
         e.currentTarget.style.transform = "translateY(-3px)";
       }}
       onMouseLeave={(e) => {
-        e.currentTarget.style.background = preto ? "#000000" : "rgba(255,255,255,0.1)";
+        e.currentTarget.style.background = fundo;
         e.currentTarget.style.transform = "translateY(0)";
       }}
     >
@@ -67,6 +70,43 @@ function SocialButton({
   );
 }
 
+// WhatsApp no mesmo criterio dos demais: circulo verde com brilho suave.
+function WhatsappButton() {
+  return (
+    <a
+      href={WHATSAPP_URL}
+      target="_blank"
+      rel="noopener noreferrer"
+      aria-label="WhatsApp"
+      title="WhatsApp: +55 19 99363-1145"
+      style={{
+        width: 36,
+        height: 36,
+        borderRadius: 999,
+        background: "#25D366",
+        color: "#FFFFFF",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        boxShadow: "0 4px 12px rgba(37,211,102,0.4)",
+        transition: "transform 0.2s",
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.transform = "translateY(-3px)";
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.transform = "translateY(0)";
+      }}
+    >
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M17.5 14.4c-.3-.1-1.7-.8-2-.9-.3-.1-.5-.1-.7.1-.2.3-.7.9-.9 1.1-.2.2-.3.2-.6.1-1.7-.8-2.8-1.5-3.9-3.4-.3-.5.3-.5.8-1.5.1-.2 0-.4 0-.5s-.7-1.6-.9-2.2c-.2-.6-.5-.5-.7-.5h-.6c-.2 0-.5.1-.8.4-.3.3-1 1-1 2.5s1.1 2.9 1.2 3.1c.1.2 2.1 3.2 5.1 4.4 1.9.8 2.6.9 3.5.8.6-.1 1.7-.7 1.9-1.4.2-.7.2-1.2.2-1.4-.1-.1-.3-.2-.6-.4M12 2C6.5 2 2 6.5 2 12c0 1.8.5 3.5 1.3 4.9L2 22l5.3-1.4c1.4.8 3 1.2 4.7 1.2 5.5 0 10-4.5 10-10S17.5 2 12 2z" />
+      </svg>
+    </a>
+  );
+}
+
+// Flutuante da loja: mesmo criterio do rodape, na vertical. Nao aparece na
+// area administrativa (escondido no CSS via body:has(.admin-shell)).
 export function FloatingSocial() {
   return (
     <div
@@ -83,39 +123,9 @@ export function FloatingSocial() {
       }}
     >
       {socialLinks.map((s) => (
-        <SocialButton key={s.label} {...s} preto />
+        <SocialButton key={s.label} {...s} variante="flutuante" />
       ))}
-      <a
-        href={WHATSAPP_URL}
-        target="_blank"
-        rel="noopener noreferrer"
-        aria-label="WhatsApp"
-        title="WhatsApp: +55 19 99363-1145"
-        style={{
-          width: 36,
-          height: 36,
-          borderRadius: 999,
-          background: "#000000",
-          border: "1.5px solid #F97316",
-          color: "#FFFFFF",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          transition: "background 0.2s, transform 0.2s",
-        }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.background = "#141414";
-          e.currentTarget.style.transform = "translateY(-3px)";
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.background = "#000000";
-          e.currentTarget.style.transform = "translateY(0)";
-        }}
-      >
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M17.5 14.4c-.3-.1-1.7-.8-2-.9-.3-.1-.5-.1-.7.1-.2.3-.7.9-.9 1.1-.2.2-.3.2-.6.1-1.7-.8-2.8-1.5-3.9-3.4-.3-.5.3-.5.8-1.5.1-.2 0-.4 0-.5s-.7-1.6-.9-2.2c-.2-.6-.5-.5-.7-.5h-.6c-.2 0-.5.1-.8.4-.3.3-1 1-1 2.5s1.1 2.9 1.2 3.1c.1.2 2.1 3.2 5.1 4.4 1.9.8 2.6.9 3.5.8.6-.1 1.7-.7 1.9-1.4.2-.7.2-1.2.2-1.4-.1-.1-.3-.2-.6-.4M12 2C6.5 2 2 6.5 2 12c0 1.8.5 3.5 1.3 4.9L2 22l5.3-1.4c1.4.8 3 1.2 4.7 1.2 5.5 0 10-4.5 10-10S17.5 2 12 2z" />
-        </svg>
-      </a>
+      <WhatsappButton />
     </div>
   );
 }
@@ -241,28 +251,7 @@ export function Footer() {
             {socialLinks.map((s) => (
               <SocialButton key={s.label} {...s} />
             ))}
-            <a
-              href={WHATSAPP_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label="WhatsApp"
-              title="WhatsApp: +55 19 99363-1145"
-              style={{
-                width: 36,
-                height: 36,
-                borderRadius: 999,
-                background: "#25D366",
-                color: "#FFFFFF",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                boxShadow: "0 4px 12px rgba(37,211,102,0.4)",
-              }}
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M17.5 14.4c-.3-.1-1.7-.8-2-.9-.3-.1-.5-.1-.7.1-.2.3-.7.9-.9 1.1-.2.2-.3.2-.6.1-1.7-.8-2.8-1.5-3.9-3.4-.3-.5.3-.5.8-1.5.1-.2 0-.4 0-.5s-.7-1.6-.9-2.2c-.2-.6-.5-.5-.7-.5h-.6c-.2 0-.5.1-.8.4-.3.3-1 1-1 2.5s1.1 2.9 1.2 3.1c.1.2 2.1 3.2 5.1 4.4 1.9.8 2.6.9 3.5.8.6-.1 1.7-.7 1.9-1.4.2-.7.2-1.2.2-1.4-.1-.1-.3-.2-.6-.4M12 2C6.5 2 2 6.5 2 12c0 1.8.5 3.5 1.3 4.9L2 22l5.3-1.4c1.4.8 3 1.2 4.7 1.2 5.5 0 10-4.5 10-10S17.5 2 12 2z" />
-              </svg>
-            </a>
+            <WhatsappButton />
           </div>
         </div>
       </div>

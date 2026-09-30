@@ -121,9 +121,20 @@ button {
 }
 
 /* ===================== Painel administrativo (menu lateral) =============== */
+/* Rodapé e flutuante da loja ficam só nas páginas públicas: dentro do painel
+   (body:has(.admin-shell)) a tela é toda do admin, sem barra de rolagem. */
+body:has(.admin-shell) footer {
+  display: none;
+}
+
+body:has(.admin-shell) .floating-social {
+  display: none !important;
+}
+
 .admin-shell {
   display: flex;
   align-items: stretch;
+  min-height: 100vh;
 }
 
 .admin-side {
@@ -226,11 +237,6 @@ button {
   font-weight: 700;
 }
 
-.admin-spacer {
-  flex: 1 1 auto;
-  min-height: 16px;
-}
-
 .admin-gear {
   display: flex;
   align-items: center;
@@ -277,6 +283,17 @@ button {
   margin: 8px 0 0 12px;
   padding-left: 8px;
   border-left: 2px solid var(--pink-300);
+}
+
+.admin-sub .admin-link {
+  padding: 6px 10px;
+  font-size: 13px;
+}
+
+/* item + sub-itens não criam caixa própria: participam do grupo (no mobile
+   o grupo vira linha e os sub-itens continuam fluindo junto). */
+.admin-nav-item {
+  display: contents;
 }
 
 .admin-foot {
@@ -411,8 +428,13 @@ button {
     border-bottom-color: var(--pink-600);
   }
 
-  .admin-spacer {
-    display: none;
+  .admin-sub {
+    flex-direction: row;
+    flex-wrap: wrap;
+    margin: 0;
+    padding: 0;
+    border-left: 0;
+    gap: 4px;
   }
 
   .admin-gear {

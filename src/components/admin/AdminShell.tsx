@@ -1,18 +1,31 @@
 "use client";
 
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import { createClient } from "@/lib/supabase/client";
 
 // Menu lateral do painel (substitui a barra superior AdminMenu):
 //   * grupos ("Vendas" reúne PDV + Vendas Detalhada);
+//   * Cadastros com sub-itens logo abaixo (cliente, produto, empresa,
+//     fornecedor, revenda) — as opções que antes ficavam na barra escura;
 //   * rodapé com a engrenagem "Configurações" (abre Usuários e Auditoria);
-//   * Ver loja / Sair sempre à vista.
+//   * Ver loja / Sair logo abaixo do menu (sem empurrar para o pé da tela).
 // Os ícones são os mesmos da barra antiga para não mudar a linguagem visual.
 
-type Link = { href: string; label: string; icon: ReactNode };
+type Sub = { tela: string; label: string };
+type Link = { href: string; label: string; icon: ReactNode; sub?: Sub[] };
 
 const ICONE_PADRAO = { width: 17, height: 17, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.7, strokeLinecap: "round" as const, strokeLinejoin: "round" as const, "aria-hidden": true };
+
+// Todas as telas de cadastro viram sub-itens do "Cadastros" (pedido do
+// cliente): ?tela= escolhe a tela dentro de /configuracoes/cadastro.
+const SUB_CADASTROS: Sub[] = [
+  { tela: "cliente", label: "Cadastro Cliente" },
+  { tela: "produto", label: "Cadastro Produto" },
+  { tela: "empresa", label: "Dados Cadastrais Empresa" },
+  { tela: "fornecedor", label: "Fornecedor" },
+  { tela: "revenda", label: "Revenda" },
+];
 
 const GRUPOS: { label?: string; links: Link[] }[] = [
   {
@@ -83,6 +96,7 @@ const GRUPOS: { label?: string; links: Link[] }[] = [
       {
         href: "/configuracoes/cadastro",
         label: "Cadastros",
+        sub: SUB_CADASTROS,
         icon: (
           <>
             <circle cx="9" cy="8" r="3.2" />
@@ -176,6 +190,8 @@ function Item({ link, pathname }: { link: Link; pathname: string }) {
 
 export function AdminShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() ?? "";
+  const searchParams = useSearchParams();
+  const telaAtual = searchParams?.get("tela") ?? "cliente";
   const configFocado = CONFIG.some((c) => ativo(pathname, c.href));
   const [configAberto, setConfigAberto] = useState(configFocado);
 
@@ -214,14 +230,31 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
               <div key={grupo.label ?? `g${gi}`}>
                 {grupo.label && <div className="admin-group-label">{grupo.label}</div>}
                 {grupo.links.map((link) => (
-                  <Item key={link.href} link={link} pathname={pathname} />
+                  <div className="admin-nav-item" key={link.href}>
+                    <Item link={link} pathname={pathname} />
+                    {link.sub && (
+                      <div className="admin-sub">
+                        {link.sub.map((sub) => {
+                          const on = ativo(pathname, link.href) && telaAtual === sub.tela;
+                          return (
+                            <a
+                              key={sub.tela}
+                              href={`${link.href}?tela=${sub.tela}`}
+                              className={on ? "admin-link admin-link--on" : "admin-link"}
+                              aria-current={on ? "page" : undefined}
+                            >
+                              {sub.label}
+                            </a>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
                 ))}
                 {gi < GRUPOS.length - 1 && <div className="admin-gap" />}
               </div>
             ))}
           </nav>
-
-          <div className="admin-spacer" />
 
           <button
             type="button"

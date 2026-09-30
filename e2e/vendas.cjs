@@ -103,18 +103,71 @@ async function main() {
 
     await page.goto(BASE + "/", { waitUntil: "domcontentloaded" });
     const estilo = await page.evaluate(() => {
-      const a = document.querySelector(".floating-social a");
-      if (!a) return null;
-      const cs = getComputedStyle(a);
-      return { bg: cs.backgroundColor, borda: cs.borderColor, cor: cs.color };
+      const btns = [...document.querySelectorAll(".floating-social a")];
+      if (!btns.length) return null;
+      const cs = getComputedStyle(btns[0]);
+      const zap = getComputedStyle(btns[btns.length - 1]);
+      const foot = document.querySelector("footer");
+      return {
+        bg: cs.backgroundColor,
+        cor: cs.color,
+        zap: zap.backgroundColor,
+        rodapeVisivel: !!foot && foot.getBoundingClientRect().height > 0,
+        coluna: getComputedStyle(btns[0].parentElement).flexDirection,
+      };
     });
     check(
-      "N9 flutuante preto com borda laranja e ícone branco",
+      "N9 flutuante no padrão do rodapé (círculo cinza + zap verde, vertical)",
       estilo &&
-        estilo.bg === "rgb(0, 0, 0)" &&
-        estilo.borda === "rgb(249, 115, 22)" &&
-        estilo.cor === "rgb(255, 255, 255)",
+        estilo.bg === "rgb(77, 77, 77)" &&
+        estilo.cor === "rgb(255, 255, 255)" &&
+        estilo.zap === "rgb(37, 211, 102)" &&
+        estilo.coluna === "column",
       JSON.stringify(estilo)
+    );
+    check("N9b rodapé da loja visível na home", estilo && estilo.rodapeVisivel);
+
+    // área administrativa: sem rodapé e sem flutuante (pedido do cliente)
+    await page.goto(BASE + "/crm", { waitUntil: "domcontentloaded" });
+    const visivel = await page.evaluate(() => {
+      const foot = document.querySelector("footer");
+      const flut = document.querySelector(".floating-social");
+      return {
+        rodape: !!foot && foot.getBoundingClientRect().height > 0,
+        flutuante: !!flut && flut.getBoundingClientRect().height > 0,
+      };
+    });
+    check(
+      "N10 sem rodapé e sem flutuante no painel (/crm)",
+      !visivel.rodape && !visivel.flutuante,
+      JSON.stringify(visivel)
+    );
+
+    // sub-itens do Cadastros no menu lateral
+    check(
+      "N11 sub-itens Cadastros no menu (cliente, produto, empresa, fornecedor, revenda)",
+      (await page.getByRole("link", { name: "Cadastro Cliente" }).isVisible()) &&
+        (await page.getByRole("link", { name: "Cadastro Produto" }).isVisible()) &&
+        (await page.getByRole("link", { name: "Dados Cadastrais Empresa" }).isVisible()) &&
+        (await page.getByRole("link", { name: "Fornecedor", exact: true }).isVisible()) &&
+        (await page.getByRole("link", { name: "Revenda", exact: true }).isVisible())
+    );
+    await page.getByRole("link", { name: "Cadastro Produto" }).click();
+    await page.waitForURL(/\/configuracoes\/cadastro\?tela=produto/, { timeout: 15000 });
+    check(
+      "N12 sub-item abre a tela certa (produto)",
+      await page.getByRole("heading", { name: "Cadastros" }).isVisible()
+    );
+    await page.goto(BASE + "/configuracoes/cadastro?tela=fornecedor", { waitUntil: "domcontentloaded" });
+    check(
+      "N13 tela Fornecedor com lista e formulário",
+      (await page.getByRole("heading", { name: "Fornecedores", exact: true }).isVisible()) &&
+        (await page.getByRole("heading", { name: "Novo fornecedor", exact: true }).isVisible())
+    );
+    await page.goto(BASE + "/configuracoes/cadastro?tela=revenda", { waitUntil: "domcontentloaded" });
+    check(
+      "N14 tela Revenda de pé",
+      await page.getByRole("heading", { name: "Cadastro de revendas" }).isVisible()
     );
 
     // ------------------------------------------------ V) módulo /vendas ----

@@ -1,6 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState, useTransition } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { criarFornecedor } from "@/app/compras/actions";
+import { alternarStatus } from "@/app/configuracoes/usuarios/actions";
 
 const UFS = [
   "AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG","PA","PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO",
@@ -101,14 +104,6 @@ async function buscarCep(cep: string) {
 }
 
 const css = String.raw`
-.ct-switch{padding:10px 0;background:var(--navy);color:#fff}
-.ct-switch-inner{max-width:1240px;margin:0 auto;padding:0 24px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
-.ct-brand{display:flex;align-items:center;gap:10px;font-weight:700}
-.ct-brand .dot{width:9px;height:9px;border-radius:50%;background:var(--cta)}
-.ct-btns{display:flex;gap:6px;flex-wrap:wrap}
-.ct-sw{padding:8px 16px;border-radius:999px;border:1.5px solid rgba(255,255,255,.25);background:transparent;color:#cfd8e3;font-weight:700;font-size:.82rem;cursor:pointer}
-.ct-sw:hover{border-color:var(--cta);color:#fff}
-.ct-sw.on{background:var(--cta);border-color:var(--cta);color:#fff}
 .ct-screen{max-width:1240px;margin:20px auto 60px;padding:0 24px}
 .ct-window{background:#fff;border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow-soft);overflow:hidden}
 .ct-header{display:flex;align-items:center;gap:10px;flex-wrap:nowrap;padding:10px 22px;border-bottom:1px solid var(--border);background:var(--bg-cotton);overflow-x:auto}
@@ -210,10 +205,75 @@ const css = String.raw`
   .ct-r2,.ct-r3,.ct-r4{grid-template-columns:1fr}
   .ct-screen{padding:0 12px}
 }
+/* telas de fornecedor e revenda (sub-itens do menu lateral) */
+.ct-act{text-decoration:none}
+.ct-sec{padding:18px 22px}
+.ct-sec+.ct-sec{border-top:1px solid var(--border)}
+.ct-sec-title{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:0 0 12px}
+.ct-sec-title h2{font-size:.95rem;margin:0;color:var(--ink)}
+.ct-tbl{width:100%;border-collapse:collapse;font-size:.84rem}
+.ct-tbl th{text-align:left;font-size:.68rem;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-soft);padding:8px 10px;border-bottom:1px solid var(--border);font-weight:700}
+.ct-tbl td{padding:9px 10px;border-bottom:1px solid var(--border);color:var(--ink);vertical-align:middle}
+.ct-tbl tr:last-child td{border-bottom:none}
+.ct-empty{color:var(--ink-soft);font-size:.84rem;padding:14px 10px;margin:0}
+.ct-actions{display:flex;gap:8px;justify-content:flex-end}
+.ct-feed{font-size:.8rem;margin:12px 0 0;padding:8px 12px;border-radius:8px}
+.ct-feed.ok{background:rgba(44,156,72,.1);color:#2C9C48}
+.ct-feed.err{background:rgba(224,31,39,.08);color:#E01F27}
+.ct-pill.bad{background:rgba(224,31,39,.1);color:#E01F27;border-color:transparent}
+.ct-pill.wait{background:rgba(246,133,31,.12);color:#a85d13;border-color:transparent}
 `;
 
-export function CadastrosTelaUnica() {
-  const [tela, setTela] = useState<"cliente" | "produto" | "empresa">("cliente");
+export type FornecedorCad = {
+  id: string;
+  nome: string;
+  contato: string | null;
+  cnpj: string | null;
+  ativo: boolean;
+};
+
+export type RevendaCad = {
+  id: string;
+  email: string;
+  full_name: string | null;
+  status: string;
+  created_at: string;
+};
+
+const TELAS = ["cliente", "produto", "empresa", "fornecedor", "revenda"] as const;
+type Tela = (typeof TELAS)[number];
+
+function dataCurta(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "-";
+  return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
+}
+
+// A tela é escolhida pela URL (?tela=...) — os sub-itens do menu lateral
+// apontam para cá; a barra escura com os botões foi removida (pedido do
+// cliente: as opções viraram sub-itens de "Cadastros" no menu).
+export function CadastrosTelaUnica({
+  fornecedoresReais = [],
+  revendas = [],
+}: {
+  fornecedoresReais?: FornecedorCad[];
+  revendas?: RevendaCad[];
+}) {
+  const params = useSearchParams();
+  const telaUrl = params?.get("tela") ?? "cliente";
+  const tela: Tela = (TELAS as readonly string[]).includes(telaUrl) ? (telaUrl as Tela) : "cliente";
+  const router = useRouter();
+  const [salvando, startTransition] = useTransition();
+  const [feedback, setFeedback] = useState<{ tipo: "ok" | "err"; texto: string } | null>(null);
+
+  const [fnNome, setFnNome] = useState("");
+  const [fnCnpj, setFnCnpj] = useState("");
+  const [fnContato, setFnContato] = useState("");
+  const [fnUsuario, setFnUsuario] = useState("");
+
+  useEffect(() => {
+    setFeedback(null);
+  }, [tela]);
   const [modal, setModal] = useState<null | "cliente" | "fornecedor">(null);
   const [tipoPre, setTipoPre] = useState<"pj" | "pf">("pj");
   const [tipoForn, setTipoForn] = useState<"pj" | "pf">("pj");
@@ -806,24 +866,263 @@ export function CadastrosTelaUnica() {
     </div>
   );
 
+  // ---- fornecedores reais (mesma action da tela de Compras) --------------
+  function salvarFornecedorNovo(e: React.FormEvent) {
+    e.preventDefault();
+    const nome = fnNome.trim();
+    if (nome.length < 3) {
+      setFeedback({ tipo: "err", texto: "Informe o nome do fornecedor." });
+      return;
+    }
+    startTransition(async () => {
+      const r = await criarFornecedor({
+        nome,
+        emailContato: fnContato.trim(),
+        cnpj: fnCnpj.trim(),
+        emailUsuario: fnUsuario.trim(),
+      });
+      if (r.ok) {
+        setFeedback({ tipo: "ok", texto: r.aviso ?? "Fornecedor cadastrado com sucesso." });
+        setFnNome("");
+        setFnCnpj("");
+        setFnContato("");
+        setFnUsuario("");
+        router.refresh();
+      } else {
+        setFeedback({ tipo: "err", texto: r.erro });
+      }
+    });
+  }
+
+  // ---- aprovação de revendas (mesma action do console de usuários) -------
+  function mudarRevenda(userId: string, novoStatus: "ativo" | "inativo") {
+    startTransition(async () => {
+      const r = await alternarStatus({ userId, novoStatus });
+      if (r.ok) {
+        setFeedback({
+          tipo: "ok",
+          texto: r.aviso ?? (novoStatus === "ativo" ? "Revenda aprovada." : "Revenda rejeitada."),
+        });
+        router.refresh();
+      } else {
+        setFeedback({ tipo: "err", texto: r.erro });
+      }
+    });
+  }
+
+  const telaFornecedor = (
+    <div className="ct-screen">
+      <div className="ct-window">
+        <div className="ct-header">
+          <div className="ct-h-title">
+            <span className="eyebrow">Nuvem de Papel · Suprimentos</span>
+            <h1>Fornecedores</h1>
+          </div>
+          <span className="ct-spacer" />
+          <span className="ct-pill">
+            {fornecedoresReais.length} cadastrado{fornecedoresReais.length === 1 ? "" : "s"}
+          </span>
+        </div>
+
+        <div className="ct-sec">
+          <div className="ct-sec-title">
+            <h2>Lista de fornecedores</h2>
+            <a className="ct-act" href="/compras">
+              Abrir compras
+            </a>
+          </div>
+          {fornecedoresReais.length === 0 ? (
+            <p className="ct-empty">Nenhum fornecedor cadastrado ainda.</p>
+          ) : (
+            <table className="ct-tbl">
+              <thead>
+                <tr>
+                  <th>Nome</th>
+                  <th>Contato</th>
+                  <th>CNPJ</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {fornecedoresReais.map((f) => (
+                  <tr key={f.id}>
+                    <td>{f.nome}</td>
+                    <td>{f.contato ?? "-"}</td>
+                    <td>{f.cnpj ?? "-"}</td>
+                    <td>
+                      <span className={`ct-pill${f.ativo ? " ok" : " bad"}`}>
+                        {f.ativo ? "Ativo" : "Inativo"}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+
+        <div className="ct-sec">
+          <div className="ct-sec-title">
+            <h2>Novo fornecedor</h2>
+          </div>
+          <form onSubmit={salvarFornecedorNovo}>
+            <div className="ct-row ct-r2">
+              <div className="ct-field">
+                <label>Nome do fornecedor *</label>
+                <input
+                  value={fnNome}
+                  onChange={(e) => setFnNome(e.target.value)}
+                  placeholder="Ex.: Papelaria Central Ltda"
+                />
+              </div>
+              <div className="ct-field">
+                <label>CNPJ</label>
+                <input
+                  value={fnCnpj}
+                  maxLength={18}
+                  placeholder="00.000.000/0000-00"
+                  onChange={(e) => setFnCnpj(mascaraDoc(e.target.value))}
+                />
+              </div>
+            </div>
+            <div className="ct-row ct-r2">
+              <div className="ct-field">
+                <label>E-mail de contato</label>
+                <input
+                  value={fnContato}
+                  onChange={(e) => setFnContato(e.target.value)}
+                  placeholder="contato@fornecedor.com"
+                />
+              </div>
+              <div className="ct-field">
+                <label>E-mail do usuário do portal (opcional)</label>
+                <input
+                  value={fnUsuario}
+                  onChange={(e) => setFnUsuario(e.target.value)}
+                  placeholder="portal@fornecedor.com"
+                />
+              </div>
+            </div>
+            <div className="ct-actions" style={{ marginTop: 8 }}>
+              <button type="submit" className="ct-act primary" disabled={salvando}>
+                {salvando ? "Salvando..." : "Cadastrar fornecedor"}
+              </button>
+            </div>
+            {feedback && (
+              <p className={`ct-feed ${feedback.tipo}`} role="status">
+                {feedback.texto}
+              </p>
+            )}
+          </form>
+        </div>
+      </div>
+    </div>
+  );
+
+  const telaRevenda = (
+    <div className="ct-screen">
+      <div className="ct-window">
+        <div className="ct-header">
+          <div className="ct-h-title">
+            <span className="eyebrow">Nuvem de Papel · Parceiros</span>
+            <h1>Cadastro de revendas</h1>
+          </div>
+          <span className="ct-spacer" />
+          <span className="ct-pill">
+            {revendas.length} revenda{revendas.length === 1 ? "" : "s"}
+          </span>
+        </div>
+
+        <div className="ct-sec">
+          <div className="ct-sec-title">
+            <h2>Revendas</h2>
+            <a className="ct-act" href="/seja-revenda">
+              Ver formulário público
+            </a>
+          </div>
+          {revendas.length === 0 ? (
+            <p className="ct-empty">
+              Nenhuma revenda cadastrada ainda — pedidos feitos no formulário público
+              (/seja-revenda) aparecem aqui para aprovação.
+            </p>
+          ) : (
+            <table className="ct-tbl">
+              <thead>
+                <tr>
+                  <th>Nome</th>
+                  <th>E-mail</th>
+                  <th>Pedido em</th>
+                  <th>Status</th>
+                  <th aria-label="Ações" />
+                </tr>
+              </thead>
+              <tbody>
+                {revendas.map((r) => (
+                  <tr key={r.id}>
+                    <td>{r.full_name ?? "-"}</td>
+                    <td>{r.email}</td>
+                    <td>{dataCurta(r.created_at)}</td>
+                    <td>
+                      <span
+                        className={`ct-pill ${
+                          r.status === "ativo" ? "ok" : r.status === "inativo" ? "bad" : "wait"
+                        }`}
+                      >
+                        {r.status === "ativo"
+                          ? "Ativa"
+                          : r.status === "inativo"
+                            ? "Inativa"
+                            : "Aguardando aprovação"}
+                      </span>
+                    </td>
+                    <td>
+                      <div className="ct-actions">
+                        {r.status === "pendente" && (
+                          <>
+                            <button
+                              type="button"
+                              className="ct-act primary"
+                              disabled={salvando}
+                              onClick={() => mudarRevenda(r.id, "ativo")}
+                            >
+                              Aprovar
+                            </button>
+                            <button
+                              type="button"
+                              className="ct-act danger"
+                              disabled={salvando}
+                              onClick={() => mudarRevenda(r.id, "inativo")}
+                            >
+                              Rejeitar
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+          {feedback && (
+            <p className={`ct-feed ${feedback.tipo}`} role="status">
+              {feedback.texto}
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <div>
       <style>{css}</style>
 
-      <nav className="ct-switch">
-        <div className="ct-switch-inner">
-          <div className="ct-brand"><span className="dot" />Nuvem de Papel · Cadastros</div>
-          <div className="ct-btns">
-            <button className={`ct-sw${tela === "cliente" ? " on" : ""}`} onClick={() => setTela("cliente")}>Cadastro Cliente</button>
-            <button className={`ct-sw${tela === "produto" ? " on" : ""}`} onClick={() => setTela("produto")}>Cadastro Produto</button>
-            <button className={`ct-sw${tela === "empresa" ? " on" : ""}`} onClick={() => setTela("empresa")}>Dados Cadastrais Empresa</button>
-          </div>
-        </div>
-      </nav>
-
       {tela === "cliente" && telaCliente}
       {tela === "produto" && telaProduto}
       {tela === "empresa" && telaEmpresa}
+      {tela === "fornecedor" && telaFornecedor}
+      {tela === "revenda" && telaRevenda}
 
       {modal === "cliente" && (
         <div className="ct-overlay" onClick={(e) => e.target === e.currentTarget && setModal(null)}>
