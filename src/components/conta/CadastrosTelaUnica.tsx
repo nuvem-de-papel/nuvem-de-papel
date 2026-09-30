@@ -4,6 +4,12 @@ import { useEffect, useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { criarFornecedor } from "@/app/compras/actions";
 import { alternarStatus } from "@/app/configuracoes/usuarios/actions";
+import {
+  salvarEmpresa,
+  salvarProduto,
+  type EmpresaInput,
+  type ProdutoInput,
+} from "@/app/configuracoes/cadastro/actions";
 
 const UFS = [
   "AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG","PA","PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO",
@@ -240,6 +246,54 @@ export type RevendaCad = {
   created_at: string;
 };
 
+// F8.1: empresa emitente e produto passaram a persistir (antes eram
+// formulários de exemplo); a page de /configuracoes/cadastro busca no
+// banco e entrega por props.
+export type EmpresaCad = {
+  razaoSocial: string;
+  fantasia: string;
+  cnpj: string;
+  ie: string;
+  im: string;
+  regime: string;
+  email: string;
+  telefone: string;
+  cep: string;
+  uf: string;
+  cidade: string;
+  logradouro: string;
+  numero: string;
+  complemento: string;
+  site: string;
+  ambiente: string;
+  serieNfe: string;
+  serieNfce: string;
+  cfopPadrao: string;
+  pedirDocumento: boolean;
+};
+
+export type ProdutoCad = {
+  id: string;
+  sku: string;
+  nome: string;
+  categoria: string;
+  ativo: boolean;
+  gtin: string;
+  ncm: string;
+  csosn: string;
+  cest: string;
+  origem: string;
+  unit: string;
+  icmsPct: number;
+  ipiPct: number;
+  pesoLiquido: number;
+  pesoBruto: number;
+  precoCusto: number;
+  precoVenda: number;
+  minStock: number;
+  margemPct: number;
+};
+
 const TELAS = ["cliente", "produto", "empresa", "fornecedor", "revenda"] as const;
 type Tela = (typeof TELAS)[number];
 
@@ -255,9 +309,13 @@ function dataCurta(iso: string): string {
 export function CadastrosTelaUnica({
   fornecedoresReais = [],
   revendas = [],
+  empresa = null,
+  produtos = [],
 }: {
   fornecedoresReais?: FornecedorCad[];
   revendas?: RevendaCad[];
+  empresa?: EmpresaCad | null;
+  produtos?: ProdutoCad[];
 }) {
   const params = useSearchParams();
   const telaUrl = params?.get("tela") ?? "cliente";
@@ -273,6 +331,10 @@ export function CadastrosTelaUnica({
 
   useEffect(() => {
     setFeedback(null);
+    if (tela === "produto") {
+      carregarProduto(produtos.find((x) => x.id === prodId) ?? produtos[0] ?? null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tela]);
   const [modal, setModal] = useState<null | "cliente" | "fornecedor">(null);
   const [tipoPre, setTipoPre] = useState<"pj" | "pf">("pj");
@@ -286,11 +348,117 @@ export function CadastrosTelaUnica({
   });
   const [setores, setSetores] = useState(SETORES_INICIAIS);
   const [fornecedores, setFornecedores] = useState(FORNECEDORES_INICIAIS);
-  const [setorQ, setSetorQ] = useState("Cadernos");
-  const [fornQ, setFornQ] = useState("Papelaria Central Ltda");
-  const [acAberto, setAcAberto] = useState<null | "setor" | "fornecedor">(null);
+  const [setorQ, setSetorQ] = useState(SETORES_INICIAIS[0]);
+  const [skuQ, setSkuQ] = useState(produtos[0]?.sku ?? "");
+  const [prodId, setProdId] = useState<string | null>(produtos[0]?.id ?? null);
+  const [fornQ, setFornQ] = useState(FORNECEDORES_INICIAIS[0]);
+  const [acAberto, setAcAberto] = useState<null | "setor" | "fornecedor" | "sku">(null);
 
   const mostrarExtra = (tela_: string, chave: string) => setExtra((e) => ({ ...e, [tela_]: chave }));
+
+  // ---- helpers de leitura/escrita dos formulários (F8.1) -------------------
+  const g = <T extends HTMLElement>(id: string) => document.getElementById(id) as T | null;
+  const val = (id: string) => g<HTMLInputElement>(id)?.value ?? "";
+  const brl = (n: number) => `R$ ${n.toFixed(2).replace(".", ",")}`;
+  const pct = (n: number) => `${n.toFixed(2).replace(".", ",")}%`;
+  const kg = (n: number) => n.toFixed(3).replace(".", ",");
+
+  function carregarProduto(p: ProdutoCad | null) {
+    setProdId(p?.id ?? null);
+    setSkuQ(p?.sku ?? "");
+    const setVal = (id: string, v: string) => {
+      const el = g<HTMLInputElement>(id);
+      if (el) el.value = v;
+    };
+    const setSel = (id: string, v: string) => {
+      const el = g<HTMLSelectElement>(id);
+      if (el) el.value = v;
+    };
+    setVal("ct-prod-descricao", p?.nome ?? "");
+    setSetorQ(p?.categoria ?? "");
+    setVal("ct-prod-gtin", p?.gtin ?? "");
+    setVal("ct-prod-ncm", p?.ncm ?? "");
+    setVal("ct-prod-csosn", p?.csosn ?? "");
+    setVal("ct-prod-cest", p?.cest ?? "");
+    setSel("ct-prod-origem", p?.origem ?? "0");
+    setSel("ct-prod-unit", p?.unit ?? "UN");
+    setVal("ct-prod-icms", p ? pct(p.icmsPct) : "");
+    setVal("ct-prod-ipi", p ? pct(p.ipiPct) : "");
+    setVal("ct-prod-pesobruto", p ? kg(p.pesoBruto) : "");
+    setVal("ct-prod-pesoliquido", p ? kg(p.pesoLiquido) : "");
+    setVal("ct-prod-custo", p ? brl(p.precoCusto) : "");
+    setVal("ct-prod-margem", p ? pct(p.margemPct) : "");
+    setVal("ct-prod-venda", p ? brl(p.precoVenda) : "");
+    setVal("ct-prod-min", p ? String(p.minStock) : "");
+    const inativo = g<HTMLInputElement>("ct-prod-inativo");
+    if (inativo) inativo.checked = p ? !p.ativo : false;
+  }
+
+  function salvarProdutoUI() {
+    const payload: ProdutoInput = {
+      id: prodId ?? undefined,
+      sku: skuQ.trim(),
+      nome: val("ct-prod-descricao").trim(),
+      categoria: setorQ.trim(),
+      ativo: !(g<HTMLInputElement>("ct-prod-inativo")?.checked ?? false),
+      gtin: val("ct-prod-gtin"),
+      ncm: val("ct-prod-ncm"),
+      csosn: val("ct-prod-csosn"),
+      cest: val("ct-prod-cest"),
+      origem: g<HTMLSelectElement>("ct-prod-origem")?.value ?? "0",
+      unit: g<HTMLSelectElement>("ct-prod-unit")?.value ?? "UN",
+      icmsPct: val("ct-prod-icms"),
+      ipiPct: val("ct-prod-ipi"),
+      pesoLiquido: val("ct-prod-pesoliquido"),
+      pesoBruto: val("ct-prod-pesobruto"),
+      precoCusto: val("ct-prod-custo"),
+      precoVenda: val("ct-prod-venda"),
+      minStock: val("ct-prod-min"),
+      margemPct: val("ct-prod-margem"),
+    };
+    startTransition(async () => {
+      const r = await salvarProduto(payload);
+      if (r.ok) {
+        setFeedback({ tipo: "ok", texto: "Produto salvo com sucesso." });
+        if (r.id) setProdId(r.id);
+        router.refresh();
+      } else {
+        setFeedback({ tipo: "err", texto: r.erro });
+      }
+    });
+  }
+
+  function salvarEmpresaUI() {
+    const payload: EmpresaInput = {
+      razaoSocial: val("ct-emp-razao"),
+      fantasia: val("ct-emp-fantasia"),
+      cnpj: val("ct-emp-cnpj"),
+      ie: val("ct-emp-ie"),
+      im: val("ct-emp-im"),
+      regime: g<HTMLSelectElement>("ct-emp-regime")?.value ?? "simples",
+      email: val("ct-emp-email"),
+      telefone: val("ct-emp-telefone"),
+      cep: val("ct-emp-cep"),
+      uf: g<HTMLSelectElement>("ct-emp-uf")?.value ?? "",
+      cidade: val("ct-emp-cidade"),
+      logradouro: val("ct-emp-logradouro"),
+      numero: val("ct-emp-numero"),
+      complemento: val("ct-emp-complemento"),
+      site: val("ct-emp-site"),
+      ambiente:
+        (document.querySelector('input[name="amb"]:checked') as HTMLInputElement | null)?.value ??
+        "homologacao",
+      serieNfe: val("ct-emp-serie-nfe"),
+      serieNfce: val("ct-emp-serie-nfce"),
+      cfopPadrao: g<HTMLSelectElement>("ct-emp-cfop")?.value ?? "5102",
+      pedirDocumento: g<HTMLInputElement>("ct-emp-pedirdoc")?.checked ?? true,
+    };
+    startTransition(async () => {
+      const r = await salvarEmpresa(payload);
+      if (r.ok) setFeedback({ tipo: "ok", texto: "Empresa emitente salva com sucesso." });
+      else setFeedback({ tipo: "err", texto: r.erro });
+    });
+  }
 
   const filtrar = (lista: string[], q: string) => {
     const limpo = q.trim().toLowerCase();
@@ -587,12 +755,12 @@ export function CadastrosTelaUnica({
             <button className="ct-menu-btn">Listagem</button>
             <button className="ct-menu-btn">Configuração</button>
           </div>
-          <button className="ct-act primary">{iconePlus}Incluir</button>
-          <button className="ct-act danger">{iconeLixeira}Apagar</button>
-          <button className="ct-act">{iconeLupa}Pesquisar</button>
-          <button className="ct-act">{iconeImpressora}Imprimir</button>
+          <button className="ct-act primary" onClick={salvarProdutoUI} disabled={salvando}>
+            {iconeCheck}{salvando ? "Salvando..." : "Salvar"}
+          </button>
+          <button className="ct-act" onClick={() => carregarProduto(null)}>{iconePlus}Incluir</button>
           <span className="ct-spacer" />
-          <span className="ct-pill strong">318 produtos</span>
+          <span className="ct-pill strong">{produtos.length} produtos</span>
         </div>
 
         <div className="ct-grid">
@@ -600,8 +768,25 @@ export function CadastrosTelaUnica({
             <div className="ct-grp">
               <div className="ct-row ct-r4">
                 <div className="ct-field"><label>Código</label><input defaultValue="000148" /></div>
-                <div className="ct-field" style={{ gridColumn: "span 2" }}><label>Descrição do produto<span className="ct-req">*</span></label><input id="ct-prod-descricao" defaultValue="CADERNO ESPIRAL 96 FOLHAS COLUNA FINA" /></div>
-                <div className="ct-field"><label>Código interno</label><input defaultValue="CADER-0148" /></div>
+                <div className="ct-field" style={{ gridColumn: "span 2" }}><label>Descrição do produto<span className="ct-req">*</span></label><input id="ct-prod-descricao" placeholder="Nome do produto" /></div>
+                <div className="ct-field ct-ac">
+                  <label>Código interno <span className="ct-hint">busca ou cria</span></label>
+                  <input
+                    id="ct-prod-sku"
+                    autoComplete="off"
+                    value={skuQ}
+                    onChange={(e) => { setSkuQ(e.target.value); setAcAberto("sku"); }}
+                    onFocus={() => setAcAberto("sku")}
+                    onBlur={() => setTimeout(() => setAcAberto(null), 150)}
+                    placeholder="SKU-0001"
+                  />
+                  <ul className={`ct-ac-list${acAberto === "sku" ? " on" : ""}`}>
+                    {filtrar(produtos.map((p) => p.sku), skuQ).length === 0 && <li className="ct-ac-empty">Nenhum por aqui — digite e salve</li>}
+                    {filtrar(produtos.map((p) => p.sku), skuQ).map((v) => (
+                      <li key={v} onMouseDown={() => { const p = produtos.find((x) => x.sku === v); if (p) carregarProduto(p); setAcAberto(null); }}>{v}</li>
+                    ))}
+                  </ul>
+                </div>
               </div>
               <div className="ct-row ct-r3">
                 <div className="ct-field"><label>Código de barras (GTIN) <span className="ct-hint">busca automática</span></label><input id="ct-prod-gtin" defaultValue="7898943477996" maxLength={14} onChange={(e) => (e.target.value = somenteDigitos(e.target.value, 14))} onBlur={onGtin} /><div className="ct-doc-msg" /></div>
@@ -650,27 +835,34 @@ export function CadastrosTelaUnica({
               </div>
               <div className="ct-row ct-r2">
                 <div className="ct-field"><label>Fabricante</label><input defaultValue="Gráfica São José" /></div>
-                <div className="ct-field"><label>Unidade</label><select><option>UN — Unidade</option></select></div>
+                <div className="ct-field">
+                  <label>Unidade</label>
+                  <select id="ct-prod-unit" defaultValue="UN">
+                    {["UN", "PC", "CX", "RL", "KG", "FD", "KIT"].map((u) => (
+                      <option key={u} value={u}>{u}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
             </div>
 
             <div className="ct-grp">
               <p className="ct-grp-label">Financeiro e estoque</p>
               <div className="ct-row ct-r3">
-                <div className="ct-field"><label>Preço de custo</label><input defaultValue="R$ 12,40" /></div>
-                <div className="ct-field"><label>Margem de lucro</label><input defaultValue="47,00%" /></div>
-                <div className="ct-field"><label>Preço de venda</label><input defaultValue="R$ 24,90" /></div>
+                <div className="ct-field"><label>Preço de custo</label><input id="ct-prod-custo" placeholder="R$ 0,00" /></div>
+                <div className="ct-field"><label>Margem de lucro</label><input id="ct-prod-margem" placeholder="0,00%" /></div>
+                <div className="ct-field"><label>Preço de venda<span className="ct-req">*</span></label><input id="ct-prod-venda" placeholder="R$ 0,00" /></div>
               </div>
               <div className="ct-row ct-r3">
-                <div className="ct-field"><label>Qtd. mínima</label><input defaultValue="5" /></div>
-                <div className="ct-field"><label>Qtd. atual em estoque</label><input defaultValue="24" /></div>
-                <div className="ct-field"><label>Data último reajuste</label><input type="date" defaultValue="2026-08-20" /></div>
+                <div className="ct-field"><label>Qtd. mínima</label><input id="ct-prod-min" defaultValue="0" /></div>
+                <div className="ct-field"><label>Qtd. atual em estoque</label><input disabled placeholder="controlada em Logística" style={{ opacity: 0.7 }} /></div>
+                <div className="ct-field"><label>Data último reajuste</label><input type="date" /></div>
               </div>
             </div>
 
             <div className="ct-row ct-r2">
               <label className="ct-checkline"><input type="checkbox" />Não imprimir na tabela de preços</label>
-              <label className="ct-checkline"><input type="checkbox" />Inativo</label>
+              <label className="ct-checkline"><input type="checkbox" id="ct-prod-inativo" />Inativo</label>
             </div>
           </div>
 
@@ -683,7 +875,19 @@ export function CadastrosTelaUnica({
               </div>
               <div className="ct-row ct-r2">
                 <div className="ct-field"><label>CEST <span className="ct-hint">opcional</span></label><input id="ct-prod-cest" placeholder="0000000" /></div>
-                <div className="ct-field"><label>Origem</label><select id="ct-prod-origem"><option>0 — Nacional</option></select></div>
+                <div className="ct-field">
+                  <label>Origem</label>
+                  <select id="ct-prod-origem" defaultValue="0">
+                    <option value="0">0 — Nacional</option>
+                    <option value="1">1 — Estrangeira (importação direta)</option>
+                    <option value="2">2 — Estrangeira (adquirida no mercado)</option>
+                    <option value="3">3 — Nacional ({">"}40% conteúdo importado)</option>
+                    <option value="4">4 — Nacional (processos básicos)</option>
+                    <option value="5">5 — Nacional ({">"}70% conteúdo importado)</option>
+                    <option value="6">6 — Estrangeira (importação direta, similar nacional)</option>
+                    <option value="7">7 — Estrangeira (adquirida no mercado, similar nacional)</option>
+                  </select>
+                </div>
               </div>
               <div className="ct-row ct-r2">
                 <div className="ct-field"><label>ICMS interno</label><input id="ct-prod-icms" defaultValue="18,00%" /></div>
@@ -725,7 +929,13 @@ export function CadastrosTelaUnica({
           </div>
         </div>
 
-        <div className="ct-status"><span>Este é um cadastro de exemplo</span></div>
+        <div className="ct-status">
+          {feedback ? (
+            <span className={`ct-feed ${feedback.tipo}`} role="status">{feedback.texto}</span>
+          ) : (
+            <span>GTIN, NCM e tributos são validados no servidor e no banco antes de gravar.</span>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -735,7 +945,9 @@ export function CadastrosTelaUnica({
       <div className="ct-window">
         <div className="ct-header">
           <div className="ct-h-title"><span className="eyebrow">Nuvem de Papel · Configuração fiscal</span><h1>Cadastro da empresa emitente</h1></div>
-          <button className="ct-act primary">{iconeCheck}Salvar</button>
+          <button className="ct-act primary" onClick={salvarEmpresaUI} disabled={salvando}>
+            {iconeCheck}{salvando ? "Salvando..." : "Salvar"}
+          </button>
           <button className="ct-act">Configurar CSC</button>
           <span className="ct-spacer" />
           <span className="ct-pill ok">Homologação ok</span>
@@ -746,49 +958,53 @@ export function CadastrosTelaUnica({
             <div className="ct-grp">
               <p className="ct-grp-label">Dados da empresa emitente</p>
               <div className="ct-row ct-r3">
-                <div className="ct-field"><label>CNPJ</label><input defaultValue="49.163.008/0001-68" maxLength={18} onChange={(e) => (e.target.value = mascaraDoc(e.target.value))} onBlur={(e) => verificarDoc(e.target)} /><div className="ct-doc-msg" /></div>
-                <div className="ct-field"><label>Inscrição Estadual</label><input placeholder="000.000.000.000" /></div>
-                <div className="ct-field"><label>Regime tributário</label><select><option>Simples Nacional</option><option>Normal</option><option>MEI</option></select></div>
+                <div className="ct-field"><label>CNPJ</label><input id="ct-emp-cnpj" defaultValue={empresa?.cnpj ?? ""} placeholder="00.000.000/0000-00" maxLength={18} onChange={(e) => (e.target.value = mascaraDoc(e.target.value))} onBlur={(e) => verificarDoc(e.target)} /><div className="ct-doc-msg" /></div>
+                <div className="ct-field"><label>Inscrição Estadual</label><input id="ct-emp-ie" defaultValue={empresa?.ie ?? ""} placeholder="000.000.000.000" /></div>
+                <div className="ct-field">
+                  <label>Regime tributário</label>
+                  <select id="ct-emp-regime" defaultValue={empresa?.regime ?? "simples"}>
+                    <option value="simples">Simples Nacional</option>
+                    <option value="normal">Normal</option>
+                    <option value="mei">MEI</option>
+                  </select>
+                </div>
               </div>
               <div className="ct-row ct-r2">
-                <div className="ct-field"><label>Razão social</label><input defaultValue="CR COMERCIO E EXPORTACAO LTDA" /></div>
-                <div className="ct-field"><label>Nome fantasia</label><input defaultValue="Nuvem de Papel" /></div>
+                <div className="ct-field"><label>Razão social<span className="ct-req">*</span></label><input id="ct-emp-razao" defaultValue={empresa?.razaoSocial ?? ""} /></div>
+                <div className="ct-field"><label>Nome fantasia</label><input id="ct-emp-fantasia" defaultValue={empresa?.fantasia ?? ""} /></div>
               </div>
               <div className="ct-row ct-r2">
-                <div className="ct-field"><label>E-mail</label><input defaultValue="contato@nuvemdepapel.com.br" /></div>
-                <div className="ct-field"><label>Telefone</label><input defaultValue="(19) 99363-1145" maxLength={15} onChange={(e) => (e.target.value = mascaraTelefone(e.target.value))} /></div>
+                <div className="ct-field"><label>E-mail</label><input id="ct-emp-email" defaultValue={empresa?.email ?? ""} /></div>
+                <div className="ct-field"><label>Telefone</label><input id="ct-emp-telefone" defaultValue={empresa?.telefone ?? ""} maxLength={15} onChange={(e) => (e.target.value = mascaraTelefone(e.target.value))} /></div>
               </div>
               <div className="ct-row ct-r3">
-                <div className="ct-field"><label>CEP</label><input defaultValue="13405-404" maxLength={9} onChange={(e) => (e.target.value = mascaraCep(e.target.value))} onBlur={onCepEmpresa} /></div>
-                <div className="ct-field"><label>Estado</label><select id="ct-emp-uf" defaultValue="SP">{UFS.map((u) => <option key={u}>{u}</option>)}</select></div>
-                <div className="ct-field"><label>Município</label><input id="ct-emp-cidade" defaultValue="Piracicaba" /></div>
+                <div className="ct-field"><label>CEP</label><input id="ct-emp-cep" defaultValue={empresa?.cep ?? ""} maxLength={9} onChange={(e) => (e.target.value = mascaraCep(e.target.value))} onBlur={onCepEmpresa} /></div>
+                <div className="ct-field"><label>Estado</label><select id="ct-emp-uf" defaultValue={empresa?.uf || "SP"}>{UFS.map((u) => <option key={u}>{u}</option>)}</select></div>
+                <div className="ct-field"><label>Município</label><input id="ct-emp-cidade" defaultValue={empresa?.cidade ?? ""} /></div>
               </div>
               <div className="ct-row ct-r-2-1">
-                <div className="ct-field"><label>Logradouro</label><input id="ct-emp-logradouro" defaultValue="Travessa Colonial" /></div>
-                <div className="ct-field"><label>Número</label><input defaultValue="56" /></div>
+                <div className="ct-field"><label>Logradouro</label><input id="ct-emp-logradouro" defaultValue={empresa?.logradouro ?? ""} /></div>
+                <div className="ct-field"><label>Número</label><input id="ct-emp-numero" defaultValue={empresa?.numero ?? ""} /></div>
               </div>
               <div className="ct-row ct-r2">
-                <div className="ct-field"><label>Complemento</label><input defaultValue="Jardim Algodoal" /></div>
-                <div className="ct-field"><label>Site na internet</label><input defaultValue="https://nuvem-de-papel.vercel.app" /></div>
+                <div className="ct-field"><label>Complemento</label><input id="ct-emp-complemento" defaultValue={empresa?.complemento ?? ""} /></div>
+                <div className="ct-field"><label>Site na internet</label><input id="ct-emp-site" defaultValue={empresa?.site ?? ""} /></div>
               </div>
               <div className="ct-row ct-r1">
                 <div className="ct-radio-group"><span className="rg-label">Ambiente de emissão</span>
-                  <label className="ct-radio-opt"><input type="radio" name="amb" />Homologação (testes)</label>
-                  <label className="ct-radio-opt"><input type="radio" name="amb" defaultChecked />Produção</label>
+                  <label className="ct-radio-opt"><input type="radio" name="amb" value="homologacao" defaultChecked={(empresa?.ambiente ?? "homologacao") === "homologacao"} />Homologação (testes)</label>
+                  <label className="ct-radio-opt"><input type="radio" name="amb" value="producao" defaultChecked={empresa?.ambiente === "producao"} />Produção</label>
                 </div>
               </div>
             </div>
 
             <div className="ct-grp">
-              <p className="ct-grp-label">Numeração NFC-e</p>
+              <p className="ct-grp-label">Numeração e séries</p>
               <div className="ct-row ct-r2">
-                <div className="ct-field"><label>Nº nota — Homologação</label><input defaultValue="1" /></div>
-                <div className="ct-field"><label>Nº nota — Produção</label><input defaultValue="4" /></div>
+                <div className="ct-field"><label>Série NF-e</label><input id="ct-emp-serie-nfe" defaultValue={empresa?.serieNfe ?? "1"} /></div>
+                <div className="ct-field"><label>Série NFC-e</label><input id="ct-emp-serie-nfce" defaultValue={empresa?.serieNfce ?? "1"} /></div>
               </div>
-              <div className="ct-row ct-r2">
-                <div className="ct-field"><label>Série — Homologação</label><input defaultValue="1" /></div>
-                <div className="ct-field"><label>Série — Produção</label><input defaultValue="1" /></div>
-              </div>
+              <p className="ct-hint" style={{ margin: "6px 0 0" }}>A numeração da nota vem automática (próximo número da série).</p>
             </div>
           </div>
 
@@ -800,8 +1016,18 @@ export function CadastrosTelaUnica({
                 <div className="ct-field"><label>ID (Código CSC)</label><input placeholder="000001" /></div>
                 <div className="ct-field"><label>CSC <span className="ct-hint">nunca exibido em texto</span></label><input type="password" placeholder="••••••••••••" disabled style={{ opacity: 0.7 }} /></div>
               </div>
-              <div className="ct-row ct-r1"><div className="ct-field"><label>CFOP padrão na emissão</label><select><option>5.102</option></select></div></div>
-              <label className="ct-checkline" style={{ marginBottom: 8 }}><input type="checkbox" defaultChecked />Pedir CPF/CNPJ antes da emissão</label>
+              <div className="ct-row ct-r1">
+                <div className="ct-field">
+                  <label>CFOP padrão na emissão</label>
+                  <select id="ct-emp-cfop" defaultValue={empresa?.cfopPadrao ?? "5102"}>
+                    <option value="5102">5102 — Venda de mercadoria</option>
+                    <option value="5405">5405 — Venda ST</option>
+                    <option value="5101">5101 — Venda produção</option>
+                    <option value="6108">6108 — Venda a não contribuinte</option>
+                  </select>
+                </div>
+              </div>
+              <label className="ct-checkline" style={{ marginBottom: 8 }}><input type="checkbox" id="ct-emp-pedirdoc" defaultChecked={empresa ? empresa.pedirDocumento : true} />Pedir CPF/CNPJ antes da emissão</label>
               <label className="ct-checkline"><input type="checkbox" />Enviar novos tributos da reforma tributária</label>
             </div>
 
@@ -861,7 +1087,13 @@ export function CadastrosTelaUnica({
           </div>
         </div>
 
-        <div className="ct-status"><span>Este é um cadastro de exemplo — nenhum certificado ou CSC real aparece aqui</span></div>
+        <div className="ct-status">
+          {feedback ? (
+            <span className={`ct-feed ${feedback.tipo}`} role="status">{feedback.texto}</span>
+          ) : (
+            <span>Dados salvos no servidor — nenhum certificado ou CSC real aparece aqui.</span>
+          )}
+        </div>
       </div>
     </div>
   );
