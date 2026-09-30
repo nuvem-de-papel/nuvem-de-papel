@@ -55,14 +55,14 @@ Valem para qualquer sessão/IA, mesmo sem ser lembradas na conversa:
 ## Testes
 
 1. **pgTAP** por migration: `supabase/tests/NNNN_test.sql` (+ `preflight/` e `rollback/`). A query API devolve só o último result set → acumular asserts em `create temp table _out (line text)` e devolver `count(*)/falhas` na última linha. Gate = `falhas = 0`.
-2. **E2E Playwright** (`playwright-core`, canal `msedge`, `.env.local` lido por `lerEnv()`): `npm run e2e` roda `f2…f6 + email + clube + vendas` — contagem atual **208/208**. Servidor local: build parado na 3000 → `npm run start` → suite → matar porta 3000. Base de helpers: `e2e/vendas.cjs` (nav do painel) e `e2e/email.cjs` (criar usuário de teste).
+2. **E2E Playwright** (`playwright-core`, canal `msedge`, `.env.local` lido por `lerEnv()`): `npm run e2e` roda `f2…f6 + email + clube + vendas` — contagem atual **212/212**. Servidor local: build parado na 3000 → `npm run start` → suite → matar porta 3000. Base de helpers: `e2e/vendas.cjs` (nav do painel) e `e2e/email.cjs` (criar usuário de teste).
 3. Smokes de produção (só leitura) ficam em `C:\Users\joaqu\AppData\Local\Temp\opencode\e2e-f2\prod-smoke-*.cjs`.
 
-## Painel administrativo (convenções da F6.6/F6.7 — 30/09/2026)
+## Painel administrativo (convenções da F6.6/F6.7/F7.1 — 30/09/2026)
 
-1. Menu lateral = `src/components/admin/AdminShell.tsx` (`AdminMenu` antigo **deletado**). Um `layout.tsx` por segmento renderiza o shell (sem route groups). `/produtos` e `/publicacoes` usam `podeVerPainel()` (`src/lib/painel.ts`): operacionais veem o painel, visitante/revenda continua vendo a loja pública.
+1. Menu lateral = `src/components/admin/AdminShell.tsx` (`AdminMenu` antigo **deletado**). Um `layout.tsx` por segmento renderiza o shell (sem route groups). `/produtos` e `/publicacoes` usam `podeVerPainel()` (`src/lib/painel.ts`): operacionais veem o painel, visitante/revenda continua vendo a loja pública. Ordem: **Painel CRM primeiro** (grupo sem label), depois Vendas, depois o resto; rodapé só tem "Sair" (**"Ver loja" removido**).
 2. Toda tela com `PageHeader` (`src/components/admin/PageHeader.tsx`): H1 único `{título} - {subtítulo}` + botão Voltar.
-3. **Cadastros**: sub-items no menu (cliente/produto/empresa/fornecedor/revenda) apontam para `/configuracoes/cadastro?tela=…`; a tela é escolhida por `useSearchParams` (barra escura com botões foi removida). Fornecedor reusa `criarFornecedor` (Compras); Revenda reusa `alternarStatus` (Usuários — trilha `revenda.aprovada/revenda.rejeitada` + e-mail).
+3. **Cadastros**: grupo **fechado por padrão** (botão toggle `aria-expanded` + chevron; abre sozinho quando a URL é `/configuracoes/cadastro`) com sub-items cliente/produto/fornecedor/revenda apontando para `/configuracoes/cadastro?tela=…` (sem repetir "cadastro" nos rótulos); a tela é escolhida por `useSearchParams` (barra escura com botões foi removida). **Empresa** saiu daqui e mora no gear Configurações (`?tela=empresa`). Fornecedor reusa `criarFornecedor` (Compras); Revenda reusa `alternarStatus` (Usuários — trilha `revenda.aprovada/revenda.rejeitada` + e-mail).
 4. Rodapé e flutuante da loja **não aparecem no painel** (CSS `body:has(.admin-shell)`). Flutuante = padrão do rodapé: círculo `#4D4D4D`, glifo branco, hover `#E084AC`, WhatsApp `#25D366`, na vertical.
 5. `/vendas` = RBAC gestão (aba Compras expõe custo). NF-e (`nfe_emissoes`, migration 0011) = **emissão interna, sem transmissão SEFAZ** (exige certificado A1 → fase F8); emitente fixo em `src/app/vendas/actions.ts` (`EMITENTE`).
 
