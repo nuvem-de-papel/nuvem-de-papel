@@ -174,7 +174,7 @@ async function main() {
     await page.waitForURL(/\/configuracoes\/cadastro\?tela=produto/, { timeout: 15000 });
     check(
       "N12 sub-item abre a tela certa (produto)",
-      await page.getByRole("heading", { name: "Cadastros" }).isVisible()
+      await page.getByRole("heading", { name: "Cadastro de produto" }).isVisible()
     );
     await page.goto(BASE + "/configuracoes/cadastro?tela=fornecedor", { waitUntil: "domcontentloaded" });
     check(
@@ -197,7 +197,7 @@ async function main() {
     await page.waitForURL(/\/configuracoes\/cadastro\?tela=empresa/, { timeout: 15000 });
     check(
       "N15 Empresa no Configurações abre os dados cadastrais",
-      await page.getByRole("heading", { name: "Cadastros" }).isVisible()
+      await page.getByRole("heading", { name: "Cadastro da empresa emitente" }).isVisible()
     );
 
     // ------------------------------------------------ V) módulo /vendas ----

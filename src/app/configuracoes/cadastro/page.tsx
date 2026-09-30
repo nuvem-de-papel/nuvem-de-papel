@@ -11,7 +11,6 @@ import {
   type ProdutoCad,
   type RevendaCad,
 } from "@/components/conta/CadastrosTelaUnica";
-import { PageHeader } from "@/components/admin/PageHeader";
 
 export const dynamic = "force-dynamic";
 
@@ -174,18 +173,11 @@ export default async function CadastroPage() {
   });
 
   return (
-    <>
-      <PageHeader
-        titulo="Cadastros"
-        subtitulo="Clientes, produtos, fornecedores, revendas e dados da empresa emitente - tudo em um lugar só."
-        voltarPara="/crm"
-      />
-      <CadastrosTelaUnica
-        fornecedoresReais={fornecedoresReais}
-        revendas={revendas}
-        empresa={empresa}
-        produtos={produtos}
-      />
-    </>
+    <CadastrosTelaUnica
+      fornecedoresReais={fornecedoresReais}
+      revendas={revendas}
+      empresa={empresa}
+      produtos={produtos}
+    />
   );
 }
