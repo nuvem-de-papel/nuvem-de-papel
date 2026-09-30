@@ -290,6 +290,28 @@ body:has(.admin-shell) .floating-social {
   font-size: 13px;
 }
 
+/* grupo expansível (Cadastros): botão no mesmo visual dos links */
+.admin-link-toggle {
+  width: 100%;
+  background: none;
+  font-family: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.admin-link-toggle .gear-chevron {
+  margin-left: auto;
+}
+
+.admin-link-toggle[aria-expanded="true"] .gear-chevron {
+  transform: rotate(90deg);
+}
+
+/* o rodapé do menu ficou só com o Sair: ocupa a largura toda */
+.admin-foot .admin-sair {
+  flex: 1;
+}
+
 /* item + sub-itens não criam caixa própria: participam do grupo (no mobile
    o grupo vira linha e os sub-itens continuam fluindo junto). */
 .admin-nav-item {

@@ -5,29 +5,46 @@ import { useEffect, useState, type ReactNode } from "react";
 import { createClient } from "@/lib/supabase/client";
 
 // Menu lateral do painel (substitui a barra superior AdminMenu):
+//   * Painel CRM e o primeiro item (pedido do cliente 30/09);
 //   * grupos ("Vendas" reúne PDV + Vendas Detalhada);
-//   * Cadastros com sub-itens logo abaixo (cliente, produto, empresa,
-//     fornecedor, revenda) — as opções que antes ficavam na barra escura;
-//   * rodapé com a engrenagem "Configurações" (abre Usuários e Auditoria);
-//   * Ver loja / Sair logo abaixo do menu (sem empurrar para o pé da tela).
+//   * Cadastros FECHADO por padrao - o clique abre os modulos (Clientes,
+//     Produtos, Fornecedores, Revendas); "Empresa" mora no Configuracoes;
+//   * rodapé com a engrenagem "Configurações" (Empresa, Usuários, Clube,
+//     Auditoria) e apenas Sair (o botão "Ver loja" foi removido).
 // Os ícones são os mesmos da barra antiga para não mudar a linguagem visual.
 
 type Sub = { tela: string; label: string };
-type Link = { href: string; label: string; icon: ReactNode; sub?: Sub[] };
+type Link = { href: string; label: string; icon: ReactNode; sub?: Sub[]; tela?: string };
 
 const ICONE_PADRAO = { width: 17, height: 17, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.7, strokeLinecap: "round" as const, strokeLinejoin: "round" as const, "aria-hidden": true };
 
-// Todas as telas de cadastro viram sub-itens do "Cadastros" (pedido do
-// cliente): ?tela= escolhe a tela dentro de /configuracoes/cadastro.
+// Sub-módulos do "Cadastros" (pedido do cliente: sem repetir a palavra
+// "cadastro" no item); ?tela= escolhe a tela dentro de /configuracoes/cadastro.
 const SUB_CADASTROS: Sub[] = [
-  { tela: "cliente", label: "Cadastro Cliente" },
-  { tela: "produto", label: "Cadastro Produto" },
-  { tela: "empresa", label: "Dados Cadastrais Empresa" },
-  { tela: "fornecedor", label: "Fornecedor" },
-  { tela: "revenda", label: "Revenda" },
+  { tela: "cliente", label: "Clientes" },
+  { tela: "produto", label: "Produtos" },
+  { tela: "fornecedor", label: "Fornecedores" },
+  { tela: "revenda", label: "Revendas" },
 ];
 
 const GRUPOS: { label?: string; links: Link[] }[] = [
+  {
+    // Painel CRM em primeiro lugar, antes do grupo Vendas (pedido do cliente)
+    links: [
+      {
+        href: "/crm",
+        label: "Painel CRM",
+        icon: (
+          <>
+            <line x1="4" y1="20" x2="20" y2="20" />
+            <rect x="6" y="11" width="3" height="7" />
+            <rect x="11" y="7" width="3" height="11" />
+            <rect x="16" y="13" width="3" height="5" />
+          </>
+        ),
+      },
+    ],
+  },
   {
     label: "Vendas",
     links: [
@@ -66,18 +83,6 @@ const GRUPOS: { label?: string; links: Link[] }[] = [
             <rect x="3" y="5" width="18" height="14" rx="2" />
             <line x1="3" y1="10" x2="21" y2="10" />
             <line x1="7" y1="15" x2="12" y2="15" />
-          </>
-        ),
-      },
-      {
-        href: "/crm",
-        label: "Painel CRM",
-        icon: (
-          <>
-            <line x1="4" y1="20" x2="20" y2="20" />
-            <rect x="6" y="11" width="3" height="7" />
-            <rect x="11" y="7" width="3" height="11" />
-            <rect x="16" y="13" width="3" height="5" />
           </>
         ),
       },
@@ -145,6 +150,21 @@ const GRUPOS: { label?: string; links: Link[] }[] = [
 
 const CONFIG: Link[] = [
   {
+    href: "/configuracoes/cadastro",
+    tela: "empresa",
+    label: "Empresa",
+    icon: (
+      <>
+        <rect x="4" y="3" width="16" height="18" rx="1.5" />
+        <line x1="8" y1="7" x2="10" y2="7" />
+        <line x1="14" y1="7" x2="16" y2="7" />
+        <line x1="8" y1="11" x2="10" y2="11" />
+        <line x1="14" y1="11" x2="16" y2="11" />
+        <path d="M9 21v-4h6v4" />
+      </>
+    ),
+  },
+  {
     href: "/configuracoes/usuarios",
     label: "Usuários",
     icon: (
@@ -179,15 +199,22 @@ const CONFIG: Link[] = [
   },
 ];
 
-function ativo(pathname: string, href: string): boolean {
-  return pathname === href || pathname.startsWith(href + "/");
+// link ativo: casa o caminho base e, quando o link aponta para uma tela
+// especifica (?tela=), exige que a tela atual seja aquela.
+function linkAtivo(link: Link, pathname: string, telaAtual: string): boolean {
+  const mesmo = pathname === link.href || pathname.startsWith(link.href + "/");
+  if (!mesmo) return false;
+  return link.tela ? telaAtual === link.tela : true;
 }
 
-function Item({ link, pathname }: { link: Link; pathname: string }) {
-  const on = ativo(pathname, link.href);
+const TELAS_CADASTRO = SUB_CADASTROS.map((s) => s.tela);
+
+function Item({ link, pathname, telaAtual }: { link: Link; pathname: string; telaAtual: string }) {
+  const on = linkAtivo(link, pathname, telaAtual);
+  const href = link.tela ? `${link.href}?tela=${link.tela}` : link.href;
   return (
     <a
-      href={link.href}
+      href={href}
       className={on ? "admin-link admin-link--on" : "admin-link"}
       aria-current={on ? "page" : undefined}
     >
@@ -201,14 +228,22 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() ?? "";
   const searchParams = useSearchParams();
   const telaAtual = searchParams?.get("tela") ?? "cliente";
-  const configFocado = CONFIG.some((c) => ativo(pathname, c.href));
+  const configFocado = CONFIG.some((c) => linkAtivo(c, pathname, telaAtual));
   const [configAberto, setConfigAberto] = useState(configFocado);
+  // Cadastros nasce fechado (pedido do cliente); abre sozinho quando o
+  // usuario esta em uma das telas de cadastro.
+  const [cadastrosAberto, setCadastrosAberto] = useState(
+    pathname === "/configuracoes/cadastro"
+  );
 
   // navegação dentro de /configuracoes mantém este componente montado:
-  // reabre a engrenagem quando o destino é Usuários/Auditoria.
+  // reabre a engrenagem quando o destino e Empresa/Usuarios/Clube/Auditoria.
   useEffect(() => {
-    if (CONFIG.some((c) => ativo(pathname, c.href))) setConfigAberto(true);
-  }, [pathname]);
+    if (CONFIG.some((c) => linkAtivo(c, pathname, telaAtual))) setConfigAberto(true);
+    if (pathname === "/configuracoes/cadastro" && TELAS_CADASTRO.includes(telaAtual)) {
+      setCadastrosAberto(true);
+    }
+  }, [pathname, telaAtual]);
 
   async function sair() {
     await createClient().auth.signOut();
@@ -240,11 +275,40 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
                 {grupo.label && <div className="admin-group-label">{grupo.label}</div>}
                 {grupo.links.map((link) => (
                   <div className="admin-nav-item" key={link.href}>
-                    <Item link={link} pathname={pathname} />
-                    {link.sub && (
-                      <div className="admin-sub">
+                    {link.sub ? (
+                      // grupo expansivel: o clique abre/fecha os módulos
+                      <button
+                        type="button"
+                        className={`admin-link admin-link-toggle${linkAtivo(link, pathname, telaAtual) ? " admin-link--on" : ""}`}
+                        aria-expanded={cadastrosAberto}
+                        aria-controls="admin-cadastros-sub"
+                        onClick={() => setCadastrosAberto((v) => !v)}
+                      >
+                        <svg {...ICONE_PADRAO}>{link.icon}</svg>
+                        {link.label}
+                        <svg
+                          className="gear-chevron"
+                          width={14}
+                          height={14}
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth={2.2}
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          aria-hidden="true"
+                        >
+                          <polyline points="9 18 15 12 9 6" />
+                        </svg>
+                      </button>
+                    ) : (
+                      <Item link={link} pathname={pathname} telaAtual={telaAtual} />
+                    )}
+                    {link.sub && cadastrosAberto && (
+                      <div className="admin-sub" id="admin-cadastros-sub">
                         {link.sub.map((sub) => {
-                          const on = ativo(pathname, link.href) && telaAtual === sub.tela;
+                          const on =
+                            linkAtivo(link, pathname, telaAtual) && telaAtual === sub.tela;
                           return (
                             <a
                               key={sub.tela}
@@ -296,20 +360,17 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
           {configAberto && (
             <div className="admin-sub" id="admin-config-sub">
               {CONFIG.map((link) => (
-                <Item key={link.href} link={link} pathname={pathname} />
+                <Item
+                  key={link.tela ? `${link.href}?tela=${link.tela}` : link.href}
+                  link={link}
+                  pathname={pathname}
+                  telaAtual={telaAtual}
+                />
               ))}
             </div>
           )}
 
           <div className="admin-foot">
-            <a href="/">
-              <svg {...ICONE_PADRAO} width={14} height={14}>
-                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-                <polyline points="15 3 21 3 21 9" />
-                <line x1="10" y1="14" x2="21" y2="3" />
-              </svg>
-              Ver loja
-            </a>
             <button type="button" className="admin-sair" onClick={sair}>
               <svg {...ICONE_PADRAO} width={14} height={14}>
                 <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />

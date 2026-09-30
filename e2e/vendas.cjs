@@ -143,16 +143,34 @@ async function main() {
       JSON.stringify(visivel)
     );
 
-    // sub-itens do Cadastros no menu lateral
+    // menu: Painel CRM primeiro, Cadastros fechado por padrao e "Ver loja"
+    // fora do rodape (pedidos do cliente 30/09)
+    const nav = page.locator("nav[aria-label='Navegação do painel']");
+    const primeiroItem = await nav.locator("a, button").first().textContent();
     check(
-      "N11 sub-itens Cadastros no menu (cliente, produto, empresa, fornecedor, revenda)",
-      (await page.getByRole("link", { name: "Cadastro Cliente" }).isVisible()) &&
-        (await page.getByRole("link", { name: "Cadastro Produto" }).isVisible()) &&
-        (await page.getByRole("link", { name: "Dados Cadastrais Empresa" }).isVisible()) &&
-        (await page.getByRole("link", { name: "Fornecedor", exact: true }).isVisible()) &&
-        (await page.getByRole("link", { name: "Revenda", exact: true }).isVisible())
+      "N11 Painel CRM é o primeiro item do menu",
+      (primeiroItem || "").includes("Painel CRM"),
+      primeiroItem || ""
     );
-    await page.getByRole("link", { name: "Cadastro Produto" }).click();
+    check(
+      "N11b Cadastros fechado por padrão (sem sub-itens)",
+      (await nav.getByRole("link", { name: "Clientes", exact: true }).count()) === 0 &&
+        (await nav.getByRole("link", { name: "Produtos", exact: true }).count()) === 0
+    );
+    check(
+      "N11c botão Ver loja removido do menu",
+      (await page.getByRole("link", { name: "Ver loja" }).count()) === 0
+    );
+    await page.getByRole("button", { name: "Cadastros" }).click();
+    check(
+      "N11d Cadastros abre os módulos (Clientes, Produtos, Fornecedores, Revendas)",
+      (await nav.getByRole("link", { name: "Clientes", exact: true }).isVisible()) &&
+        (await nav.getByRole("link", { name: "Produtos", exact: true }).isVisible()) &&
+        (await nav.getByRole("link", { name: "Fornecedores", exact: true }).isVisible()) &&
+        (await nav.getByRole("link", { name: "Revendas", exact: true }).isVisible()) &&
+        (await nav.getByRole("link", { name: "Dados Cadastrais Empresa" }).count()) === 0
+    );
+    await nav.getByRole("link", { name: "Produtos", exact: true }).click();
     await page.waitForURL(/\/configuracoes\/cadastro\?tela=produto/, { timeout: 15000 });
     check(
       "N12 sub-item abre a tela certa (produto)",
@@ -168,6 +186,18 @@ async function main() {
     check(
       "N14 tela Revenda de pé",
       await page.getByRole("heading", { name: "Cadastro de revendas" }).isVisible()
+    );
+
+    // "Empresa" mora no gear Configurações (pedido do cliente 30/09)
+    await page.goto(BASE + "/crm", { waitUntil: "domcontentloaded" });
+    if ((await page.getByRole("link", { name: "Empresa", exact: true }).count()) === 0) {
+      await page.getByRole("button", { name: "Configurações" }).click();
+    }
+    await page.getByRole("link", { name: "Empresa", exact: true }).click();
+    await page.waitForURL(/\/configuracoes\/cadastro\?tela=empresa/, { timeout: 15000 });
+    check(
+      "N15 Empresa no Configurações abre os dados cadastrais",
+      await page.getByRole("heading", { name: "Cadastros" }).isVisible()
     );
 
     // ------------------------------------------------ V) módulo /vendas ----

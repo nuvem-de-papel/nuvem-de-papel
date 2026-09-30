@@ -94,7 +94,8 @@ export function BannerSlider() {
               minWidth: "100%",
               background: s.bg,
               color: s.fg,
-              padding: "52px 0",
+              padding: "52px 32px",
+              borderRadius: 18,
             }}
           >
             <div

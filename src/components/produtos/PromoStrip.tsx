@@ -25,7 +25,7 @@ export function PromoStrip({
   const v = VARIANTS[variant];
 
   return (
-    <div style={{ background: v.bg, color: v.fg, padding: "26px 0", boxShadow: "0 6px 20px rgba(7,59,76,0.10)" }}>
+    <div style={{ background: v.bg, color: v.fg, padding: "26px 0", borderRadius: 18, boxShadow: "0 6px 20px rgba(7,59,76,0.10)" }}>
       <div
         style={{
           maxWidth: 1240,

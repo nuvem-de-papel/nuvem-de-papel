@@ -66,7 +66,10 @@ export default async function ProdutosPage() {
         />
       </section>
 
-      <BannerSlider />
+      {/* banners na MESMA largura dos catálogos (pedido do cliente) */}
+      <div style={{ maxWidth: 1240, margin: "0 auto", padding: "0 32px" }}>
+        <BannerSlider />
+      </div>
 
       {groups.length === 0 && (
         <p style={{ maxWidth: 1240, margin: "0 auto", padding: "34px 32px 0", color: "var(--ink-soft)" }}>
@@ -85,7 +88,11 @@ export default async function ProdutosPage() {
           >
             <CategoryCarousel title={group.title} products={group.items} />
           </div>
-          {i < groups.length - 1 && midBanners[i] && <PromoStrip {...midBanners[i]} />}
+          {i < groups.length - 1 && midBanners[i] && (
+            <div style={{ maxWidth: 1240, margin: "0 auto", padding: "0 32px" }}>
+              <PromoStrip {...midBanners[i]} />
+            </div>
+          )}
         </Fragment>
       ))}
 
@@ -98,7 +105,16 @@ export default async function ProdutosPage() {
         </div>
       </section>
 
-      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: 14,
+          maxWidth: 1240,
+          margin: "0 auto",
+          padding: "0 32px",
+        }}
+      >
         <PromoStrip
           variant="navy"
           icon={PROMO_ICONS.truck}
