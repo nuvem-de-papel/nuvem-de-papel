@@ -80,6 +80,103 @@ export async function buscarPagamento(paymentId: string): Promise<{
   }
 }
 
+type ResultadoPreapproval =
+  | { ok: true; preapprovalId: string }
+  | { ok: false; motivo: string };
+
+// Assinatura recorrente (F7 - Clube): preapproval do MP com cobranca mensal
+// automatica. O status final chega pelo webhook (topico preapproval).
+export async function criarPreapproval(input: {
+  subscriptionId: string;
+  payerEmail: string;
+  reason: string;
+  transactionAmount: number;
+}): Promise<ResultadoPreapproval> {
+  if (!mpConfigurado()) return { ok: false, motivo: "mp_ausente" };
+  try {
+    const resp = await fetch("https://api.mercadopago.com/v1/preapproval", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.MERCADOPAGO_ACCESS_TOKEN}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        reason: input.reason,
+        external_reference: input.subscriptionId,
+        payer_email: input.payerEmail,
+        back_url: `${siteBase()}/conta/assinatura`,
+        status: "pending",
+        auto_recurring: {
+          frequency: 1,
+          frequency_type: "months",
+          transaction_amount: input.transactionAmount,
+          currency_id: "BRL",
+        },
+      }),
+      cache: "no-store",
+    });
+    if (!resp.ok) return { ok: false, motivo: `mp_http_${resp.status}` };
+    const data = (await resp.json()) as { id?: string };
+    if (!data.id) return { ok: false, motivo: "mp_resposta_invalida" };
+    return { ok: true, preapprovalId: data.id };
+  } catch {
+    return { ok: false, motivo: "mp_rede" };
+  }
+}
+
+export async function buscarPreapproval(preapprovalId: string): Promise<{
+  status: string | null;
+  dateCreated: string | null;
+  nextPaymentDate: string | null;
+}> {
+  if (!mpConfigurado()) return { status: null, dateCreated: null, nextPaymentDate: null };
+  try {
+    const resp = await fetch(
+      `https://api.mercadopago.com/v1/preapproval/${encodeURIComponent(preapprovalId)}`,
+      {
+        headers: { Authorization: `Bearer ${process.env.MERCADOPAGO_ACCESS_TOKEN}` },
+        cache: "no-store",
+      }
+    );
+    if (!resp.ok) return { status: null, dateCreated: null, nextPaymentDate: null };
+    const data = (await resp.json()) as {
+      status?: string;
+      date_created?: string;
+      next_payment_date?: string;
+    };
+    return {
+      status: data.status ?? null,
+      dateCreated: data.date_created ?? null,
+      nextPaymentDate: data.next_payment_date ?? null,
+    };
+  } catch {
+    return { status: null, dateCreated: null, nextPaymentDate: null };
+  }
+}
+
+// cancelamento best-effort: o estado final da assinatura e confirmado
+// localmente pela server action (o webhook apenas reforca).
+export async function cancelarPreapproval(preapprovalId: string): Promise<boolean> {
+  if (!mpConfigurado()) return false;
+  try {
+    const resp = await fetch(
+      `https://api.mercadopago.com/v1/preapproval/${encodeURIComponent(preapprovalId)}`,
+      {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${process.env.MERCADOPAGO_ACCESS_TOKEN}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ status: "cancelled" }),
+        cache: "no-store",
+      }
+    );
+    return resp.ok;
+  } catch {
+    return false;
+  }
+}
+
 function extrairIdDoCorpo(raw: string): string | null {
   try {
     const body = JSON.parse(raw) as { data?: { id?: string | number } };

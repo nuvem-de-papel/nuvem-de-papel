@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { NUVEM_DE_PAPEL_TENANT_ID } from "@/lib/tenant";
-import { buscarPagamento, validarAssinaturaWebhook } from "@/lib/mercadopago";
+import { buscarPagamento, buscarPreapproval, validarAssinaturaWebhook } from "@/lib/mercadopago";
 import { enviarEmail, templatePedidoPago, codigoPedido } from "@/lib/email";
 
 // Webhook Mercado Pago (F3) + estoque (F4). Fail-closed: sem MP_WEBHOOK_SECRET
@@ -73,6 +73,59 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ status: "duplicado" });
   }
   const eventoId = registrado[0].id as string;
+
+  // Clube (F7): topico preapproval = ativa/pausa/cancela a assinatura do
+  // cliente. Mesmo contrato dos pagamentos: idempotente (webhook_events),
+  // MP_MOCK=1 le o status do payload (E2E local), producao consulta a API.
+  if (String(tipo) === "preapproval") {
+    const mockPre = process.env.MP_MOCK === "1" && process.env.VERCEL !== "1";
+    const pre = mockPre
+      ? { status: body.status ?? null, nextPaymentDate: null }
+      : await buscarPreapproval(externalId);
+    if (!pre.status) {
+      // nao conseguiu processar → libera o retry do MP
+      await admin.from("webhook_events").delete().eq("id", eventoId);
+      return NextResponse.json({ erro: "falha ao processar assinatura" }, { status: 500 });
+    }
+    const mapaStatus: Record<string, string> = {
+      approved: "ativa",
+      authorized: "ativa",
+      pending: "pendente",
+      paused: "pausada",
+      cancelled: "cancelada",
+    };
+    const novo = mapaStatus[pre.status];
+    if (!novo) {
+      return NextResponse.json({ status: "ignorado", tipo: pre.status });
+    }
+    const agora = new Date();
+    const patch: Record<string, unknown> = {
+      status: novo,
+      updated_at: agora.toISOString(),
+    };
+    if (novo === "ativa") {
+      patch.current_period_start = agora.toISOString();
+      patch.current_period_end =
+        pre.nextPaymentDate ??
+        new Date(agora.getTime() + 30 * 24 * 3600 * 1000).toISOString();
+    }
+    // cancelada nunca volta: um evento tardio nao ressuscita a assinatura
+    const { data: alterada, error: erroSub } = await admin
+      .from("club_subscriptions")
+      .update(patch)
+      .eq("tenant_id", NUVEM_DE_PAPEL_TENANT_ID)
+      .eq("mp_preapproval_id", externalId)
+      .in("status", ["pendente", "ativa", "pausada"])
+      .select("id");
+    if (erroSub) {
+      await admin.from("webhook_events").delete().eq("id", eventoId);
+      return NextResponse.json({ erro: erroSub.message }, { status: 500 });
+    }
+    // referencia desconhecida vira 200 para o MP nao entrar em loop de retry
+    return NextResponse.json({
+      status: alterada && alterada.length > 0 ? "processado" : "sem_assinatura",
+    });
+  }
 
   if (String(tipo) !== "payment") {
     return NextResponse.json({ status: "ignorado", tipo });

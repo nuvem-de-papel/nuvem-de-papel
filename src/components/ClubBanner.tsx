@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 export function ClubBanner() {
   return (
     <section style={{ maxWidth: 1240, margin: "0 auto", padding: "0 32px 72px" }}>
@@ -39,7 +41,8 @@ export function ClubBanner() {
             para assinantes.
           </p>
         </div>
-        <button
+        <Link
+          href="/clube"
           style={{
             background: "var(--pink-600)",
             color: "var(--on-accent)",
@@ -48,10 +51,11 @@ export function ClubBanner() {
             fontWeight: 700,
             fontSize: 14,
             whiteSpace: "nowrap",
+            textDecoration: "none",
           }}
         >
           Conhecer o Clube
-        </button>
+        </Link>
       </div>
     </section>
   );

@@ -157,6 +157,15 @@ const CONFIG: Link[] = [
     ),
   },
   {
+    href: "/configuracoes/clube",
+    label: "Clube",
+    icon: (
+      <>
+        <path d="M12 3l2.5 5.2 5.5.8-4 3.9.9 5.6L12 16l-4.9 2.5.9-5.6-4-3.9 5.5-.8z" />
+      </>
+    ),
+  },
+  {
     href: "/configuracoes/auditoria",
     label: "Auditoria",
     icon: (

@@ -6,6 +6,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { NUVEM_DE_PAPEL_TENANT_ID } from "@/lib/tenant";
 import { checkoutAberto } from "@/lib/checkout";
 import { criarPreferencia, mpConfigurado } from "@/lib/mercadopago";
+import { beneficioClube } from "@/lib/clube";
 import { enviarEmail, templatePedidoCriado, codigoPedido } from "@/lib/email";
 
 // Finalização de compra (F3/F6). Regras de ouro:
@@ -153,6 +154,18 @@ export async function finalizarCheckout(input: {
     total += sub;
   }
 
+  // 1.1) beneficio do Clube (F7): assinante ativo ganha desconto sobre o
+  // total - aplicado aqui no servidor (o navegador nunca manda o preco).
+  let desconto = 0;
+  let pctClube = 0;
+  const beneficio = await beneficioClube(user.id);
+  if (beneficio) {
+    pctClube = beneficio.discount_pct;
+    desconto = Math.round(total * pctClube) / 100;
+    if (desconto > total) desconto = total;
+    total = Math.round((total - desconto) * 100) / 100;
+  }
+
   // 2) endereço: existente (próprio) ou novo
   let snapshot: EnderecoInput | null = null;
   if (input.addressId) {
@@ -225,6 +238,7 @@ export async function finalizarCheckout(input: {
       channel: canal,
       status: "aguardando_pagamento",
       total_amount: total,
+      discount_amount: desconto,
       payment_method: input.pagamento,
       address_snapshot: snapshot,
     })
@@ -276,7 +290,13 @@ export async function finalizarCheckout(input: {
   if (mpConfigurado()) {
     const pref = await criarPreferencia({
       pedidoId: pedido.id,
-      itens: linhas.map((l) => ({ title: l.name, unit_price: l.unit_price, quantity: l.qty, id: l.item_id })),
+      itens: [
+        ...linhas.map((l) => ({ title: l.name, unit_price: l.unit_price, quantity: l.qty, id: l.item_id })),
+        // desconto do Clube como linha negativa: os itens somam o total
+        ...(desconto > 0
+          ? [{ title: `Desconto Clube ${pctClube}%`, unit_price: -desconto, quantity: 1, id: "clube-desconto" }]
+          : []),
+      ],
       pagador: { email, name: snapshot.recipientName },
       total,
     });

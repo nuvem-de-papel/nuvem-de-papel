@@ -55,7 +55,7 @@ Valem para qualquer sessão/IA, mesmo sem ser lembradas na conversa:
 ## Testes
 
 1. **pgTAP** por migration: `supabase/tests/NNNN_test.sql` (+ `preflight/` e `rollback/`). A query API devolve só o último result set → acumular asserts em `create temp table _out (line text)` e devolver `count(*)/falhas` na última linha. Gate = `falhas = 0`.
-2. **E2E Playwright** (`playwright-core`, canal `msedge`, `.env.local` lido por `lerEnv()`): `npm run e2e` roda `f2…f6 + email + vendas` — contagem atual **184/184**. Servidor local: build parado na 3000 → `npm run start` → suite → matar porta 3000. Base de helpers: `e2e/vendas.cjs` (nav do painel) e `e2e/email.cjs` (criar usuário de teste).
+2. **E2E Playwright** (`playwright-core`, canal `msedge`, `.env.local` lido por `lerEnv()`): `npm run e2e` roda `f2…f6 + email + clube + vendas` — contagem atual **208/208**. Servidor local: build parado na 3000 → `npm run start` → suite → matar porta 3000. Base de helpers: `e2e/vendas.cjs` (nav do painel) e `e2e/email.cjs` (criar usuário de teste).
 3. Smokes de produção (só leitura) ficam em `C:\Users\joaqu\AppData\Local\Temp\opencode\e2e-f2\prod-smoke-*.cjs`.
 
 ## Painel administrativo (convenções da F6.6/F6.7 — 30/09/2026)
@@ -65,6 +65,13 @@ Valem para qualquer sessão/IA, mesmo sem ser lembradas na conversa:
 3. **Cadastros**: sub-items no menu (cliente/produto/empresa/fornecedor/revenda) apontam para `/configuracoes/cadastro?tela=…`; a tela é escolhida por `useSearchParams` (barra escura com botões foi removida). Fornecedor reusa `criarFornecedor` (Compras); Revenda reusa `alternarStatus` (Usuários — trilha `revenda.aprovada/revenda.rejeitada` + e-mail).
 4. Rodapé e flutuante da loja **não aparecem no painel** (CSS `body:has(.admin-shell)`). Flutuante = padrão do rodapé: círculo `#4D4D4D`, glifo branco, hover `#E084AC`, WhatsApp `#25D366`, na vertical.
 5. `/vendas` = RBAC gestão (aba Compras expõe custo). NF-e (`nfe_emissoes`, migration 0011) = **emissão interna, sem transmissão SEFAZ** (exige certificado A1 → fase F8); emitente fixo em `src/app/vendas/actions.ts` (`EMITENTE`).
+
+## Clube de assinantes (F7 — 30/09/2026)
+
+1. Migration 0012 (`club_plans` + `club_subscriptions` + `orders.discount_amount`): planos **públicos** (RLS select `using (true)` — landing `/clube` no anon), escrita deny-all (server actions usam service_role), assinatura privada (o dono via `auth.uid()` ou a gestão ativa lê; anon não lê). Índice único parcial impede duas assinaturas `pendente/ativa` por usuário. Seed: 3 planos fixos (`papel` 5%, `criativo` 8%, `atelier` 12%).
+2. Fluxo: `/clube` (landing pública) → `assinarPlano` (`src/app/clube/actions.ts` — fail-closed em produção sem token do MP; local `MP_MOCK=1` cria id `mock-pre-*`) → webhook MP **tópico `preapproval`** ativa (`approved/authorized` → `ativa` com período de 30 dias; `cancelled` nunca ressuscita) → benefício no checkout (`beneficioClube` em `src/lib/clube.ts` desconta o total **no servidor**; linha negativa na preferência MP) → painel `/conta/assinatura` cancela (estado local manda; `cancelarPreapproval` best-effort).
+3. Gestão de planos: `/configuracoes/clube` (item "Clube" na engrenagem, RBAC gestão, trilha `clube.plano_alterado` / `clube.plano_criado`).
+4. E2E `e2e/clube.cjs` (24 checks): webhook assinado HMAC do mesmo jeito que `f4.cjs`; limpeza inclui `mock-pre-fantasma` em `webhook_events`.
 
 ## Stack
 
