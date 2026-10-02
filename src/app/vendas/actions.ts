@@ -5,10 +5,18 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { NUVEM_DE_PAPEL_TENANT_ID } from "@/lib/tenant";
 import { PAPEIS_GESTAO } from "@/lib/rbac";
+import {
+  montarChave44,
+  transmitirNfe as sefazTransmitir,
+  consultarNfe as sefazConsultar,
+  cancelarEvento,
+} from "@/lib/sefaz";
 
-// Server Actions do módulo Vendas → emissão de nota fiscal (emissão interna
-// da empresa — sem transmissão SEFAZ nesta fase; ver 0011_nfe.sql). Tudo
-// auditado (audit_log / 0005) e restrito a gestão (master|gerente).
+// Server Actions do módulo Vendas → emissão de nota fiscal. A nota nasce
+// "pendente" e so vira "autorizada" apos o ciclo SEFAZ (transmitir ->
+// consultar - F8.2, src/lib/sefaz.ts): em producao sem A1+CSC o transporte
+// falha fechado; em dev/E2E roda com SEFAZ_MOCK=1. Tudo auditado
+// (audit_log / 0005) e restrito a gestão (master|gerente).
 
 export type ItemNfe = {
   sku: string;
@@ -165,7 +173,7 @@ export async function emitirNfe(entrada: EntradaNfe): Promise<ResultadoNfe> {
         itens,
         totais,
         dados_adicionais: String(entrada.dadosAdicionais ?? "").trim() || null,
-        status: "emitida",
+        status: "pendente",
         created_by: userId,
       })
       .select("id, numero")
@@ -187,12 +195,228 @@ export async function emitirNfe(entrada: EntradaNfe): Promise<ResultadoNfe> {
     revalidatePath("/vendas");
     return {
       ok: true,
-      msg: `NF-e ${numero} série ${serie} emitida com sucesso.`,
+      msg: `NF-e ${numero} série ${serie} criada — pendente de transmissão.`,
       numero,
     };
   }
 
   return { ok: false, erro: "Numeração em disputa — tente emitir novamente." };
+}
+
+function escXml(v: string): string {
+  return String(v ?? "").replace(/[<>&"']/g, (c) =>
+    c === "<" ? "&lt;" : c === ">" ? "&gt;" : c === "&" ? "&amp;" : c === '"' ? "&quot;" : "&apos;"
+  );
+}
+
+type NotaXml = {
+  numero: number;
+  serie: number;
+  cfop: string;
+  natureza_operacao: string;
+  destinatario: { nome?: string; doc?: string };
+  itens: ItemNfe[];
+  totais: { base?: number; icms?: number; pis?: number; cofins?: number; total?: number };
+};
+
+function montarXmlNfe(n: NotaXml, chave: string, cnpjEmitente: string, ambiente: string): string {
+  const num = (v: number | undefined) => (Number(v) || 0).toFixed(2);
+  const det = n.itens
+    .map(
+      (i, idx) =>
+        `<det nItem="${idx + 1}"><prod><cProd>${escXml(i.sku)}</cProd><xProd>${escXml(i.nome)}</xProd>` +
+        `<NCM>${escXml(i.ncm)}</NCM><CFOP>${escXml(i.cfop)}</CFOP><uCom>UN</uCom>` +
+        `<qCom>${Number(i.qtd).toFixed(3)}</qCom><vUnCom>${Number(i.unit).toFixed(2)}</vUnCom>` +
+        `<vProd>${num(i.total)}</vProd></prod><imposto>` +
+        `<ICMS><ICMS00><orig>${escXml(i.origem)}</orig><CST>${escXml(i.cst)}</CST>` +
+        `<vBC>${num(i.total)}</vBC><pICMS>${Number(i.icmsPct).toFixed(2)}</pICMS>` +
+        `<vICMS>${((Number(i.total) * Number(i.icmsPct)) / 100).toFixed(2)}</vICMS></ICMS00></ICMS>` +
+        `<PIS><PISAliq><CST>01</CST><vBC>${num(i.total)}</vBC><pPIS>${Number(i.pisPct).toFixed(2)}</pPIS>` +
+        `<vPIS>${((Number(i.total) * Number(i.pisPct)) / 100).toFixed(2)}</vPIS></PISAliq></PIS>` +
+        `<COFINS><COFINSAliq><CST>01</CST><vBC>${num(i.total)}</vBC>` +
+        `<pCOFINS>${Number(i.cofinsPct).toFixed(2)}</pCOFINS>` +
+        `<vCOFINS>${((Number(i.total) * Number(i.cofinsPct)) / 100).toFixed(2)}</vCOFINS></COFINSAliq></COFINS>` +
+        `</imposto></det>`
+    )
+    .join("");
+  const t = n.totais ?? {};
+  return (
+    `<nfeProc versao="4.00" xmlns="http://www.portalfiscal.inf.br/nfe"><NFe><infNFe Id="NFe${chave}">` +
+    `<ide><cUF>99</cUF><natOp>${escXml(n.natureza_operacao)}</natOp><mod>55</mod>` +
+    `<serie>${n.serie}</serie><nNF>${n.numero}</nNF><dhEmi>${new Date().toISOString()}</dhEmi>` +
+    `<tpNF>1</tpNF><idDest>1</idDest><cMunFG>3550308</cMunFG>` +
+    `<tpEmis>${ambiente === "producao" ? "1" : "2"}</tpEmis><finNFe>1</finNFe></ide>` +
+    `<emit><CNPJ>${cnpjEmitente}</CNPJ><xNome>Nuvem de Papel</xNome></emit>` +
+    `<dest><xNome>${escXml(n.destinatario?.nome ?? "")}</xNome>` +
+    `<CNPJ>${(n.destinatario?.doc ?? "").replace(/\D/g, "") || "00000000000000"}</CNPJ>` +
+    `<indIEDest>9</indIEDest></dest>${det}` +
+    `<total><ICMSTot><vBC>${num(t.base)}</vBC><vICMS>${num(t.icms)}</vICMS>` +
+    `<vProd>${num(t.total)}</vProd><vFrete>0.00</vFrete><vPIS>${num(t.pis)}</vPIS>` +
+    `<vCOFINS>${num(t.cofins)}</vCOFINS><vNF>${num(t.total)}</vNF></ICMSTot></total>` +
+    `</infNFe></NFe></nfeProc>`
+  );
+}
+
+// transmite a nota pendente (ciclo M13: pendente -> transmitida) -----------
+export async function transmitirNfe(notaId: string): Promise<ResultadoNfe> {
+  if (!UUID.test(notaId ?? "")) return { ok: false, erro: "Nota inválida." };
+
+  const acesso = await exigirGestao();
+  if ("erro" in acesso) return { ok: false, erro: acesso.erro };
+  const { userId, admin } = acesso;
+
+  const { data: nota } = await admin
+    .from("nfe_emissoes")
+    .select("id, numero, serie, status, cfop, natureza_operacao, destinatario, itens, totais")
+    .eq("id", notaId)
+    .eq("tenant_id", NUVEM_DE_PAPEL_TENANT_ID)
+    .maybeSingle();
+  if (!nota) return { ok: false, erro: "Nota não encontrada." };
+  if (nota.status !== "pendente") {
+    return { ok: false, erro: `Só notas pendentes podem ser transmitidas (estado atual: ${nota.status}).` };
+  }
+
+  const { data: emp } = await admin
+    .from("tenant_company")
+    .select("cnpj, endereco")
+    .eq("tenant_id", NUVEM_DE_PAPEL_TENANT_ID)
+    .maybeSingle();
+  const cnpjEmitente = (emp?.cnpj ?? "").replace(/\D/g, "");
+  if (cnpjEmitente.length !== 14) {
+    return { ok: false, erro: "Cadastre a emitente (Configurações → Empresa) antes de transmitir." };
+  }
+
+  const { data: cfg } = await admin
+    .from("sefaz_config")
+    .select("ambiente")
+    .eq("tenant_id", NUVEM_DE_PAPEL_TENANT_ID)
+    .maybeSingle();
+  const ambiente = cfg?.ambiente === "producao" ? "producao" : "homologacao";
+
+  const montada = montarChave44({
+    uf: emp?.endereco?.uf ?? "",
+    cnpjEmitente,
+    serie: Number(nota.serie),
+    numero: Number(nota.numero),
+    ambiente,
+  });
+  if (!montada.ok) return { ok: false, erro: montada.erro };
+  const chave = montada.chave;
+
+  const xml = montarXmlNfe(
+    nota as unknown as NotaXml,
+    chave,
+    cnpjEmitente,
+    ambiente
+  );
+
+  const tx = await sefazTransmitir({ chave, xml, ambiente });
+  if (!tx.ok) return { ok: false, erro: tx.erro };
+
+  const { data: upd, error } = await admin
+    .from("nfe_emissoes")
+    .update({
+      status: "transmitida",
+      chave,
+      recibo: tx.recibo,
+      transmitida_em: new Date().toISOString(),
+      ambiente,
+      xml,
+    })
+    .eq("id", notaId)
+    .eq("status", "pendente")
+    .select("numero, serie");
+  if (error) return { ok: false, erro: `Falha ao gravar a transmissão: ${error.message}` };
+  if (!upd || upd.length === 0) return { ok: false, erro: "Nota mudou de estado — recarregue." };
+
+  await admin.from("audit_log").insert({
+    tenant_id: NUVEM_DE_PAPEL_TENANT_ID,
+    actor_user_id: userId,
+    action: "nfe.transmitir",
+    entity: "nfe_emissoes",
+    entity_id: notaId,
+    after: { numero: upd[0].numero, serie: upd[0].serie, chave, recibo: tx.recibo, ambiente },
+  });
+  revalidatePath("/vendas");
+  return {
+    ok: true,
+    msg: `NF-e ${upd[0].numero} transmitida — recibo ${tx.recibo}. Consulte para autorizar.`,
+    numero: Number(upd[0].numero),
+  };
+}
+
+// consulta o recibo (transmitida -> autorizada | rejeitada) -----------------
+export async function consultarNfe(notaId: string): Promise<ResultadoNfe> {
+  if (!UUID.test(notaId ?? "")) return { ok: false, erro: "Nota inválida." };
+
+  const acesso = await exigirGestao();
+  if ("erro" in acesso) return { ok: false, erro: acesso.erro };
+  const { userId, admin } = acesso;
+
+  const { data: nota } = await admin
+    .from("nfe_emissoes")
+    .select("id, numero, serie, status, chave, recibo")
+    .eq("id", notaId)
+    .eq("tenant_id", NUVEM_DE_PAPEL_TENANT_ID)
+    .maybeSingle();
+  if (!nota) return { ok: false, erro: "Nota não encontrada." };
+  if (nota.status === "autorizada") return { ok: false, erro: "Nota já autorizada." };
+  if (nota.status !== "transmitida" || !nota.recibo || !nota.chave) {
+    return { ok: false, erro: "Transmita a nota antes de consultar." };
+  }
+
+  const c = await sefazConsultar(nota.recibo, nota.chave);
+  if (!c.ok) return { ok: false, erro: c.erro };
+
+  if (c.estado === "em_processamento") {
+    return { ok: true, msg: `NF-e ${nota.numero} ainda em processamento — consulte novamente.`, numero: Number(nota.numero) };
+  }
+
+  if (c.estado === "autorizada") {
+    const { data: upd, error } = await admin
+      .from("nfe_emissoes")
+      .update({
+        status: "autorizada",
+        protocolo: c.protocolo,
+        autorizada_em: new Date().toISOString(),
+      })
+      .eq("id", notaId)
+      .eq("status", "transmitida")
+      .select("numero, serie");
+    if (error) return { ok: false, erro: `Falha ao gravar: ${error.message}` };
+    if (!upd || upd.length === 0) return { ok: false, erro: "Nota mudou de estado — recarregue." };
+
+    await admin.from("audit_log").insert({
+      tenant_id: NUVEM_DE_PAPEL_TENANT_ID,
+      actor_user_id: userId,
+      action: "nfe.autorizar",
+      entity: "nfe_emissoes",
+      entity_id: notaId,
+      after: { numero: upd[0].numero, protocolo: c.protocolo, chave: c.chave },
+    });
+    revalidatePath("/vendas");
+    return {
+      ok: true,
+      msg: `NF-e ${upd[0].numero} autorizada — protocolo ${c.protocolo}.`,
+      numero: Number(upd[0].numero),
+    };
+  }
+
+  await admin
+    .from("nfe_emissoes")
+    .update({ status: "rejeitada", motivo: c.motivo })
+    .eq("id", notaId)
+    .eq("status", "transmitida");
+  await admin.from("audit_log").insert({
+    tenant_id: NUVEM_DE_PAPEL_TENANT_ID,
+    actor_user_id: userId,
+    action: "nfe.rejeitar",
+    entity: "nfe_emissoes",
+    entity_id: notaId,
+    after: { numero: nota.numero, motivo: c.motivo },
+  });
+  revalidatePath("/vendas");
+  return { ok: false, erro: `NF-e ${nota.numero} rejeitada: ${c.motivo}` };
 }
 
 export async function cancelarNfe(notaId: string): Promise<ResultadoNfe> {
@@ -202,17 +426,66 @@ export async function cancelarNfe(notaId: string): Promise<ResultadoNfe> {
   if ("erro" in acesso) return { ok: false, erro: acesso.erro };
   const { userId, admin } = acesso;
 
-  const { data, error } = await admin
+  const { data: nota } = await admin
     .from("nfe_emissoes")
-    .update({ status: "cancelada", cancelada_em: new Date().toISOString() })
+    .select("id, numero, serie, status, chave, ambiente")
     .eq("id", notaId)
     .eq("tenant_id", NUVEM_DE_PAPEL_TENANT_ID)
-    .eq("status", "emitida")
+    .maybeSingle();
+  if (!nota) return { ok: false, erro: "Nota não encontrada." };
+
+  // pendente/rejeitada: cancelamento interno (nunca teve efeito fiscal)
+  if (nota.status === "pendente" || nota.status === "rejeitada") {
+    const { data, error } = await admin
+      .from("nfe_emissoes")
+      .update({ status: "cancelada", cancelada_em: new Date().toISOString() })
+      .eq("id", notaId)
+      .eq("tenant_id", NUVEM_DE_PAPEL_TENANT_ID)
+      .eq("status", nota.status)
+      .select("id, numero, serie");
+    if (error) return { ok: false, erro: `Falha ao cancelar: ${error.message}` };
+    if (!data || data.length === 0) return { ok: false, erro: "Nota já cancelada ou não encontrada." };
+
+    await admin.from("audit_log").insert({
+      tenant_id: NUVEM_DE_PAPEL_TENANT_ID,
+      actor_user_id: userId,
+      action: "nfe.cancelar",
+      entity: "nfe_emissoes",
+      entity_id: notaId,
+      after: { numero: data[0].numero, serie: data[0].serie, via: "interno" },
+    });
+    revalidatePath("/vendas");
+    return { ok: true, msg: `NF-e ${data[0].numero} cancelada.`, numero: Number(data[0].numero) };
+  }
+
+  // transmitida sem autorizacao: consulte antes (evento exige estado final)
+  if (nota.status === "transmitida") {
+    return { ok: false, erro: "Nota transmitida ainda sem autorização — consulte antes de cancelar." };
+  }
+  if (nota.status === "cancelada") {
+    return { ok: false, erro: "Nota já cancelada." };
+  }
+
+  // autorizada: exige evento de cancelamento na SEFAZ (fail-closed sem A1)
+  const ev = await cancelarEvento({
+    chave: nota.chave ?? "",
+    ambiente: nota.ambiente ?? "homologacao",
+    motivo: "Cancelamento pelo painel Nuvem de Papel",
+  });
+  if (!ev.ok) return { ok: false, erro: ev.erro };
+
+  const { data, error } = await admin
+    .from("nfe_emissoes")
+    .update({
+      status: "cancelada",
+      cancelada_em: new Date().toISOString(),
+      motivo: `Cancelamento autorizado (protocolo ${ev.protocolo}).`,
+    })
+    .eq("id", notaId)
+    .eq("status", "autorizada")
     .select("id, numero, serie");
   if (error) return { ok: false, erro: `Falha ao cancelar: ${error.message}` };
-  if (!data || data.length === 0) {
-    return { ok: false, erro: "Nota já cancelada ou não encontrada." };
-  }
+  if (!data || data.length === 0) return { ok: false, erro: "Nota já cancelada ou não encontrada." };
 
   await admin.from("audit_log").insert({
     tenant_id: NUVEM_DE_PAPEL_TENANT_ID,
@@ -220,7 +493,7 @@ export async function cancelarNfe(notaId: string): Promise<ResultadoNfe> {
     action: "nfe.cancelar",
     entity: "nfe_emissoes",
     entity_id: notaId,
-    after: { numero: data[0].numero, serie: data[0].serie },
+    after: { numero: data[0].numero, serie: data[0].serie, via: "sefaz", protocolo: ev.protocolo },
   });
   revalidatePath("/vendas");
   return { ok: true, msg: `NF-e ${data[0].numero} cancelada.`, numero: Number(data[0].numero) };

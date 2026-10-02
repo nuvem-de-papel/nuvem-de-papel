@@ -54,7 +54,7 @@ export default async function VendasPage() {
     admin
       .from("nfe_emissoes")
       .select(
-        "id, tipo, numero, serie, status, created_at, natureza_operacao, cfop, destinatario, frete, itens, totais, dados_adicionais, order:orders(id, customers(name)), purchase_order:purchase_orders(id, code, suppliers(name))"
+        "id, tipo, numero, serie, status, created_at, natureza_operacao, cfop, destinatario, frete, itens, totais, dados_adicionais, chave, protocolo, recibo, motivo, order:orders(id, customers(name)), purchase_order:purchase_orders(id, code, suppliers(name))"
       )
       .eq("tenant_id", NUVEM_DE_PAPEL_TENANT_ID)
       .order("numero", { ascending: false })
@@ -132,6 +132,10 @@ export default async function VendasPage() {
       itens: (Array.isArray(n.itens) ? n.itens : []) as NotaEmitida["itens"],
       totais: (n.totais as NotaEmitida["totais"]) ?? { base: 0, icms: 0, pis: 0, cofins: 0, total: 0 },
       dadosAdicionais: n.dados_adicionais ?? null,
+      chave: n.chave ?? null,
+      protocolo: n.protocolo ?? null,
+      recibo: n.recibo ?? null,
+      motivo: n.motivo ?? null,
       vinculo: pedido
         ? `PED-${String(pedido.id).slice(0, 8).toUpperCase()}`
         : (compra?.code as string) ?? "—",

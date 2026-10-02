@@ -4,7 +4,9 @@ import { useMemo, useState, useTransition } from "react";
 import { PageHeader } from "@/components/admin/PageHeader";
 import {
   cancelarNfe,
+  consultarNfe,
   emitirNfe,
+  transmitirNfe,
   type EntradaNfe,
   type ResultadoNfe,
 } from "@/app/vendas/actions";
@@ -15,6 +17,16 @@ import {
 // nosso layout). Abas: Vendas | Compras | Notas emitidas.
 
 export type ItemPedido = { sku: string; nome: string; qtd: number; unit: number; total: number };
+
+// maquina de estados da nota (F8.2): pendente -> transmitida -> autorizada
+const ESTADOS_NOTA: Record<string, { label: string; bg: string; fg: string }> = {
+  pendente: { label: "Pendente", bg: "#FEF3C7", fg: "#92400E" },
+  transmitida: { label: "Transmitida", bg: "#DBEAFE", fg: "#1E40AF" },
+  autorizada: { label: "Autorizada", bg: "#DCFCE7", fg: "#166534" },
+  rejeitada: { label: "Rejeitada", bg: "#FEE2E2", fg: "#991B1B" },
+  cancelada: { label: "Cancelada", bg: "#F3F4F6", fg: "#4B5563" },
+  emitida: { label: "Emitida", bg: "#DCFCE7", fg: "#166534" },
+};
 
 export type PedidoVenda = {
   id: string;
@@ -47,6 +59,10 @@ export type NotaEmitida = {
   data: string;
   natureza: string;
   cfop: string;
+  chave: string | null;
+  protocolo: string | null;
+  recibo: string | null;
+  motivo: string | null;
   destinatario: { nome?: string; doc?: string; endereco?: string };
   frete: { modalidade?: string; valor?: number };
   itens: {
@@ -330,6 +346,22 @@ export function ConsoleVendas({
     if (!window.confirm(`Cancelar a NF-e ${nota.numero} (série ${nota.serie})?`)) return;
     startTransition(async () => {
       const r: ResultadoNfe = await cancelarNfe(nota.id);
+      setAviso({ tipo: r.ok ? "ok" : "erro", texto: r.ok ? r.msg : r.erro });
+    });
+  }
+
+  function transmitirNota(nota: NotaEmitida) {
+    if (pendente) return;
+    startTransition(async () => {
+      const r: ResultadoNfe = await transmitirNfe(nota.id);
+      setAviso({ tipo: r.ok ? "ok" : "erro", texto: r.ok ? r.msg : r.erro });
+    });
+  }
+
+  function consultarNota(nota: NotaEmitida) {
+    if (pendente) return;
+    startTransition(async () => {
+      const r: ResultadoNfe = await consultarNfe(nota.id);
       setAviso({ tipo: r.ok ? "ok" : "erro", texto: r.ok ? r.msg : r.erro });
     });
   }
@@ -622,12 +654,14 @@ export function ConsoleVendas({
                       {brl(n.totais?.total ?? 0)}
                     </td>
                     <td style={td}>
-                      <Badge
-                        bg={n.status === "emitida" ? "#DCFCE7" : "#FEE2E2"}
-                        fg={n.status === "emitida" ? "#166534" : "#991B1B"}
-                      >
-                        {n.status === "emitida" ? "Emitida" : "Cancelada"}
-                      </Badge>
+                      {(() => {
+                        const st = ESTADOS_NOTA[n.status] ?? ESTADOS_NOTA.cancelada;
+                        return (
+                          <Badge bg={st.bg} fg={st.fg}>
+                            {st.label}
+                          </Badge>
+                        );
+                      })()}
                     </td>
                     <td style={{ ...td, textAlign: "right", whiteSpace: "nowrap" }}>
                       <button
@@ -638,7 +672,41 @@ export function ConsoleVendas({
                       >
                         Ver
                       </button>
-                      {n.status === "emitida" && (
+                      {n.status === "pendente" && (
+                        <button
+                          type="button"
+                          aria-label={`Transmitir NF-e ${n.numero}`}
+                          onClick={() => transmitirNota(n)}
+                          disabled={pendente}
+                          style={{
+                            ...BTN,
+                            background: "#1E40AF",
+                            color: "#fff",
+                            marginRight: 8,
+                            opacity: pendente ? 0.6 : 1,
+                          }}
+                        >
+                          Transmitir
+                        </button>
+                      )}
+                      {n.status === "transmitida" && (
+                        <button
+                          type="button"
+                          aria-label={`Consultar NF-e ${n.numero}`}
+                          onClick={() => consultarNota(n)}
+                          disabled={pendente}
+                          style={{
+                            ...BTN,
+                            background: "#1E40AF",
+                            color: "#fff",
+                            marginRight: 8,
+                            opacity: pendente ? 0.6 : 1,
+                          }}
+                        >
+                          Consultar
+                        </button>
+                      )}
+                      {(n.status === "pendente" || n.status === "rejeitada" || n.status === "autorizada") && (
                         <button
                           type="button"
                           aria-label={`Cancelar NF-e ${n.numero}`}
@@ -988,10 +1056,26 @@ export function ConsoleVendas({
                 </div>
                 <div style={{ fontSize: 18, fontWeight: 800, color: "var(--navy)" }}>
                   NF-e {doc.numero} — Série {doc.serie}{" "}
-                  <span style={{ fontSize: 13, fontWeight: 700, color: doc.status === "emitida" ? "#166534" : "#991B1B" }}>
-                    ({doc.status === "emitida" ? "Emitida" : "Cancelada"})
+                  <span
+                    style={{
+                      fontSize: 13,
+                      fontWeight: 700,
+                      color: (ESTADOS_NOTA[doc.status] ?? ESTADOS_NOTA.cancelada).fg,
+                    }}
+                  >
+                    ({(ESTADOS_NOTA[doc.status] ?? ESTADOS_NOTA.cancelada).label})
                   </span>
                 </div>
+                {doc.chave && (
+                  <div style={{ fontSize: 11.5, color: "var(--ink-soft)", wordBreak: "break-all" }}>
+                    Chave {doc.chave}
+                    {doc.protocolo ? ` · Protocolo ${doc.protocolo}` : ""}
+                    {doc.recibo ? ` · Recibo ${doc.recibo}` : ""}
+                  </div>
+                )}
+                {doc.motivo && (
+                  <div style={{ fontSize: 11.5, color: "#991B1B" }}>{doc.motivo}</div>
+                )}
               </div>
               <button
                 type="button"

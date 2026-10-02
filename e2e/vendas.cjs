@@ -303,7 +303,7 @@ async function main() {
 
     let aviso = "";
     try {
-      await page.getByText(/emitida com sucesso/).waitFor({ timeout: 25000 });
+      await page.getByText(/pendente de transmissão/).waitFor({ timeout: 25000 });
       aviso = (await page.getByRole("status").textContent()) || "";
     } catch {
       aviso = (await page.getByRole("status").textContent().catch(() => "")) || "";
