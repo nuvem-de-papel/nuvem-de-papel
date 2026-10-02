@@ -6,6 +6,7 @@ import { PAPEIS_GESTAO } from "@/lib/rbac";
 import { NUVEM_DE_PAPEL_TENANT_ID } from "@/lib/tenant";
 import {
   ConsoleVendas,
+  type ConsoleEmitente,
   type NotaEmitida,
   type PedidoCompra,
   type PedidoVenda,
@@ -31,7 +32,7 @@ export default async function VendasPage() {
   if (!user) redirect("/login?next=/vendas");
 
   const admin = createAdminClient();
-  const [pedRes, itensRes, pcRes, nfeRes, meuRes] = await Promise.all([
+  const [pedRes, itensRes, pcRes, nfeRes, meuRes, empRes] = await Promise.all([
     admin
       .from("orders")
       .select("id, status, channel, total_amount, created_at, customers(id, name, email)")
@@ -60,6 +61,11 @@ export default async function VendasPage() {
       .order("numero", { ascending: false })
       .limit(200),
     admin.from("profiles").select("role, status").eq("id", user.id).maybeSingle(),
+    admin
+      .from("tenant_company")
+      .select("razao_social, fantasia, cnpj, email, endereco")
+      .eq("tenant_id", NUVEM_DE_PAPEL_TENANT_ID)
+      .maybeSingle(),
   ]);
 
   const meu = meuRes.data;
@@ -145,5 +151,28 @@ export default async function VendasPage() {
     };
   });
 
-  return <ConsoleVendas vendas={vendas} compras={compras} notas={notas} />;
+  const emp = empRes.data;
+  const emitente: ConsoleEmitente | null = emp
+    ? {
+        razao: emp.razao_social,
+        fantasia: emp.fantasia ?? "",
+        cnpj: emp.cnpj ?? "",
+        email: emp.email ?? "",
+        endereco: formatarEndereco(emp.endereco as Record<string, string> | null),
+      }
+    : null;
+
+  return <ConsoleVendas vendas={vendas} compras={compras} notas={notas} emitente={emitente} />;
+}
+
+function formatarEndereco(end: Record<string, string> | null): string {
+  if (!end) return "";
+  const partes = [
+    [end.logradouro, end.numero].filter(Boolean).join(", "),
+    end.complemento,
+    end.bairro,
+    [end.cidade, end.uf].filter(Boolean).join("/"),
+    end.cep ? `CEP ${end.cep}` : "",
+  ].filter(Boolean);
+  return partes.join(" - ");
 }

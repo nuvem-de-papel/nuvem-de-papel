@@ -97,6 +97,7 @@ export type EmpresaInput = {
   cidade: string;
   logradouro: string;
   numero: string;
+  bairro: string;
   complemento: string;
   site: string;
   ambiente: string;
@@ -151,6 +152,7 @@ export async function salvarEmpresa(input: EmpresaInput): Promise<ResultadoAcao>
       cidade: (input.cidade ?? "").trim(),
       logradouro: (input.logradouro ?? "").trim(),
       numero: (input.numero ?? "").trim(),
+      bairro: (input.bairro ?? "").trim(),
       complemento: (input.complemento ?? "").trim(),
     },
     site: (input.site ?? "").trim(),

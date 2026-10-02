@@ -263,6 +263,7 @@ export type EmpresaCad = {
   cidade: string;
   logradouro: string;
   numero: string;
+  bairro: string;
   complemento: string;
   site: string;
   ambiente: string;
@@ -443,6 +444,7 @@ export function CadastrosTelaUnica({
       cidade: val("ct-emp-cidade"),
       logradouro: val("ct-emp-logradouro"),
       numero: val("ct-emp-numero"),
+      bairro: val("ct-emp-bairro"),
       complemento: val("ct-emp-complemento"),
       site: val("ct-emp-site"),
       ambiente:
@@ -480,9 +482,11 @@ export function CadastrosTelaUnica({
     const data = await buscarCep(e.target.value);
     if (!data) return;
     const logr = document.getElementById("ct-emp-logradouro") as HTMLInputElement | null;
+    const bairro = document.getElementById("ct-emp-bairro") as HTMLInputElement | null;
     const cidade = document.getElementById("ct-emp-cidade") as HTMLInputElement | null;
     const uf = document.getElementById("ct-emp-uf") as HTMLSelectElement | null;
     if (logr && data.logradouro) logr.value = data.logradouro;
+    if (bairro && data.bairro) bairro.value = data.bairro;
     if (cidade && data.localidade) cidade.value = data.localidade;
     if (uf && data.uf) uf.value = data.uf;
   };
@@ -987,7 +991,10 @@ export function CadastrosTelaUnica({
                 <div className="ct-field"><label>Número</label><input id="ct-emp-numero" defaultValue={empresa?.numero ?? ""} /></div>
               </div>
               <div className="ct-row ct-r2">
+                <div className="ct-field"><label>Bairro</label><input id="ct-emp-bairro" defaultValue={empresa?.bairro ?? ""} /></div>
                 <div className="ct-field"><label>Complemento</label><input id="ct-emp-complemento" defaultValue={empresa?.complemento ?? ""} /></div>
+              </div>
+              <div className="ct-row ct-r2">
                 <div className="ct-field"><label>Site na internet</label><input id="ct-emp-site" defaultValue={empresa?.site ?? ""} /></div>
               </div>
               <div className="ct-row ct-r1">

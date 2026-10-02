@@ -316,10 +316,17 @@ async function main() {
       await page.getByRole("button", { name: `Ver documento NF-e ${numero}` }).click();
       await page.getByRole("dialog", { name: `Documento da NF-e ${numero}` }).waitFor({ timeout: 10000 });
       const docTxt = (await page.getByRole("dialog", { name: `Documento da NF-e ${numero}` }).textContent()) || "";
+      // emitente real do documento auxiliar vem do tenant_company (F8.2-realfinal)
+      const { data: empDoc } = await admin
+        .from("tenant_company")
+        .select("cnpj")
+        .eq("tenant_id", TENANT)
+        .maybeSingle();
+      const cnpjEmit = (empDoc?.cnpj || "").replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5");
       check(
-        "V13 documento mostra emitente e destinatário",
-        docTxt.includes("49.163.008/0001-68") && docTxt.includes("Cliente Vendas E2E"),
-        ""
+        "V13 documento mostra emitente e destinat�rio",
+        !!cnpjEmit && docTxt.includes(cnpjEmit) && docTxt.includes("Cliente Vendas E2E"),
+        `cnpj=${cnpjEmit}`
       );
       await page.getByRole("button", { name: "Fechar documento" }).click();
 

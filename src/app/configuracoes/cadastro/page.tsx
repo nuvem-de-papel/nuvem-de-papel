@@ -109,6 +109,7 @@ export default async function CadastroPage() {
         cidade: emp.endereco?.cidade ?? "",
         logradouro: emp.endereco?.logradouro ?? "",
         numero: emp.endereco?.numero ?? "",
+        bairro: (emp.endereco as { bairro?: string } | null)?.bairro ?? "",
         complemento: emp.endereco?.complemento ?? "",
         site: emp.site ?? "",
         ambiente: sefaz?.ambiente ?? "homologacao",

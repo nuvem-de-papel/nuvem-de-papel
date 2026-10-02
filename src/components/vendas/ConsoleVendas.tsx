@@ -85,7 +85,15 @@ export type NotaEmitida = {
   vinculoNome: string;
 };
 
-const EMITENTE = {
+export type ConsoleEmitente = {
+  razao: string;
+  fantasia?: string;
+  cnpj: string;
+  email?: string;
+  endereco?: string;
+};
+
+const EMITENTE: ConsoleEmitente = {
   razao: "CR Comércio e Exportação LTDA",
   fantasia: "Nuvem de Papel",
   cnpj: "49.163.008/0001-68",
@@ -159,6 +167,7 @@ type FormNfe = {
   serie: number;
   nome: string;
   doc: string;
+  ieDest: string;
   endereco: string;
   freteModal: string;
   freteValor: number;
@@ -228,6 +237,7 @@ function inicial(tipo: "saida" | "entrada", nome: string): FormNfe {
     serie: 1,
     nome,
     doc: "",
+    ieDest: "",
     endereco: "",
     freteModal: "9",
     freteValor: 0,
@@ -245,11 +255,15 @@ export function ConsoleVendas({
   vendas,
   compras,
   notas,
+  emitente,
 }: {
   vendas: PedidoVenda[];
   compras: PedidoCompra[];
   notas: NotaEmitida[];
+  emitente?: ConsoleEmitente | null;
 }) {
+  const emitenteDoc: ConsoleEmitente = emitente ?? EMITENTE;
+  const cnpjEmitente = emitenteDoc.cnpj.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5");
   const [aba, setAba] = useState<"vendas" | "compras" | "notas">("vendas");
   const [expandido, setExpandido] = useState<string | null>(null);
   const [emissao, setEmissao] = useState<{ tipo: "saida" | "entrada"; pedido: PedidoVenda | PedidoCompra } | null>(null);
@@ -309,6 +323,7 @@ export function ConsoleVendas({
         nome: form.nome.trim(),
         doc: form.doc.trim(),
         endereco: form.endereco.trim(),
+        ie: form.ieDest.trim(),
       },
       frete: { modalidade: form.freteModal, valor: Number(form.freteValor) || 0 },
       itens: emissao.pedido.itens.map((i) => ({
@@ -840,6 +855,9 @@ export function ConsoleVendas({
                 <Campo label="CNPJ / CPF" largura={180}>
                   <input value={form.doc} maxLength={18} onChange={(e) => setForm({ ...form, doc: e.target.value })} style={INPUT} />
                 </Campo>
+                <Campo label="IE do destinatário (opcional)" largura={180}>
+                  <input value={form.ieDest} maxLength={14} onChange={(e) => setForm({ ...form, ieDest: e.target.value })} style={INPUT} placeholder="Contribuinte: informe a IE" />
+                </Campo>
                 <Campo label="Endereço" largura={300}>
                   <input value={form.endereco} onChange={(e) => setForm({ ...form, endereco: e.target.value })} style={INPUT} />
                 </Campo>
@@ -1093,12 +1111,12 @@ export function ConsoleVendas({
                   <div style={{ fontSize: 10.5, fontWeight: 800, textTransform: "uppercase", color: "var(--ink-soft)", marginBottom: 6 }}>
                     Emitente
                   </div>
-                  <strong>{EMITENTE.razao}</strong>
+                  <strong>{emitenteDoc.razao}</strong>
                   <div style={{ color: "var(--ink-soft)", fontSize: 12.5 }}>
-                    {EMITENTE.fantasia} · CNPJ {EMITENTE.cnpj}
+                    {emitenteDoc.fantasia} · CNPJ {cnpjEmitente}
                   </div>
-                  <div style={{ color: "var(--ink-soft)", fontSize: 12.5 }}>{EMITENTE.endereco}</div>
-                  <div style={{ color: "var(--ink-soft)", fontSize: 12.5 }}>{EMITENTE.email}</div>
+                  <div style={{ color: "var(--ink-soft)", fontSize: 12.5 }}>{emitenteDoc.endereco}</div>
+                  <div style={{ color: "var(--ink-soft)", fontSize: 12.5 }}>{emitenteDoc.email}</div>
                 </div>
                 <div style={{ border: "1px solid var(--border)", borderRadius: 12, padding: "12px 14px" }}>
                   <div style={{ fontSize: 10.5, fontWeight: 800, textTransform: "uppercase", color: "var(--ink-soft)", marginBottom: 6 }}>
