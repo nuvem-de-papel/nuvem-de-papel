@@ -55,7 +55,7 @@ Valem para qualquer sessão/IA, mesmo sem ser lembradas na conversa:
 ## Testes
 
 1. **pgTAP** por migration: `supabase/tests/NNNN_test.sql` (+ `preflight/` e `rollback/`). A query API devolve só o último result set → acumular asserts em `create temp table _out (line text)` e devolver `count(*)/falhas` na última linha. Gate = `falhas = 0`.
-2. **E2E Playwright** (`playwright-core`, canal `msedge`, `.env.local` lido por `lerEnv()`): `npm run e2e` roda `f2…f6 + email + clube + vendas + fiscal` — contagem atual **222/222**. Servidor local: build parado na 3000 → `npm run start` → suite → matar porta 3000. Base de helpers: `e2e/vendas.cjs` (nav do painel) e `e2e/email.cjs` (criar usuário de teste).
+2. **E2E Playwright** (`playwright-core`, canal `msedge`, `.env.local` lido por `lerEnv()`): `npm run e2e` roda `f2…f6 + email + clube + vendas + fiscal + sefaz` — contagem atual **233/233**. Servidor local: build parado na 3000 → `npm run start` → suite → matar porta 3000. Base de helpers: `e2e/vendas.cjs` (nav do painel) e `e2e/email.cjs` (criar usuário de teste).
 3. Smokes de produção (só leitura) ficam em `C:\Users\joaqu\AppData\Local\Temp\opencode\e2e-f2\prod-smoke-*.cjs`.
 
 ## Painel administrativo (convenções da F6.6/F6.7/F7.1 — 30/09/2026)
@@ -79,6 +79,13 @@ Valem para qualquer sessão/IA, mesmo sem ser lembradas na conversa:
 2. Validações **sempre no servidor** (`src/app/configuracoes/cadastro/actions.ts`): `eanValido`/`cnpjValido` replicam o banco; `num()` limpa `R$`/`%` (`[^\d,.-]`); produto upserta `catalog_items` + `item_fiscal_data` + `item_commercial_data` + `item_prices` (`onConflict "item_id,channel,min_quantity,valid_from"`); audit `empresa.atualizada`/`produto.criado|atualizado`.
 3. UI: produto e empresa são **reais** (props `empresa`/`produtos` do `page.tsx`, `defaultValues`); embeds 1-1 vêm como objeto **ou** array (tratar com `Array.isArray`); inputs mascarados usam `fill` com dígitos puros; feedback no `.ct-feed` (E2E espera por substring do texto da action).
 4. E2E `e2e/fiscal.cjs` (10 checks) restaura `tenant_company`/`sefaz_config` e apaga os SKUs de teste ao final. F8.2 (SEFAZ com A1+CSC) e F8.3 (Mercado Livre) seguem bloqueadas em credenciais do cliente.
+
+## Motor SEFAZ (F8.2 — 02/10/2026)
+
+1. Migration 0014: máquina M13 em `nfe_emissoes` (`pendente | transmitida | autorizada | rejeitada | cancelada`, default `pendente`; notas antigas `emitida` migraram) + `ambiente/modelo/chave(44,única por tenant)/recibo/protocolo/xml/motivo/*_em` com invariantes por estado. **Ordem importa:** drop do check antigo ANTES do `update emitida→pendente` (staging não tinha notas antigas; produção tinha).
+2. `src/lib/sefaz.ts` (servidor): `montarChave44` (43+DV mod11), `transmitirNfe/consultarNfe/cancelarEvento` — `SEFAZ_MOCK=1` (`.env.local`, dev/E2E) roda o ciclo fake; **produção é fail-closed** sem `SEFAZ_A1_PFX/SEFAZ_A1_SENHA/SEFAZ_CSC_ID/SEFAZ_CSC_TOKEN` (nunca emitir sem A1+CSC; transporte real pendente da entrega do A1). Segredos (CSC/ML) ficam em arquivo local fora do git + Vercel — nunca no repositório.
+3. Estados na UI (`ConsoleVendas.tsx`): notas nascem pendente; Transmitir (pendente) → Consultar (transmitida) → Cancelar (pendente/rejeitada/autorizada; autorizada exige evento SEFAZ). Cancelamento de pendente/rejeitada é interno.
+4. E2E `e2e/sefaz.cjs` (11 checks) exige `SEFAZ_MOCK=1` no `.env.local`; smoke de produção (`prod-smoke-sefaz.cjs`) só confere a recusa fail-closed — nunca transmite de verdade.
 
 ## Stack
 
