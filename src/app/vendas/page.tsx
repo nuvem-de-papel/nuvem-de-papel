@@ -7,16 +7,19 @@ import { NUVEM_DE_PAPEL_TENANT_ID } from "@/lib/tenant";
 import {
   ConsoleVendas,
   type ConsoleEmitente,
+  type DadoEntrega,
+  type DadoFunil,
   type NotaEmitida,
   type PedidoCompra,
   type PedidoVenda,
+  type PendenteLoja,
 } from "@/components/vendas/ConsoleVendas";
 
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Vendas — Nuvem de Papel",
-  description: "Pedidos de venda e compra em detalhe, com emissão de nota fiscal.",
+  description: "Pedidos de venda, funil de documentos, expedição e notas fiscais.",
 };
 
 function comoObjeto(valor: unknown): Record<string, unknown> | null {
@@ -32,10 +35,25 @@ export default async function VendasPage() {
   if (!user) redirect("/login?next=/vendas");
 
   const admin = createAdminClient();
-  const [pedRes, itensRes, pcRes, nfeRes, meuRes, empRes] = await Promise.all([
+  const [
+    pedRes,
+    itensRes,
+    pcRes,
+    nfeRes,
+    meuRes,
+    empRes,
+    abertosRes,
+    vendasRes,
+    notasSaidaRes,
+    entregasRes,
+    eventosRes,
+    pendentesRes,
+  ] = await Promise.all([
     admin
       .from("orders")
-      .select("id, status, channel, total_amount, created_at, customers(id, name, email)")
+      .select(
+        "id, status, channel, total_amount, created_at, origem, etapa, pedido_numero, venda_numero, cancelado_em, frete, payment_method, customers(id, name, email, documento, uf)"
+      )
       .eq("tenant_id", NUVEM_DE_PAPEL_TENANT_ID)
       .order("created_at", { ascending: false })
       .limit(200),
@@ -66,6 +84,52 @@ export default async function VendasPage() {
       .select("razao_social, fantasia, cnpj, email, endereco")
       .eq("tenant_id", NUVEM_DE_PAPEL_TENANT_ID)
       .maybeSingle(),
+    // funil (VD-02): pedidos em aberto
+    admin
+      .from("orders")
+      .select("id, total_amount", { count: "exact" })
+      .eq("tenant_id", NUVEM_DE_PAPEL_TENANT_ID)
+      .eq("etapa", "pedido")
+      .is("cancelado_em", null)
+      .limit(5000),
+    // funil: vendas (etapa venda) - "a faturar" = sem nota ativa
+    admin
+      .from("orders")
+      .select("id, total_amount", { count: "exact" })
+      .eq("tenant_id", NUVEM_DE_PAPEL_TENANT_ID)
+      .eq("etapa", "venda")
+      .is("cancelado_em", null)
+      .limit(5000),
+    // funil: notas de saida (emitidas x rejeitadas) + quais vendas tem nota
+    admin
+      .from("nfe_emissoes")
+      .select("numero, status, totais, order:orders(id)")
+      .eq("tenant_id", NUVEM_DE_PAPEL_TENANT_ID)
+      .eq("tipo", "saida")
+      .order("numero", { ascending: false })
+      .limit(5000),
+    admin
+      .from("entregas")
+      .select("id, order_id, status, transportadora, rastreio, prazo, observacao")
+      .eq("tenant_id", NUVEM_DE_PAPEL_TENANT_ID)
+      .order("created_at", { ascending: false })
+      .limit(1000),
+    admin
+      .from("entrega_eventos")
+      .select("entrega_id, para_status, nota, created_at")
+      .eq("tenant_id", NUVEM_DE_PAPEL_TENANT_ID)
+      .order("created_at", { ascending: false })
+      .limit(500),
+    // "Importar da loja" (secao 4): pagos da loja ainda sem numero P-
+    admin
+      .from("orders")
+      .select("id, payment_method, customers(name, documento, uf)")
+      .eq("tenant_id", NUVEM_DE_PAPEL_TENANT_ID)
+      .eq("origem", "loja")
+      .is("pedido_numero", null)
+      .is("cancelado_em", null)
+      .order("created_at", { ascending: false })
+      .limit(500),
   ]);
 
   const meu = meuRes.data;
@@ -93,7 +157,13 @@ export default async function VendasPage() {
       codigo: `PED-${o.id.slice(0, 8).toUpperCase()}`,
       cliente: (cliente?.name as string) ?? "—",
       email: (cliente?.email as string) ?? "",
+      documento: (cliente?.documento as string | null) ?? null,
       canal: o.channel,
+      origem: (o.origem as string) ?? "erp",
+      etapa: (o.etapa as string | null) ?? null,
+      cancelado: !!o.cancelado_em,
+      pedidoNumero: (o.pedido_numero as string | null) ?? null,
+      vendaNumero: (o.venda_numero as string | null) ?? null,
       status: o.status,
       data: o.created_at,
       total: Number(o.total_amount),
@@ -151,6 +221,122 @@ export default async function VendasPage() {
     };
   });
 
+  // ---------------------------------------------------------------- funil --
+  const somaTotal = (linhas: { total_amount: number }[]) =>
+    linhas.reduce((s, l) => s + Number(l.total_amount ?? 0), 0);
+
+  const ativas = new Set<string>(); // vendas com nota pendente/transmitida/autorizada
+  const emitidasIds: string[] = [];
+  const rejeitadasIds: string[] = [];
+  let totalEmitidas = 0;
+  let totalRejeitadas = 0;
+  for (const n of notasSaidaRes.data ?? []) {
+    const oid = comoObjeto(n.order)?.id as string | undefined;
+    const total = Number((n.totais as { total?: number } | null)?.total ?? 0);
+    if (n.status === "rejeitada") {
+      if (oid) rejeitadasIds.push(oid);
+      totalRejeitadas += total;
+    } else if (n.status !== "cancelada") {
+      if (oid) {
+        emitidasIds.push(oid);
+        ativas.add(oid);
+      }
+      totalEmitidas += total;
+    }
+  }
+
+  const afaturarIds: string[] = [];
+  let totalAfaturar = 0;
+  for (const v of vendasRes.data ?? []) {
+    if (!ativas.has(v.id)) {
+      afaturarIds.push(v.id);
+      totalAfaturar += Number(v.total_amount ?? 0);
+    }
+  }
+
+  const LIMITE_IDS = 2000;
+  const funil: DadoFunil = {
+    pedidos: {
+      qtd: abertosRes.count ?? 0,
+      total: somaTotal(abertosRes.data ?? []),
+      ids: (abertosRes.data ?? []).map((r) => r.id).slice(0, LIMITE_IDS),
+    },
+    afaturar: {
+      qtd: afaturarIds.length,
+      total: totalAfaturar,
+      ids: afaturarIds.slice(0, LIMITE_IDS),
+    },
+    emitidas: {
+      qtd: emitidasIds.length,
+      total: totalEmitidas,
+      ids: emitidasIds.slice(0, LIMITE_IDS),
+    },
+    rejeitadas: {
+      qtd: rejeitadasIds.length,
+      total: totalRejeitadas,
+      ids: rejeitadasIds.slice(0, LIMITE_IDS),
+    },
+  };
+
+  // ------------------------------------------------------------ expedicao --
+  const pedPorId = new Map(vendas.map((v) => [v.id, v]));
+  const notaPorPedido = new Map<string, number>();
+  for (const n of notasSaidaRes.data ?? []) {
+    const oid = comoObjeto(n.order)?.id as string | undefined;
+    // notas vem do mais novo para o mais velho: primeira vence
+    if (oid && n.status !== "cancelada" && !notaPorPedido.has(oid)) {
+      notaPorPedido.set(oid, Number(n.numero));
+    }
+  }
+
+  const eventosPorEntrega = new Map<string, { texto: string; em: string }>();
+  for (const ev of eventosRes.data ?? []) {
+    if (!eventosPorEntrega.has(ev.entrega_id)) {
+      eventosPorEntrega.set(ev.entrega_id, {
+        texto: [ev.para_status, ev.nota].filter(Boolean).join(" — "),
+        em: ev.created_at,
+      });
+    }
+  }
+
+  const hoje = new Date().toISOString().slice(0, 10);
+  const expedicao: DadoEntrega[] = [];
+  for (const en of entregasRes.data ?? []) {
+    const pedido = pedPorId.get(en.order_id);
+    if (!pedido) continue; // pedido fora da janela de 200
+    const prazo = (en.prazo as string | null) ?? null;
+    const concluida = en.status === "entregue" || en.status === "devolvido";
+    expedicao.push({
+      id: en.id,
+      orderId: en.order_id,
+      codigo: pedido.codigo,
+      cliente: pedido.cliente,
+      status: en.status,
+      transportadora: (en.transportadora as string | null) ?? null,
+      rastreio: (en.rastreio as string | null) ?? null,
+      prazo,
+      atrasada: !!prazo && !concluida && prazo < hoje,
+      nota: notaPorPedido.get(en.order_id) ?? null,
+      ultimoEvento: eventosPorEntrega.get(en.id) ?? null,
+      concluida,
+      observacao: (en.observacao as string | null) ?? null,
+    });
+  }
+
+  // ----------------------------------------------------- importar da loja --
+  const pendentes: PendenteLoja[] = (pendentesRes.data ?? []).map((p) => {
+    const c = comoObjeto(p.customers);
+    return {
+      id: p.id,
+      codigo: `PED-${p.id.slice(0, 8).toUpperCase()}`,
+      cliente: (c?.name as string) ?? "—",
+      documento: (c?.documento as string | null) ?? null,
+      uf: (c?.uf as string | null) ?? null,
+      itens: itensPorPedido.get(p.id)?.length ?? 0,
+      pagamento: (p.payment_method as string | null) ?? null,
+    };
+  });
+
   const emp = empRes.data;
   const emitente: ConsoleEmitente | null = emp
     ? {
@@ -162,7 +348,17 @@ export default async function VendasPage() {
       }
     : null;
 
-  return <ConsoleVendas vendas={vendas} compras={compras} notas={notas} emitente={emitente} />;
+  return (
+    <ConsoleVendas
+      vendas={vendas}
+      compras={compras}
+      notas={notas}
+      funil={funil}
+      expedicao={expedicao}
+      pendentes={pendentes}
+      emitente={emitente}
+    />
+  );
 }
 
 function formatarEndereco(end: Record<string, string> | null): string {

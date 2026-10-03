@@ -236,6 +236,9 @@ export async function finalizarCheckout(input: {
       customer_id: clienteRes.id,
       user_id: user.id,
       channel: canal,
+      // 0015/0016: pedido da loja entra como origem 'loja' com etapa nula;
+      // a aba "Importar da loja" (/vendas) gera o numero P- e a etapa.
+      origem: "loja",
       status: "aguardando_pagamento",
       total_amount: total,
       discount_amount: desconto,

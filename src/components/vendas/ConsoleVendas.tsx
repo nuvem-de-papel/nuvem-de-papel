@@ -1,13 +1,20 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { Fragment, useMemo, useState, useTransition } from "react";
 import { PageHeader } from "@/components/admin/PageHeader";
 import {
+  avancarEntrega,
+  atualizarEntrega,
   cancelarNfe,
+  cancelarPedido,
   consultarNfe,
+  converterVenda,
   emitirNfe,
+  importarPedidosLoja,
+  registrarOcorrencia,
   transmitirNfe,
   type EntradaNfe,
+  type Resultado,
   type ResultadoNfe,
 } from "@/app/vendas/actions";
 
@@ -33,11 +40,65 @@ export type PedidoVenda = {
   codigo: string;
   cliente: string;
   email: string;
+  documento: string | null;
   canal: string;
+  origem: string;
+  etapa: string | null;
+  cancelado: boolean;
+  pedidoNumero: string | null;
+  vendaNumero: string | null;
   status: string;
   data: string;
   total: number;
   itens: ItemPedido[];
+};
+
+// Vendas v5: funil (VD-02), expedicao (EN-*) e importacao da loja (secao 4)
+export type FunilBucket = { qtd: number; total: number; ids: string[] };
+export type DadoFunil = {
+  pedidos: FunilBucket;
+  afaturar: FunilBucket;
+  emitidas: FunilBucket;
+  rejeitadas: FunilBucket;
+};
+
+export type DadoEntrega = {
+  id: string;
+  orderId: string;
+  codigo: string;
+  cliente: string;
+  status: string;
+  transportadora: string | null;
+  rastreio: string | null;
+  prazo: string | null;
+  atrasada: boolean;
+  nota: number | null;
+  ultimoEvento: { texto: string; em: string } | null;
+  concluida: boolean;
+  observacao: string | null;
+};
+
+export type PendenteLoja = {
+  id: string;
+  codigo: string;
+  cliente: string;
+  documento: string | null;
+  uf: string | null;
+  itens: number;
+  pagamento: string | null;
+};
+
+type Aba = "vendas" | "expedicao" | "importar" | "compras" | "notas";
+type FiltroFunil = "todos" | "pedidos" | "afaturar" | "emitidas" | "rejeitadas";
+type FiltroCanal = "todos" | "varejo" | "atacado" | "loja";
+type FiltroExp = "expedir" | "caminho" | "problema" | "entregues";
+
+type AcaoLinha = {
+  label: string;
+  aria: string;
+  bg: string;
+  fg: string;
+  tipo: "converter" | "emitir" | "expedicao" | "notas";
 };
 
 export type PedidoCompra = {
@@ -116,6 +177,40 @@ const STATUS_COMPRA: Record<string, { label: string; bg: string; fg: string }> =
   recebido: { label: "Recebido", bg: "#DCFCE7", fg: "#166534" },
   cancelado: { label: "Cancelado", bg: "#FEE2E2", fg: "#991B1B" },
 };
+
+const STATUS_ENTREGA: Record<string, { label: string; bg: string; fg: string }> = {
+  aguardando: { label: "A separar", bg: "#FEF3C7", fg: "#92400E" },
+  separado: { label: "Separado", bg: "#E0E7FF", fg: "#3730A3" },
+  em_transito: { label: "Em trânsito", bg: "#DBEAFE", fg: "#1E40AF" },
+  entregue: { label: "Entregue", bg: "#DCFCE7", fg: "#166534" },
+  falhou: { label: "Ocorrência", bg: "#FEE2E2", fg: "#991B1B" },
+  devolvido: { label: "Devolvido", bg: "#F3F4F6", fg: "#374151" },
+};
+
+const FILTROS_FUNIL = [
+  { id: "pedidos", label: "Pedidos em aberto", bg: "#DBEAFE", fg: "#1E40AF" },
+  { id: "afaturar", label: "Vendas a faturar", bg: "#FEF3C7", fg: "#92400E" },
+  { id: "emitidas", label: "Notas emitidas", bg: "#DCFCE7", fg: "#166534" },
+  { id: "rejeitadas", label: "Notas rejeitadas", bg: "#FEE2E2", fg: "#991B1B" },
+] as const;
+
+const CHIPS_CANAL = [
+  { id: "todos", label: "Todos os canais" },
+  { id: "varejo", label: "Varejo" },
+  { id: "atacado", label: "Atacado" },
+  { id: "loja", label: "Loja online" },
+] as const;
+
+const FILTROS_EXP = [
+  { id: "expedir", label: "A expedir" },
+  { id: "caminho", label: "A caminho" },
+  { id: "problema", label: "Com problema" },
+  { id: "entregues", label: "Entregues" },
+] as const;
+
+const TRANSPORTADORAS = ["Jadlog", "Correios PAC", "Correios SEDEX", "Loggi", "Transportadora própria", "Retirada na loja"];
+
+const ETAPAS_NOMES = ["Pedido", "Venda", "Nota", "Entrega"];
 
 const FRETE_OPCOES = [
   { v: "0", l: "0 — CIF (paga o emitente)" },
@@ -251,26 +346,127 @@ function inicial(tipo: "saida" | "entrada", nome: string): FormNfe {
   };
 }
 
+// Etapa do documento em 4 pontos (spec 7.2): feitas em navy, atual em rosa,
+// erro em vermelho "!", pendentes em cinza.
+function EtapaPontos({
+  atual,
+  cancelado,
+  rejeitada,
+}: {
+  atual: number;
+  cancelado: boolean;
+  rejeitada: boolean;
+}) {
+  const base: React.CSSProperties = {
+    width: 20,
+    height: 20,
+    borderRadius: "50%",
+    fontSize: 10.5,
+    fontWeight: 800,
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    boxSizing: "border-box",
+  };
+  return (
+    <span style={{ display: "inline-flex", gap: 5 }} aria-label="Etapa do documento">
+      {ETAPAS_NOMES.map((nome, i) => {
+        if (cancelado) {
+          return (
+            <span
+              key={nome}
+              title={`${nome}: —`}
+              aria-label={`Etapa ${nome} inexistente`}
+              style={{ ...base, background: "var(--border)", color: "var(--ink-soft)" }}
+            >
+              —
+            </span>
+          );
+        }
+        if (rejeitada && i === 2) {
+          return (
+            <span
+              key={nome}
+              title={`${nome}: rejeitada`}
+              aria-label={`Etapa ${nome} com erro`}
+              style={{ ...base, background: "#FEE2E2", color: "#991B1B", border: "1px solid #FECACA" }}
+            >
+              !
+            </span>
+          );
+        }
+        if (i < atual) {
+          return (
+            <span
+              key={nome}
+              title={`${nome}: concluída`}
+              aria-label={`Etapa ${nome} concluída`}
+              style={{ ...base, background: "var(--navy)", color: "#FFF" }}
+            >
+              ✓
+            </span>
+          );
+        }
+        if (i === atual) {
+          return (
+            <span
+              key={nome}
+              title={`${nome}: atual`}
+              aria-label={`Etapa ${nome} atual`}
+              style={{ ...base, background: "var(--pink-600)", color: "#FFF" }}
+            />
+          );
+        }
+        return (
+          <span
+            key={nome}
+            title={`${nome}: pendente`}
+            aria-label={`Etapa ${nome} pendente`}
+            style={{ ...base, background: "var(--bg-cloud)", color: "var(--ink-soft)", border: "1px solid var(--border)" }}
+          >
+            ·
+          </span>
+        );
+      })}
+    </span>
+  );
+}
+
 export function ConsoleVendas({
   vendas,
   compras,
   notas,
+  funil,
+  expedicao,
+  pendentes,
   emitente,
 }: {
   vendas: PedidoVenda[];
   compras: PedidoCompra[];
   notas: NotaEmitida[];
+  funil: DadoFunil;
+  expedicao: DadoEntrega[];
+  pendentes: PendenteLoja[];
   emitente?: ConsoleEmitente | null;
 }) {
   const emitenteDoc: ConsoleEmitente = emitente ?? EMITENTE;
   const cnpjEmitente = emitenteDoc.cnpj.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5");
-  const [aba, setAba] = useState<"vendas" | "compras" | "notas">("vendas");
+  const [aba, setAba] = useState<Aba>("vendas");
   const [expandido, setExpandido] = useState<string | null>(null);
   const [emissao, setEmissao] = useState<{ tipo: "saida" | "entrada"; pedido: PedidoVenda | PedidoCompra } | null>(null);
   const [form, setForm] = useState<FormNfe | null>(null);
   const [doc, setDoc] = useState<NotaEmitida | null>(null);
   const [aviso, setAviso] = useState<{ tipo: "ok" | "erro"; texto: string } | null>(null);
   const [pendente, startTransition] = useTransition();
+  // Vendas v5: funil/busca/canais (VD-02), expedicao (EN-*) e importar loja
+  const [funilFiltro, setFunilFiltro] = useState<FiltroFunil>("todos");
+  const [canalFiltro, setCanalFiltro] = useState<FiltroCanal>("todos");
+  const [busca, setBusca] = useState("");
+  const [filtroExp, setFiltroExp] = useState<FiltroExp | null>(null);
+  const [entForm, setEntForm] = useState<Record<string, { transportadora: string; rastreio: string; prazo: string }>>({});
+  const [ocorrId, setOcorrId] = useState<string | null>(null);
+  const [ocorrTexto, setOcorrTexto] = useState("");
+  const [marcados, setMarcados] = useState<Record<string, boolean>>({});
 
   const proximoNumero = useMemo(() => {
     return (serie: number) => {
@@ -385,6 +581,214 @@ export function ConsoleVendas({
     setExpandido((atual) => (atual === id ? null : id));
   }
 
+  // ------------------------------------------------------------ v5: dados --
+  const entregaPorPedido = useMemo(
+    () => new Map(expedicao.map((e) => [e.orderId, e])),
+    [expedicao]
+  );
+
+  const qtdExpedicao = useMemo(
+    () =>
+      expedicao.filter(
+        (e) =>
+          ["aguardando", "separado", "falhou"].includes(e.status) ||
+          (e.atrasada && e.status !== "entregue")
+      ).length,
+    [expedicao]
+  );
+
+  const vendasFiltradas = useMemo(() => {
+    let rows = vendas;
+    if (funilFiltro !== "todos") {
+      const ids = funil[funilFiltro].ids;
+      rows = rows.filter((r) => ids.includes(r.id));
+    }
+    if (canalFiltro !== "todos") {
+      rows = rows.filter((r) =>
+        canalFiltro === "loja" ? r.origem === "loja" : r.canal === canalFiltro
+      );
+    }
+    const termo = busca.trim().toLowerCase();
+    if (termo) {
+      rows = rows.filter((r) => {
+        if (r.codigo.toLowerCase().includes(termo)) return true;
+        if ((r.vendaNumero ?? "").toLowerCase().includes(termo)) return true;
+        if ((r.pedidoNumero ?? "").toLowerCase().includes(termo)) return true;
+        if (r.cliente.toLowerCase().includes(termo)) return true;
+        if ((r.documento ?? "").includes(termo)) return true;
+        return notas.some(
+          (n) => n.vinculo === r.codigo && String(n.numero) === termo
+        );
+      });
+    }
+    return rows;
+  }, [vendas, funil, funilFiltro, canalFiltro, busca, notas]);
+
+  const listaExp = useMemo(() => {
+    if (!filtroExp) return expedicao;
+    return expedicao.filter((e) => {
+      if (filtroExp === "expedir") return e.status === "aguardando" || e.status === "separado";
+      if (filtroExp === "caminho") return e.status === "em_transito";
+      if (filtroExp === "problema") {
+        return e.status === "falhou" || e.status === "devolvido" || e.atrasada;
+      }
+      return e.status === "entregue";
+    });
+  }, [expedicao, filtroExp]);
+
+  const retiradasNaLoja = useMemo(
+    () => expedicao.filter((e) => e.transportadora === "Retirada na loja").length,
+    [expedicao]
+  );
+
+  // ------------------------------------------------------------ v5: acoes --
+  function mostrar(r: Resultado) {
+    if (r.ok) setAviso({ tipo: "ok", texto: r.msg });
+    else setAviso({ tipo: "erro", texto: r.erro });
+  }
+
+  function converter(p: PedidoVenda) {
+    startTransition(async () => mostrar(await converterVenda(p.id)));
+  }
+
+  function cancelarLinha(p: PedidoVenda) {
+    if (!window.confirm(`Cancelar o pedido ${p.codigo}?`)) return;
+    startTransition(async () => mostrar(await cancelarPedido(p.id)));
+  }
+
+  function salvarEntrega(e: DadoEntrega) {
+    const dados =
+      entForm[e.id] ?? { transportadora: e.transportadora ?? "", rastreio: e.rastreio ?? "", prazo: e.prazo ?? "" };
+    startTransition(async () => {
+      const r = await atualizarEntrega(e.id, dados);
+      setEntForm((atual) => {
+        const copia = { ...atual };
+        delete copia[e.id];
+        return copia;
+      });
+      mostrar(r);
+    });
+  }
+
+  function avancar(e: DadoEntrega) {
+    startTransition(async () => mostrar(await avancarEntrega(e.id)));
+  }
+
+  function confirmarOcorrencia(e: DadoEntrega) {
+    startTransition(async () => {
+      const r = await registrarOcorrencia(e.id, ocorrTexto);
+      if (r.ok) {
+        setOcorrId(null);
+        setOcorrTexto("");
+      }
+      mostrar(r);
+    });
+  }
+
+  function importarMarcados() {
+    const ids = pendentes.filter((p) => marcados[p.id] ?? true).map((p) => p.id);
+    startTransition(async () => mostrar(await importarPedidosLoja(ids)));
+  }
+
+  function acaoPrincipal(p: PedidoVenda): AcaoLinha | null {
+    if (p.cancelado) return null;
+    // pedido: converter (VD-03); o cancelar fica num botao a parte
+    if (p.etapa === "pedido") {
+      return {
+        label: "Converter em venda",
+        aria: `Converter em venda ${p.codigo}`,
+        bg: "var(--pink-600)",
+        fg: "#FFF",
+        tipo: "converter",
+      };
+    }
+    const exp = entregaPorPedido.get(p.id);
+    if (exp) {
+      if (exp.status === "falhou" || (exp.atrasada && !exp.concluida)) {
+        return {
+          label: "Resolver entrega",
+          aria: `Resolver entrega ${p.codigo}`,
+          bg: "#DC2626",
+          fg: "#fff",
+          tipo: "expedicao",
+        };
+      }
+      if (exp.status === "aguardando" || exp.status === "separado") {
+        return {
+          label: "Expedir",
+          aria: `Expedir ${p.codigo}`,
+          bg: "var(--pink-600)",
+          fg: "#FFF",
+          tipo: "expedicao",
+        };
+      }
+      if (exp.status === "em_transito") {
+        return {
+          label: "Ver rastreio",
+          aria: `Ver rastreio ${p.codigo}`,
+          bg: "var(--bg-cloud)",
+          fg: "var(--navy)",
+          tipo: "expedicao",
+        };
+      }
+      if (exp.status === "entregue") {
+        return {
+          label: "Ver nota",
+          aria: `Ver nota ${p.codigo}`,
+          bg: "var(--bg-cloud)",
+          fg: "var(--navy)",
+          tipo: "notas",
+        };
+      }
+      return null; // devolvido: so historico
+    }
+    const notaRow = notas.find(
+      (n) => n.tipo === "saida" && n.vinculo === p.codigo && n.status !== "cancelada"
+    );
+    if (notaRow && notaRow.status !== "rejeitada") {
+      return {
+        label: "Ver nota",
+        aria: `Ver nota ${p.codigo}`,
+        bg: "var(--bg-cloud)",
+        fg: "var(--navy)",
+        tipo: "notas",
+      };
+    }
+    return {
+      label: "Emitir NF-e",
+      aria: `Emitir NF-e ${p.codigo}`,
+      bg: "var(--pink-600)",
+      fg: "#FFF",
+      tipo: "emitir",
+    };
+  }
+
+  function executarAcao(p: PedidoVenda) {
+    const acao = acaoPrincipal(p);
+    if (!acao) return;
+    if (acao.tipo === "converter") return converter(p);
+    if (acao.tipo === "emitir") return abrirEmissao("saida", p);
+    setExpandido(null);
+    setAba(acao.tipo === "notas" ? "notas" : "expedicao");
+  }
+
+  function notaDaLinha(p: PedidoVenda): NotaEmitida | null {
+    return (
+      notas.find(
+        (n) => n.tipo === "saida" && n.vinculo === p.codigo && n.status !== "cancelada"
+      ) ?? null
+    );
+  }
+
+  function passoAtual(p: PedidoVenda, notaRow: NotaEmitida | null): number {
+    if (p.etapa === "pedido") return 1;
+    if (p.etapa !== "venda") return 0; // etapa nula = loja ainda nao importada
+    const exp = entregaPorPedido.get(p.id);
+    if (exp) return exp.concluida ? 4 : 3;
+    if (notaRow?.status === "autorizada") return 3;
+    return 2;
+  }
+
   const th: React.CSSProperties = {
     fontSize: 11,
     fontWeight: 800,
@@ -413,8 +817,10 @@ export function ConsoleVendas({
     boxShadow: "var(--shadow-card)",
   };
 
-  const TABS: { id: "vendas" | "compras" | "notas"; label: string; qtd: number }[] = [
+  const TABS: { id: Aba; label: string; qtd: number }[] = [
     { id: "vendas", label: "Vendas", qtd: vendas.length },
+    { id: "expedicao", label: "Expedição", qtd: qtdExpedicao },
+    { id: "importar", label: "Importar da loja", qtd: pendentes.length },
     { id: "compras", label: "Compras", qtd: compras.length },
     { id: "notas", label: "Notas emitidas", qtd: notas.length },
   ];
@@ -445,6 +851,35 @@ export function ConsoleVendas({
         </div>
       )}
 
+      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
+        <button
+          type="button"
+          aria-label="Importar da loja"
+          onClick={() => {
+            setAba("importar");
+            setExpandido(null);
+          }}
+          style={{ ...BTN, background: "#FFF", color: "var(--navy)", border: "1.5px solid var(--border)" }}
+        >
+          Importar da loja
+          {pendentes.length > 0 && (
+            <span
+              style={{
+                marginLeft: 8,
+                background: "var(--pink-600)",
+                color: "#FFF",
+                borderRadius: 999,
+                padding: "1px 8px",
+                fontSize: 11.5,
+              }}
+            >
+              {pendentes.length}
+            </span>
+          )}
+        </button>
+        {/* TODO §7.3: "Nova venda ou pedido" quando o editor da venda existir */}
+      </div>
+
       <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap" }}>
         {TABS.map((t) => (
           <button
@@ -473,106 +908,728 @@ export function ConsoleVendas({
       </div>
 
       {aba === "vendas" && (
-        <div style={CARD}>
-          {vendas.length === 0 ? (
-            <p style={{ color: "var(--ink-soft)", fontSize: 14, padding: 24, margin: 0 }}>
-              Nenhum pedido de venda registrado.
+        <div>
+          {/* funil (VD-02): 4 cartoes clicaveis que filtram a lista */}
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))",
+              gap: 10,
+              marginBottom: 14,
+            }}
+          >
+            {FILTROS_FUNIL.map((b) => {
+              const d = funil[b.id];
+              const ativo = funilFiltro === b.id;
+              return (
+                <button
+                  key={b.id}
+                  type="button"
+                  aria-label={`Filtro ${b.label}`}
+                  onClick={() => setFunilFiltro(ativo ? "todos" : b.id)}
+                  style={{
+                    textAlign: "left",
+                    padding: "12px 14px",
+                    borderRadius: 12,
+                    cursor: "pointer",
+                    background: ativo ? "var(--navy)" : "#FFF",
+                    color: ativo ? "#FFF" : "var(--ink)",
+                    border: `1.5px solid ${ativo ? "var(--navy)" : "var(--border)"}`,
+                    boxShadow: "var(--shadow-card)",
+                    fontFamily: "'Open Sans', sans-serif",
+                  }}
+                >
+                  <span
+                    style={{
+                      display: "block",
+                      fontSize: 11.5,
+                      fontWeight: 800,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.04em",
+                      color: ativo ? "#FFF" : b.fg,
+                    }}
+                  >
+                    {b.label}
+                  </span>
+                  <span style={{ display: "block", fontSize: 21, fontWeight: 800, marginTop: 4 }}>{d.qtd}</span>
+                  <span style={{ display: "block", fontSize: 12.5, opacity: 0.8 }}>{brl(d.total)}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* busca + chips de canal (VD-02 / VL-05) */}
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 14 }}>
+            <input
+              aria-label="Buscar vendas"
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
+              placeholder="Buscar por documento, cliente, CPF/CNPJ ou nota"
+              style={{
+                flex: "1 1 240px",
+                minWidth: 220,
+                padding: "8px 12px",
+                borderRadius: 10,
+                border: "1.5px solid var(--border)",
+                fontSize: 13.5,
+                fontFamily: "'Open Sans', sans-serif",
+                color: "var(--ink)",
+              }}
+            />
+            {CHIPS_CANAL.map((c) => (
+              <button
+                key={c.id}
+                type="button"
+                aria-label={`Canal ${c.label}`}
+                onClick={() => setCanalFiltro(c.id)}
+                style={{
+                  padding: "7px 14px",
+                  borderRadius: 999,
+                  fontSize: 12.5,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  fontFamily: "'Open Sans', sans-serif",
+                  border: `1.5px solid ${canalFiltro === c.id ? "var(--pink-600)" : "var(--border)"}`,
+                  background: canalFiltro === c.id ? "var(--pink-600)" : "#FFF",
+                  color: canalFiltro === c.id ? "#FFF" : "var(--ink-soft)",
+                }}
+              >
+                {c.label}
+              </button>
+            ))}
+          </div>
+
+          {funilFiltro !== "todos" && (
+            <p style={{ fontSize: 12.5, color: "var(--ink-soft)", margin: "0 0 10px" }}>
+              Filtrando por “{FILTROS_FUNIL.find((b) => b.id === funilFiltro)?.label}” — clique no cartão para limpar.
             </p>
-          ) : (
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead>
-                <tr>
-                  <th style={th}>Pedido</th>
-                  <th style={th}>Cliente</th>
-                  <th style={th}>Canal</th>
-                  <th style={th}>Status</th>
-                  <th style={th}>Data</th>
-                  <th style={{ ...th, textAlign: "right" }}>Total</th>
-                  <th style={{ ...th, textAlign: "right" }}>Ações</th>
-                </tr>
-              </thead>
-              <tbody>
-                {vendas.map((p) => {
-                  const st = STATUS_VENDA[p.status] ?? { label: p.status, bg: "var(--bg-cloud)", fg: "var(--ink-soft)" };
-                  return (
-                    <tr key={p.id} style={{ borderBottom: expandido === p.id ? "none" : undefined }}>
-                      <td style={{ ...td, fontWeight: 700 }}>{p.codigo}</td>
-                      <td style={td}>
-                        {p.cliente}
-                        {p.email && (
-                          <span style={{ display: "block", fontSize: 11.5, color: "var(--ink-soft)" }}>{p.email}</span>
-                        )}
-                      </td>
-                      <td style={{ ...td, textTransform: "capitalize" }}>{p.canal}</td>
-                      <td style={td}>
-                        <Badge bg={st.bg} fg={st.fg}>{st.label}</Badge>
-                      </td>
-                      <td style={{ ...td, whiteSpace: "nowrap" }}>{quando(p.data)}</td>
-                      <td style={{ ...td, textAlign: "right", fontWeight: 700, whiteSpace: "nowrap" }}>{brl(p.total)}</td>
-                      <td style={{ ...td, textAlign: "right", whiteSpace: "nowrap" }}>
-                        <button
-                          type="button"
-                          onClick={() => toggleExpandir(p.id)}
-                          style={{ ...BTN, background: "var(--bg-cloud)", color: "var(--navy)", marginRight: 8 }}
-                        >
-                          {expandido === p.id ? "Ocultar" : "Itens"}
-                        </button>
-                        <button
-                          type="button"
-                          aria-label={`Emitir NF-e ${p.codigo}`}
-                          onClick={() => abrirEmissao("saida", p)}
-                          style={{ ...BTN, background: "var(--pink-600)", color: "#FFF" }}
-                        >
-                          Emitir NF-e
-                        </button>
-                      </td>
+          )}
+
+          <div style={CARD}>
+            {vendasFiltradas.length === 0 ? (
+              <p style={{ color: "var(--ink-soft)", fontSize: 14, padding: 24, margin: 0 }}>
+                {vendas.length === 0
+                  ? "Nenhum pedido de venda registrado."
+                  : "Nenhum documento corresponde aos filtros."}
+              </p>
+            ) : (
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                  <thead>
+                    <tr>
+                      <th style={th}>Documento</th>
+                      <th style={th}>Cliente</th>
+                      <th style={th}>Canal</th>
+                      <th style={th}>Etapa</th>
+                      <th style={th}>Status</th>
+                      <th style={{ ...th, textAlign: "right" }}>Total</th>
+                      <th style={th}>Nota / entrega</th>
+                      <th style={{ ...th, textAlign: "right" }}>Ações</th>
                     </tr>
-                  );
-                })}
-                {vendas.map((p) =>
-                  expandido === p.id ? (
-                    <tr key={`${p.id}-itens`}>
-                      <td colSpan={7} style={{ ...td, background: "#FFF", borderBottom: "1px solid var(--border)" }}>
-                        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-                          <thead>
-                            <tr>
-                              <th style={{ ...th, paddingLeft: 24 }}>SKU</th>
-                              <th style={th}>Descrição</th>
-                              <th style={{ ...th, textAlign: "right" }}>Qtd</th>
-                              <th style={{ ...th, textAlign: "right" }}>V. unit</th>
-                              <th style={{ ...th, textAlign: "right", paddingRight: 24 }}>Total</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {p.itens.length === 0 ? (
+                  </thead>
+                  <tbody>
+                  {vendasFiltradas.map((p) => {
+                    const st = STATUS_VENDA[p.status] ?? { label: p.status, bg: "var(--bg-cloud)", fg: "var(--ink-soft)" };
+                    const notaRow = notaDaLinha(p);
+                    const exp = entregaPorPedido.get(p.id);
+                    const acao = acaoPrincipal(p);
+                    return (
+                      <tr key={p.id} style={{ borderBottom: expandido === p.id ? "none" : undefined }}>
+                        <td style={{ ...td, fontWeight: 700, whiteSpace: "nowrap" }}>
+                          {p.codigo}
+                          {(p.vendaNumero || p.pedidoNumero) && (
+                            <span style={{ display: "block", fontSize: 11.5, color: "var(--ink-soft)", fontWeight: 600 }}>
+                              {p.vendaNumero
+                                ? `${p.vendaNumero}${p.pedidoNumero ? ` · de ${p.pedidoNumero}` : ""}`
+                                : p.pedidoNumero}
+                            </span>
+                          )}
+                          {p.cancelado && (
+                            <span style={{ display: "inline-block", marginTop: 4 }}>
+                              <Badge bg="#FEE2E2" fg="#991B1B">Cancelado</Badge>
+                            </span>
+                          )}
+                        </td>
+                        <td style={td}>
+                          {p.cliente}
+                          {p.email && (
+                            <span style={{ display: "block", fontSize: 11.5, color: "var(--ink-soft)" }}>{p.email}</span>
+                          )}
+                        </td>
+                        <td style={{ ...td, textTransform: "capitalize" }}>
+                          {p.origem === "loja" ? "Loja online" : p.canal}
+                        </td>
+                        <td style={td}>
+                          <EtapaPontos
+                            atual={passoAtual(p, notaRow)}
+                            cancelado={p.cancelado}
+                            rejeitada={notaRow?.status === "rejeitada"}
+                          />
+                        </td>
+                        <td style={td}>
+                          <Badge bg={st.bg} fg={st.fg}>{st.label}</Badge>
+                        </td>
+                        <td style={{ ...td, textAlign: "right", fontWeight: 700, whiteSpace: "nowrap" }}>{brl(p.total)}</td>
+                        <td style={td}>
+                          {notaRow ? (
+                            (() => {
+                              const s = ESTADOS_NOTA[notaRow.status] ?? ESTADOS_NOTA.pendente;
+                              return (
+                                <Badge bg={s.bg} fg={s.fg}>{s.label}</Badge>
+                              );
+                            })()
+                          ) : exp ? (
+                            exp.atrasada ? (
+                              <Badge bg="#FEE2E2" fg="#991B1B">Atrasada</Badge>
+                            ) : (() => {
+                                const s = STATUS_ENTREGA[exp.status] ?? {
+                                  label: exp.status,
+                                  bg: "var(--bg-cloud)",
+                                  fg: "var(--ink-soft)",
+                                };
+                                return <Badge bg={s.bg} fg={s.fg}>{s.label}</Badge>;
+                              })()
+                          ) : (
+                            <span style={{ color: "var(--ink-soft)" }}>—</span>
+                          )}
+                        </td>
+                        <td style={{ ...td, textAlign: "right", whiteSpace: "nowrap" }}>
+                          <button
+                            type="button"
+                            onClick={() => toggleExpandir(p.id)}
+                            style={{ ...BTN, background: "var(--bg-cloud)", color: "var(--navy)", marginRight: 8 }}
+                          >
+                            {expandido === p.id ? "Ocultar" : "Itens"}
+                          </button>
+                          {p.etapa === "pedido" && !p.cancelado && (
+                            <button
+                              type="button"
+                              aria-label={`Cancelar pedido ${p.codigo}`}
+                              onClick={() => cancelarLinha(p)}
+                              disabled={pendente}
+                              style={{
+                                ...BTN,
+                                background: "transparent",
+                                color: "#991B1B",
+                                border: "1px solid #FECACA",
+                                marginRight: 8,
+                                opacity: pendente ? 0.6 : 1,
+                              }}
+                            >
+                              Cancelar
+                            </button>
+                          )}
+                          {acao && (
+                            <button
+                              type="button"
+                              aria-label={acao.aria}
+                              onClick={() => executarAcao(p)}
+                              disabled={pendente}
+                              style={{
+                                ...BTN,
+                                background: acao.bg,
+                                color: acao.fg,
+                                border: acao.bg === "var(--bg-cloud)" ? "1px solid var(--border)" : undefined,
+                                opacity: pendente ? 0.6 : 1,
+                              }}
+                            >
+                              {acao.label}
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {vendasFiltradas.map((p) =>
+                    expandido === p.id ? (
+                      <tr key={`${p.id}-itens`}>
+                        <td colSpan={8} style={{ ...td, background: "#FFF", borderBottom: "1px solid var(--border)" }}>
+                          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                            <thead>
                               <tr>
-                                <td colSpan={5} style={{ ...td, color: "var(--ink-soft)" }}>
-                                  Pedido sem itens registrados.
-                                </td>
+                                <th style={{ ...th, paddingLeft: 24 }}>SKU</th>
+                                <th style={th}>Descrição</th>
+                                <th style={{ ...th, textAlign: "right" }}>Qtd</th>
+                                <th style={{ ...th, textAlign: "right" }}>V. unit</th>
+                                <th style={{ ...th, textAlign: "right", paddingRight: 24 }}>Total</th>
                               </tr>
-                            ) : (
-                              p.itens.map((i, idx) => (
-                                <tr key={`${p.id}-${idx}`}>
-                                  <td style={{ ...td, paddingLeft: 24, fontSize: 12.5 }}>
-                                    {i.sku}
-                                  </td>
-                                  <td style={td}>{i.nome}</td>
-                                  <td style={{ ...td, textAlign: "right" }}>{i.qtd}</td>
-                                  <td style={{ ...td, textAlign: "right" }}>{brl(i.unit)}</td>
-                                  <td style={{ ...td, textAlign: "right", fontWeight: 700, paddingRight: 24 }}>
-                                    {brl(i.total)}
+                            </thead>
+                            <tbody>
+                              {p.itens.length === 0 ? (
+                                <tr>
+                                  <td colSpan={5} style={{ ...td, color: "var(--ink-soft)" }}>
+                                    Pedido sem itens registrados.
                                   </td>
                                 </tr>
-                              ))
-                            )}
-                          </tbody>
-                        </table>
-                      </td>
+                              ) : (
+                                p.itens.map((i, idx) => (
+                                  <tr key={`${p.id}-${idx}`}>
+                                    <td style={{ ...td, paddingLeft: 24, fontSize: 12.5 }}>
+                                      {i.sku}
+                                    </td>
+                                    <td style={td}>{i.nome}</td>
+                                    <td style={{ ...td, textAlign: "right" }}>{i.qtd}</td>
+                                    <td style={{ ...td, textAlign: "right" }}>{brl(i.unit)}</td>
+                                    <td style={{ ...td, textAlign: "right", fontWeight: 700, paddingRight: 24 }}>
+                                      {brl(i.total)}
+                                    </td>
+                                  </tr>
+                                ))
+                              )}
+                            </tbody>
+                          </table>
+                        </td>
+                      </tr>
+                    ) : null
+                  )}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {aba === "expedicao" && (
+        <div>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+              gap: 10,
+              marginBottom: 14,
+            }}
+          >
+            {FILTROS_EXP.map((f) => {
+              const ativo = filtroExp === f.id;
+              return (
+                <button
+                  key={f.id}
+                  type="button"
+                  aria-label={`Filtro ${f.label}`}
+                  onClick={() => setFiltroExp(ativo ? null : f.id)}
+                  style={{
+                    textAlign: "left",
+                    padding: "10px 14px",
+                    borderRadius: 12,
+                    cursor: "pointer",
+                    background: ativo ? "var(--navy)" : "#FFF",
+                    color: ativo ? "#FFF" : "var(--ink)",
+                    border: `1.5px solid ${ativo ? "var(--navy)" : "var(--border)"}`,
+                    boxShadow: "var(--shadow-card)",
+                    fontFamily: "'Open Sans', sans-serif",
+                    fontSize: 13,
+                    fontWeight: 700,
+                  }}
+                >
+                  {f.label}
+                </button>
+              );
+            })}
+          </div>
+
+          <div style={CARD}>
+            {listaExp.length === 0 ? (
+              <p style={{ color: "var(--ink-soft)", fontSize: 14, padding: 24, margin: 0 }}>
+                Nenhuma entrega nesta fila.
+              </p>
+            ) : (
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                  <thead>
+                    <tr>
+                      <th style={th}>Venda</th>
+                      <th style={th}>Destinatário</th>
+                      <th style={th}>Transportadora / código</th>
+                      <th style={th}>Prazo</th>
+                      <th style={th}>Situação</th>
+                      <th style={{ ...th, textAlign: "right" }}>Ações</th>
                     </tr>
-                  ) : null
-                )}
-              </tbody>
-            </table>
+                  </thead>
+                  <tbody>
+                    {listaExp.map((e) => {
+                      const st =
+                        STATUS_ENTREGA[e.status] ?? {
+                          label: e.status,
+                          bg: "var(--bg-cloud)",
+                          fg: "var(--ink-soft)",
+                        };
+                      const form = entForm[e.id] ?? {
+                        transportadora: e.transportadora ?? "",
+                        rastreio: e.rastreio ?? "",
+                        prazo: e.prazo ?? "",
+                      };
+                      const mudar = (
+                        campo: "transportadora" | "rastreio" | "prazo",
+                        valor: string
+                      ) =>
+                        setEntForm((atual) => ({
+                          ...atual,
+                          [e.id]: { ...form, [campo]: valor },
+                        }));
+                      return (
+                        <Fragment key={e.id}>
+                          <tr>
+                            <td style={{ ...td, fontWeight: 700, whiteSpace: "nowrap" }}>
+                              {e.codigo}
+                              {e.nota && (
+                                <span
+                                  style={{
+                                    display: "block",
+                                    fontSize: 11.5,
+                                    color: "var(--ink-soft)",
+                                    fontWeight: 600,
+                                  }}
+                                >
+                                  NF-e {e.nota}
+                                </span>
+                              )}
+                            </td>
+                            <td style={td}>
+                              {e.cliente}
+                              {e.ultimoEvento && (
+                                <span
+                                  style={{
+                                    display: "block",
+                                    fontSize: 11.5,
+                                    color: "var(--ink-soft)",
+                                  }}
+                                >
+                                  Último evento: {e.ultimoEvento.texto}
+                                </span>
+                              )}
+                              {e.observacao && (
+                                <span
+                                  style={{
+                                    display: "block",
+                                    fontSize: 11.5,
+                                    color: "#991B1B",
+                                  }}
+                                >
+                                  Ocorrência: {e.observacao}
+                                </span>
+                              )}
+                            </td>
+                            <td style={td}>
+                              {e.concluida ? (
+                                <span>
+                                  {e.transportadora ?? "—"}
+                                  {e.rastreio && (
+                                    <span
+                                      style={{
+                                        display: "block",
+                                        fontSize: 11.5,
+                                        color: "var(--ink-soft)",
+                                      }}
+                                    >
+                                      {e.rastreio}
+                                    </span>
+                                  )}
+                                </span>
+                              ) : (
+                                <div
+                                  style={{
+                                    display: "flex",
+                                    flexDirection: "column",
+                                    gap: 6,
+                                    minWidth: 190,
+                                  }}
+                                >
+                                  <select
+                                    aria-label={`Transportadora ${e.codigo}`}
+                                    value={form.transportadora}
+                                    onChange={(ev) => mudar("transportadora", ev.target.value)}
+                                    style={{ ...INPUT, padding: "6px 8px", fontSize: 12.5 }}
+                                  >
+                                    <option value="">Sem transportadora</option>
+                                    {TRANSPORTADORAS.map((t) => (
+                                      <option key={t} value={t}>
+                                        {t}
+                                      </option>
+                                    ))}
+                                    {form.transportadora &&
+                                      !TRANSPORTADORAS.includes(form.transportadora) && (
+                                        <option value={form.transportadora}>
+                                          {form.transportadora}
+                                        </option>
+                                      )}
+                                  </select>
+                                  <input
+                                    aria-label={`Código de rastreio ${e.codigo}`}
+                                    value={form.rastreio}
+                                    onChange={(ev) => mudar("rastreio", ev.target.value)}
+                                    placeholder={e.rastreio ? undefined : "Sem código de rastreio"}
+                                    style={{ ...INPUT, padding: "6px 8px", fontSize: 12.5 }}
+                                  />
+                                </div>
+                              )}
+                            </td>
+                            <td style={td}>
+                              <div
+                                style={{
+                                  display: "flex",
+                                  flexDirection: "column",
+                                  gap: 6,
+                                  alignItems: "flex-start",
+                                }}
+                              >
+                                <input
+                                  type="date"
+                                  aria-label={`Prazo ${e.codigo}`}
+                                  value={form.prazo}
+                                  disabled={e.concluida}
+                                  onChange={(ev) => mudar("prazo", ev.target.value)}
+                                  style={{ ...INPUT, width: 150, padding: "6px 8px", fontSize: 12.5 }}
+                                />
+                                {e.atrasada && <Badge bg="#FEE2E2" fg="#991B1B">Atrasada</Badge>}
+                              </div>
+                            </td>
+                            <td style={td}>
+                              <Badge bg={st.bg} fg={st.fg}>{st.label}</Badge>
+                            </td>
+                            <td style={{ ...td, textAlign: "right", whiteSpace: "nowrap" }}>
+                              {!e.concluida && (
+                                <button
+                                  type="button"
+                                  aria-label={`Salvar entrega ${e.codigo}`}
+                                  onClick={() => salvarEntrega(e)}
+                                  disabled={pendente}
+                                  style={{
+                                    ...BTN,
+                                    background: "var(--bg-cloud)",
+                                    color: "var(--navy)",
+                                    marginRight: 8,
+                                    opacity: pendente ? 0.6 : 1,
+                                  }}
+                                >
+                                  Salvar
+                                </button>
+                              )}
+                              {e.status === "aguardando" && (
+                                <button
+                                  type="button"
+                                  aria-label={`Marcar como separado ${e.codigo}`}
+                                  onClick={() => avancar(e)}
+                                  disabled={pendente}
+                                  style={{
+                                    ...BTN,
+                                    background: "var(--navy)",
+                                    color: "#FFF",
+                                    marginRight: 8,
+                                    opacity: pendente ? 0.6 : 1,
+                                  }}
+                                >
+                                  Marcar separado
+                                </button>
+                              )}
+                              {e.status === "separado" && (
+                                <button
+                                  type="button"
+                                  aria-label={`Postar envio ${e.codigo}`}
+                                  onClick={() => avancar(e)}
+                                  disabled={pendente}
+                                  style={{
+                                    ...BTN,
+                                    background: "var(--pink-600)",
+                                    color: "#FFF",
+                                    marginRight: 8,
+                                    opacity: pendente ? 0.6 : 1,
+                                  }}
+                                >
+                                  Postar envio
+                                </button>
+                              )}
+                              {e.status === "em_transito" && (
+                                <button
+                                  type="button"
+                                  aria-label={`Marcar como entregue ${e.codigo}`}
+                                  onClick={() => avancar(e)}
+                                  disabled={pendente}
+                                  style={{
+                                    ...BTN,
+                                    background: "#166534",
+                                    color: "#FFF",
+                                    marginRight: 8,
+                                    opacity: pendente ? 0.6 : 1,
+                                  }}
+                                >
+                                  Entregue
+                                </button>
+                              )}
+                              {e.status === "falhou" && (
+                                <button
+                                  type="button"
+                                  aria-label={`Resolver entrega ${e.codigo}`}
+                                  onClick={() => avancar(e)}
+                                  disabled={pendente}
+                                  style={{
+                                    ...BTN,
+                                    background: "#DC2626",
+                                    color: "#FFF",
+                                    marginRight: 8,
+                                    opacity: pendente ? 0.6 : 1,
+                                  }}
+                                >
+                                  Resolver
+                                </button>
+                              )}
+                              {["aguardando", "separado", "em_transito"].includes(e.status) && (
+                                <button
+                                  type="button"
+                                  aria-label={`Registrar ocorrência ${e.codigo}`}
+                                  onClick={() => {
+                                    setOcorrId(ocorrId === e.id ? null : e.id);
+                                    setOcorrTexto("");
+                                  }}
+                                  style={{
+                                    ...BTN,
+                                    background: "transparent",
+                                    color: "#991B1B",
+                                    border: "1px solid #FECACA",
+                                  }}
+                                >
+                                  Ocorrência
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                          {ocorrId === e.id && (
+                            <tr key={`${e.id}-ocorr`}>
+                              <td colSpan={6} style={{ ...td, background: "#FFF" }}>
+                                <div
+                                  style={{
+                                    display: "flex",
+                                    gap: 8,
+                                    flexWrap: "wrap",
+                                    alignItems: "center",
+                                  }}
+                                >
+                                  <input
+                                    aria-label={`Texto da ocorrência ${e.codigo}`}
+                                    value={ocorrTexto}
+                                    onChange={(ev) => setOcorrTexto(ev.target.value)}
+                                    placeholder="Descreva a ocorrência (ex.: endereço incorreto)"
+                                    style={{ ...INPUT, flex: "1 1 260px", width: "auto" }}
+                                  />
+                                  <button
+                                    type="button"
+                                    aria-label={`Confirmar ocorrência ${e.codigo}`}
+                                    onClick={() => confirmarOcorrencia(e)}
+                                    disabled={pendente}
+                                    style={{
+                                      ...BTN,
+                                      background: "#DC2626",
+                                      color: "#FFF",
+                                      opacity: pendente ? 0.6 : 1,
+                                    }}
+                                  >
+                                    Confirmar
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </Fragment>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            <p
+              style={{
+                fontSize: 12.5,
+                color: "var(--ink-soft)",
+                padding: "12px 16px",
+                margin: 0,
+                background: "var(--bg-cloud)",
+                borderTop: "1px solid var(--border)",
+              }}
+            >
+              {retiradasNaLoja} venda(s) de balcão retiradas na loja não entram na fila de
+              expedição.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {aba === "importar" && (
+        <div style={CARD}>
+          {pendentes.length === 0 ? (
+            <p style={{ color: "var(--ink-soft)", fontSize: 14, padding: 24, margin: 0 }}>
+              Nenhum pedido da loja pendente de importação.
+            </p>
+          ) : (
+            <>
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                  <thead>
+                    <tr>
+                      <th style={{ ...th, width: 76 }}>Importar</th>
+                      <th style={th}>Nº loja</th>
+                      <th style={th}>Cliente</th>
+                      <th style={th}>CPF / CNPJ</th>
+                      <th style={th}>UF</th>
+                      <th style={th}>Itens</th>
+                      <th style={th}>Pagamento</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pendentes.map((p) => (
+                      <tr key={p.id}>
+                        <td style={td}>
+                          <input
+                            type="checkbox"
+                            aria-label={`Selecionar ${p.codigo}`}
+                            checked={marcados[p.id] ?? true}
+                            onChange={() =>
+                              setMarcados((m) => ({ ...m, [p.id]: !(m[p.id] ?? true) }))
+                            }
+                            style={{ width: 16, height: 16, cursor: "pointer" }}
+                          />
+                        </td>
+                        <td style={{ ...td, fontWeight: 700, whiteSpace: "nowrap" }}>
+                          {p.codigo}
+                        </td>
+                        <td style={td}>{p.cliente}</td>
+                        <td style={td}>{p.documento ?? "—"}</td>
+                        <td style={td}>{p.uf ?? "—"}</td>
+                        <td style={td}>{p.itens > 0 ? `${p.itens} item(ns)` : "—"}</td>
+                        <td style={{ ...td, textTransform: "capitalize" }}>
+                          {p.pagamento ?? "—"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "flex-end",
+                  gap: 10,
+                  padding: 16,
+                  borderTop: "1px solid var(--border)",
+                }}
+              >
+                <button
+                  type="button"
+                  aria-label="Importar pedidos"
+                  onClick={importarMarcados}
+                  disabled={pendente}
+                  style={{
+                    ...BTN,
+                    background: "var(--pink-600)",
+                    color: "#FFF",
+                    opacity: pendente ? 0.6 : 1,
+                  }}
+                >
+                  Importar{" "}
+                  {pendentes.filter((p) => marcados[p.id] ?? true).length}{" "}
+                  pedido{pendentes.filter((p) => marcados[p.id] ?? true).length === 1 ? "" : "s"}
+                </button>
+              </div>
+            </>
           )}
         </div>
       )}

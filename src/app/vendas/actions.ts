@@ -13,6 +13,7 @@ import {
   cancelarEvento,
 } from "@/lib/sefaz";
 import type { EmitenteXml } from "@/lib/sefaz";
+import { enviarEmail } from "@/lib/email";
 
 // Server Actions do módulo Vendas → emissão de nota fiscal. A nota nasce
 // "pendente" e so vira "autorizada" apos o ciclo SEFAZ (transmitir ->
@@ -317,6 +318,8 @@ export async function transmitirNfe(notaId: string): Promise<ResultadoNfe> {
       entity_id: notaId,
       after: { numero: upd[0].numero, chave, protocolo: tx.autorizada.protocolo, ambiente, via: "transmissao" },
     });
+    // EN-01: autoriza a NF-e de saida => abre a entrega da venda (1 por pedido)
+    await criarEntregaAposAutorizacao(admin, notaId, userId);
     revalidatePath("/vendas");
     return {
       ok: true,
@@ -448,6 +451,8 @@ export async function consultarNfe(notaId: string): Promise<ResultadoNfe> {
       entity_id: notaId,
       after: { numero: upd[0].numero, protocolo: c.protocolo, chave: c.chave },
     });
+    // EN-01: autoriza a NF-e de saida => abre a entrega da venda (1 por pedido)
+    await criarEntregaAposAutorizacao(admin, notaId, userId);
     revalidatePath("/vendas");
     return {
       ok: true,
@@ -559,4 +564,467 @@ export async function cancelarNfe(notaId: string): Promise<ResultadoNfe> {
   });
   revalidatePath("/vendas");
   return { ok: true, msg: `NF-e ${data[0].numero} cancelada.`, numero: Number(data[0].numero) };
+}
+
+// ============================================================ Vendas v5 ===
+// Funil/conversao (VD-02/VD-03 + VL-01..VL-03 via RPC 0018), cancelamento
+// (VD-06), Expedicao (EN-01..EN-06 + AV-02: status manual com historico e
+// aviso ao cliente) e importacao de pedidos da loja (secao 4). Os perfis
+// "vendas"/"expedicao" da spec ainda nao existem no RBAC: tudo passa por
+// exigirGestao (master|gerente) - pendencia documentada no AGENTS.md.
+
+export type Resultado = { ok: true; msg: string } | { ok: false; erro: string };
+
+const ERROS_CONVERSAO: Record<string, string> = {
+  PEDIDO_NAO_ENCONTRADO: "Pedido não encontrado.",
+  DOCUMENTO_CANCELADO: "Documento cancelado não pode virar venda.",
+  JA_E_VENDA: "Este documento já é uma venda.",
+  ETAPA_NAO_E_PEDIDO: "Só a etapa pedido pode ser convertida.",
+  SEM_ITENS: "Adicione pelo menos um produto.",
+  ATACADO_SEM_CNPJ: "Venda no atacado exige CNPJ do cliente.",
+  SEM_NOME_CLIENTE: "Informe o nome do cliente.",
+  QUANTIDADE_INVALIDA: "Item com quantidade inválida.",
+};
+
+function erroConversao(mensagem: string): string {
+  if (mensagem.startsWith("ESTOQUE_INSUFICIENTE")) {
+    return "Estoque insuficiente — nada foi baixado, o pedido continua pedido.";
+  }
+  return ERROS_CONVERSAO[mensagem] ?? `Falha na conversão: ${mensagem}`;
+}
+
+// EN-01: ao autorizar a NF-e de saida, abre a entrega da venda (1 por pedido,
+// unique (tenant, order)). Retirada na loja (varejo sem frete) nasce
+// 'entregue'; demais nascem 'aguardando' com transportadora padrao. Melhor
+// esforco: a autorizacao da nota nunca falha por causa da expedicao.
+async function criarEntregaAposAutorizacao(
+  admin: ReturnType<typeof createAdminClient>,
+  notaId: string,
+  userId: string
+): Promise<void> {
+  try {
+    const { data: nota } = await admin
+      .from("nfe_emissoes")
+      .select("order_id, tipo")
+      .eq("id", notaId)
+      .maybeSingle();
+    if (!nota || nota.tipo !== "saida" || !nota.order_id) return;
+
+    const { data: existente } = await admin
+      .from("entregas")
+      .select("id")
+      .eq("tenant_id", NUVEM_DE_PAPEL_TENANT_ID)
+      .eq("order_id", nota.order_id)
+      .maybeSingle();
+    if (existente) return;
+
+    const { data: pedido } = await admin
+      .from("orders")
+      .select("channel, frete, origem")
+      .eq("id", nota.order_id)
+      .maybeSingle();
+    if (!pedido) return;
+
+    const retirada = pedido.channel === "varejo" && Number(pedido.frete ?? 0) === 0;
+    const transportadora = retirada
+      ? "Retirada na loja"
+      : pedido.origem === "loja"
+        ? "Correios PAC"
+        : "Jadlog";
+    const status = retirada ? "entregue" : "aguardando";
+
+    const { data: criada, error } = await admin
+      .from("entregas")
+      .insert({
+        tenant_id: NUVEM_DE_PAPEL_TENANT_ID,
+        order_id: nota.order_id,
+        status,
+        transportadora,
+        ...(retirada ? { entregue_em: new Date().toISOString() } : {}),
+      })
+      .select("id")
+      .maybeSingle();
+    if (error || !criada) return;
+
+    await admin.from("entrega_eventos").insert({
+      tenant_id: NUVEM_DE_PAPEL_TENANT_ID,
+      entrega_id: criada.id,
+      de_status: null,
+      para_status: status,
+      nota: retirada
+        ? "Retirado na loja no ato da compra"
+        : "Entrega criada na autorização da nota",
+      created_by: userId,
+    });
+  } catch (e) {
+    console.error("[vendas] EN-01 falhou ao criar a entrega:", e);
+  }
+}
+
+// VD-03: pedido -> venda (numero V- + validacoes + baixa de estoque atomicas
+// dentro da RPC 0018; saldo insuficiente derruba tudo).
+export async function converterVenda(orderId: string): Promise<Resultado> {
+  if (!UUID.test(orderId ?? "")) return { ok: false, erro: "Pedido inválido." };
+  const acesso = await exigirGestao();
+  if ("erro" in acesso) return { ok: false, erro: acesso.erro };
+  const { userId, admin } = acesso;
+
+  const { data, error } = await admin.rpc("vendas_convert_to_sale", {
+    p_order_id: orderId,
+  });
+  if (error) return { ok: false, erro: erroConversao(error.message) };
+
+  const numero = (data as { venda_numero?: string } | null)?.venda_numero ?? "";
+  await admin.from("audit_log").insert({
+    tenant_id: NUVEM_DE_PAPEL_TENANT_ID,
+    actor_user_id: userId,
+    action: "venda.converter",
+    entity: "orders",
+    entity_id: orderId,
+    after: { venda_numero: numero },
+  });
+  revalidatePath("/vendas");
+  return { ok: true, msg: `Documento ${numero} convertido em venda (estoque baixado).` };
+}
+
+// VD-06: cancela pedido (so etapa 'pedido'; venda ja baixou estoque e passa a
+// ser desfeita pelo cancelamento da nota, nao por aqui).
+export async function cancelarPedido(orderId: string): Promise<Resultado> {
+  if (!UUID.test(orderId ?? "")) return { ok: false, erro: "Pedido inválido." };
+  const acesso = await exigirGestao();
+  if ("erro" in acesso) return { ok: false, erro: acesso.erro };
+  const { userId, admin } = acesso;
+
+  const { data: pedido } = await admin
+    .from("orders")
+    .select("id, etapa, cancelado_em")
+    .eq("id", orderId)
+    .eq("tenant_id", NUVEM_DE_PAPEL_TENANT_ID)
+    .maybeSingle();
+  if (!pedido) return { ok: false, erro: "Pedido não encontrado." };
+  if (pedido.cancelado_em) return { ok: false, erro: "Pedido já cancelado." };
+  if (pedido.etapa !== "pedido") {
+    return { ok: false, erro: "Só pedidos podem ser cancelados aqui." };
+  }
+
+  const { data: upd, error } = await admin
+    .from("orders")
+    .update({ cancelado_em: new Date().toISOString() })
+    .eq("id", orderId)
+    .is("cancelado_em", null)
+    .select("id");
+  if (error) return { ok: false, erro: `Falha ao cancelar: ${error.message}` };
+  if (!upd || upd.length === 0) return { ok: false, erro: "Pedido já cancelado." };
+
+  await admin.from("audit_log").insert({
+    tenant_id: NUVEM_DE_PAPEL_TENANT_ID,
+    actor_user_id: userId,
+    action: "pedido.cancelar",
+    entity: "orders",
+    entity_id: orderId,
+    after: { cancelado_em: "agora" },
+  });
+  revalidatePath("/vendas");
+  return { ok: true, msg: "Pedido cancelado — aparece como Cancelado na lista." };
+}
+
+// EN-02..EN-04 + AV-02: proximo passo da linha da entrega. Postar exige
+// codigo de rastreio (EN-03) e, no postado/entregue, avisa o cliente por
+// e-mail (best-effort: sem RESEND_API_KEY nao envia - ver pendencia).
+const PROXIMO_STATUS: Record<string, string> = {
+  aguardando: "separado",
+  separado: "em_transito",
+  em_transito: "entregue",
+  falhou: "em_transito",
+};
+
+export async function avancarEntrega(entregaId: string): Promise<Resultado> {
+  if (!UUID.test(entregaId ?? "")) return { ok: false, erro: "Entrega inválida." };
+  const acesso = await exigirGestao();
+  if ("erro" in acesso) return { ok: false, erro: acesso.erro };
+  const { userId, admin } = acesso;
+
+  const { data: entrega } = await admin
+    .from("entregas")
+    .select(
+      "id, order_id, status, rastreio, transportadora, orders(id, venda_numero, pedido_numero, customers(name, email))"
+    )
+    .eq("id", entregaId)
+    .eq("tenant_id", NUVEM_DE_PAPEL_TENANT_ID)
+    .maybeSingle();
+  if (!entrega) return { ok: false, erro: "Entrega não encontrada." };
+
+  const destino = PROXIMO_STATUS[entrega.status];
+  if (!destino) {
+    return {
+      ok: false,
+      erro:
+        entrega.status === "entregue"
+          ? "Entrega já concluída."
+          : "Entrega devolvida é estado final.",
+    };
+  }
+  if (destino === "em_transito" && !String(entrega.rastreio ?? "").trim()) {
+    return { ok: false, erro: "Informe o código de rastreio para postar." };
+  }
+
+  const agora = new Date().toISOString();
+  const patch: Record<string, string | null> = { status: destino, updated_at: agora };
+  if (destino === "em_transito") patch.enviado_em = agora;
+  if (destino === "entregue") patch.entregue_em = agora;
+
+  const { data: upd, error } = await admin
+    .from("entregas")
+    .update(patch)
+    .eq("id", entregaId)
+    .eq("status", entrega.status)
+    .select("id");
+  if (error) return { ok: false, erro: `Falha ao atualizar a entrega: ${error.message}` };
+  if (!upd || upd.length === 0) return { ok: false, erro: "Entrega mudou de estado — recarregue." };
+
+  const pedido = entrega.orders as unknown as {
+    venda_numero?: string | null;
+    pedido_numero?: string | null;
+    customers?: { name?: string; email?: string } | null;
+  } | null;
+  const codigo = pedido?.venda_numero ?? pedido?.pedido_numero ?? "o pedido";
+  const rotulo =
+    destino === "separado"
+      ? "separado"
+      : destino === "em_transito"
+        ? "postado (em trânsito)"
+        : "entregue";
+
+  await admin.from("entrega_eventos").insert({
+    tenant_id: NUVEM_DE_PAPEL_TENANT_ID,
+    entrega_id: entregaId,
+    de_status: entrega.status,
+    para_status: destino,
+    nota:
+      destino === "em_transito"
+        ? `postado com rastreio ${String(entrega.rastreio ?? "").trim()}`
+        : destino === "separado"
+          ? "separação concluída"
+          : "entrega concluída",
+    created_by: userId,
+  });
+  await admin.from("audit_log").insert({
+    tenant_id: NUVEM_DE_PAPEL_TENANT_ID,
+    actor_user_id: userId,
+    action: "entrega.avancar",
+    entity: "entregas",
+    entity_id: entregaId,
+    after: { de: entrega.status, para: destino },
+  });
+
+  if (destino === "em_transito" || destino === "entregue") {
+    await avisarCliente(entregaId, entrega, destino, codigo, userId);
+  }
+
+  revalidatePath("/vendas");
+  const de = codigo === "o pedido" ? "" : ` ${codigo}`;
+  return { ok: true, msg: `Entrega${de}: ${rotulo}.` };
+}
+
+// EN-06: transportadora/codigo/prazo editaveis ate a entrega concluir.
+export async function atualizarEntrega(
+  entregaId: string,
+  dados: { transportadora?: string; rastreio?: string; prazo?: string }
+): Promise<Resultado> {
+  if (!UUID.test(entregaId ?? "")) return { ok: false, erro: "Entrega inválida." };
+  const acesso = await exigirGestao();
+  if ("erro" in acesso) return { ok: false, erro: acesso.erro };
+  const { userId, admin } = acesso;
+
+  const { data: entrega } = await admin
+    .from("entregas")
+    .select("id, status")
+    .eq("id", entregaId)
+    .eq("tenant_id", NUVEM_DE_PAPEL_TENANT_ID)
+    .maybeSingle();
+  if (!entrega) return { ok: false, erro: "Entrega não encontrada." };
+  if (entrega.status === "entregue" || entrega.status === "devolvido") {
+    return { ok: false, erro: "Entrega concluída não pode ser editada." };
+  }
+
+  const transportadora = String(dados?.transportadora ?? "").trim().slice(0, 60);
+  const rastreio = String(dados?.rastreio ?? "").trim().slice(0, 40) || null;
+  const bruto = String(dados?.prazo ?? "").trim();
+  let prazo: string | null = null;
+  if (bruto) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(bruto)) {
+      return { ok: false, erro: "Prazo inválido — use AAAA-MM-DD." };
+    }
+    prazo = bruto;
+  }
+
+  const { error } = await admin
+    .from("entregas")
+    .update({
+      transportadora: transportadora || null,
+      rastreio,
+      prazo,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", entregaId);
+  if (error) return { ok: false, erro: `Falha ao salvar a entrega: ${error.message}` };
+
+  await admin.from("audit_log").insert({
+    tenant_id: NUVEM_DE_PAPEL_TENANT_ID,
+    actor_user_id: userId,
+    action: "entrega.atualizar",
+    entity: "entregas",
+    entity_id: entregaId,
+    after: { transportadora, rastreio, prazo },
+  });
+  revalidatePath("/vendas");
+  return { ok: true, msg: rastreio ? `Entrega atualizada — rastreio ${rastreio}.` : "Entrega atualizada." };
+}
+
+// AV-02: ocorrência em entrega em andamento vira status 'falhou' com motivo
+// no historico (a linha passa a oferecer "Resolver entrega").
+export async function registrarOcorrencia(entregaId: string, texto: string): Promise<Resultado> {
+  if (!UUID.test(entregaId ?? "")) return { ok: false, erro: "Entrega inválida." };
+  const acesso = await exigirGestao();
+  if ("erro" in acesso) return { ok: false, erro: acesso.erro };
+  const { userId, admin } = acesso;
+
+  const motivo = String(texto ?? "").trim();
+  if (!motivo) return { ok: false, erro: "Descreva a ocorrência." };
+  if (motivo.length > 300) return { ok: false, erro: "Ocorrência muito longa (máx. 300 caracteres)." };
+
+  const { data: entrega } = await admin
+    .from("entregas")
+    .select("id, status, orders(id, venda_numero, pedido_numero, customers(name, email))")
+    .eq("id", entregaId)
+    .eq("tenant_id", NUVEM_DE_PAPEL_TENANT_ID)
+    .maybeSingle();
+  if (!entrega) return { ok: false, erro: "Entrega não encontrada." };
+  if (!["aguardando", "separado", "em_transito"].includes(entrega.status)) {
+    return { ok: false, erro: "Só entregas em andamento recebem ocorrência." };
+  }
+
+  const { data: upd, error } = await admin
+    .from("entregas")
+    .update({
+      status: "falhou",
+      observacao: motivo,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", entregaId)
+    .eq("status", entrega.status)
+    .select("id");
+  if (error) return { ok: false, erro: `Falha ao registrar: ${error.message}` };
+  if (!upd || upd.length === 0) return { ok: false, erro: "Entrega mudou de estado — recarregue." };
+
+  await admin.from("entrega_eventos").insert({
+    tenant_id: NUVEM_DE_PAPEL_TENANT_ID,
+    entrega_id: entregaId,
+    de_status: entrega.status,
+    para_status: "falhou",
+    nota: motivo,
+    created_by: userId,
+  });
+  await admin.from("audit_log").insert({
+    tenant_id: NUVEM_DE_PAPEL_TENANT_ID,
+    actor_user_id: userId,
+    action: "entrega.ocorrencia",
+    entity: "entregas",
+    entity_id: entregaId,
+    after: { de: entrega.status, motivo },
+  });
+
+  const pedido = entrega.orders as unknown as {
+    venda_numero?: string | null;
+    pedido_numero?: string | null;
+    customers?: { name?: string; email?: string } | null;
+  } | null;
+  const codigo = pedido?.venda_numero ?? pedido?.pedido_numero ?? "";
+  await avisarCliente(entregaId, entrega, "falhou", codigo, userId);
+
+  revalidatePath("/vendas");
+  return { ok: true, msg: "Ocorrência registrada — entrega marcada com problema." };
+}
+
+// secao 4: pedidos pagos da loja (origem='loja' sem pedido_numero) viram
+// documentos P- via RPC 0018 (idempotente; ids repetidos/nao-loja ignorados).
+export async function importarPedidosLoja(ids: string[]): Promise<Resultado> {
+  if (!Array.isArray(ids) || ids.length === 0) {
+    return { ok: false, erro: "Marque ao menos um pedido." };
+  }
+  if (ids.length > 200) return { ok: false, erro: "Máximo de 200 pedidos por importação." };
+  if (!ids.every((id) => UUID.test(String(id)))) {
+    return { ok: false, erro: "Lista de pedidos inválida." };
+  }
+  const acesso = await exigirGestao();
+  if ("erro" in acesso) return { ok: false, erro: acesso.erro };
+  const { userId, admin } = acesso;
+
+  const { data, error } = await admin.rpc("vendas_import_loja", { p_ids: ids });
+  if (error) return { ok: false, erro: `Falha ao importar: ${error.message}` };
+
+  const n = Number((data as { importados?: number } | null)?.importados ?? 0);
+  if (n > 0) {
+    await admin.from("audit_log").insert({
+      tenant_id: NUVEM_DE_PAPEL_TENANT_ID,
+      actor_user_id: userId,
+      action: "pedidos.importar",
+      entity: "orders",
+      entity_id: null,
+      after: { quantidade: n, ids },
+    });
+  }
+  revalidatePath("/vendas");
+  if (n === 0) return { ok: true, msg: "Nenhum pedido novo para importar." };
+  return {
+    ok: true,
+    msg: `${n} pedido${n > 1 ? "s" : ""} importado${n > 1 ? "s" : ""} com numeração P-.`,
+  };
+}
+
+// aviso de rastreio/ocorrencia ao cliente (AV-02/AV-04): best-effort - sem
+// RESEND_API_KEY o enviarEmail devolve resend_ausente sem gravar nada.
+async function avisarCliente(
+  entregaId: string,
+  entrega: { rastreio?: unknown; transportadora?: unknown; orders?: unknown },
+  destino: "em_transito" | "entregue" | "falhou",
+  codigo: string,
+  userId: string
+): Promise<void> {
+  try {
+    // a relacao to-one volta como objeto ou array conforme os tipos gerados:
+    // normaliza os dois lados (pedido e cliente) antes de ler.
+    const rel = Array.isArray(entrega.orders) ? entrega.orders[0] : entrega.orders;
+    const clientes = (rel as { customers?: unknown } | null | undefined)?.customers;
+    const cli = (Array.isArray(clientes) ? clientes[0] : clientes) as
+      | { name?: string | null; email?: string | null }
+      | null
+      | undefined;
+    const email = String(cli?.email ?? "").trim();
+    if (!email) return;
+    const nome = String(cli?.name ?? "").trim();
+    const primeiro = nome.split(/\s+/)[0] || "cliente";
+    const rastreio = String(entrega.rastreio ?? "").trim();
+    const transportadora = String(entrega.transportadora ?? "").trim();
+    const assunto =
+      destino === "em_transito"
+        ? `Pedido ${codigo} postado — rastreio ${rastreio}`
+        : destino === "entregue"
+          ? `Pedido ${codigo} entregue`
+          : `Ocorrência na entrega do pedido ${codigo}`;
+    const corpo =
+      destino === "em_transito"
+        ? `<p style="font-family:sans-serif">Olá, ${primeiro}! Seu pedido ${codigo} foi postado pela ${transportadora || "transportadora"}.</p><p style="font-family:sans-serif">Código de rastreio: <strong>${rastreio}</strong>.</p>`
+        : destino === "entregue"
+          ? `<p style="font-family:sans-serif">Olá, ${primeiro}! Seu pedido ${codigo} foi entregue. Obrigado pela preferência!</p>`
+          : `<p style="font-family:sans-serif">Olá, ${primeiro}! Houve uma ocorrência na entrega do pedido ${codigo}. Fale conosco para combinarmos o envio.</p>`;
+    await enviarEmail(email, assunto, corpo, {
+      fonte: "system",
+      actorUserId: userId,
+      relatedEntity: "entregas",
+      relatedId: entregaId,
+    });
+  } catch (e) {
+    console.error("[vendas] aviso de entrega falhou:", e);
+  }
 }
