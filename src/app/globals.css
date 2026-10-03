@@ -468,3 +468,99 @@ body:has(.admin-shell) .floating-social {
   }
 }
 
+
+/* ---------------------------------------------------------------- PDV v6 --
+ * Layout do console: venda/busca + painel Caixa na coluna esquerda, comanda
+ * na direita. Abaixo de 900px a comanda vira drawer lateral aberto pela barra
+ * flutuante com badge de itens (modulo-pdv 7.2). */
+.pdv-grid {
+  display: grid;
+  grid-template-columns: 1fr 380px;
+  gap: 20px;
+  align-items: start;
+}
+
+.pdv-comanda {
+  min-width: 0;
+  position: relative;
+}
+
+.pdv-fechar,
+.pdv-barra,
+.pdv-fundo {
+  display: none;
+}
+
+@media (max-width: 899px) {
+  .pdv-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .pdv-comanda {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: min(92vw, 420px);
+    z-index: 70;
+    overflow-y: auto;
+    transform: translateX(103%);
+    transition: transform 0.18s ease;
+    box-shadow: -8px 0 24px rgba(0, 0, 0, 0.25);
+  }
+
+  .pdv-comanda[data-aberto="true"] {
+    transform: translateX(0);
+  }
+
+  .pdv-fechar {
+    display: block;
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    border: 1px solid var(--border);
+    background: var(--white);
+    border-radius: 999px;
+    width: 30px;
+    height: 30px;
+    font-size: 14px;
+    font-weight: 800;
+    color: var(--navy);
+    cursor: pointer;
+  }
+
+  .pdv-barra {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    position: fixed;
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
+    z-index: 60;
+    background: var(--pink-600);
+    color: #fff;
+    border: none;
+    border-radius: 999px;
+    padding: 13px 18px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: var(--shadow-soft);
+  }
+
+  .pdv-fundo[data-aberto="true"] {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 65;
+    background: rgba(7, 59, 76, 0.55);
+    border: 0;
+    padding: 0;
+  }
+
+  .pdv-shell {
+    padding-bottom: 84px;
+  }
+}

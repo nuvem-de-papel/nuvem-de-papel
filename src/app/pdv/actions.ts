@@ -12,7 +12,7 @@ import { PAPEIS_OPERACIONAIS } from "@/lib/rbac";
 // RBAC e auditoria.
 
 export type ResultadoPdv =
-  | { ok: true; msg: string; venda?: { pedido: string; total: number; titulo: string | null } }
+  | { ok: true; msg: string; venda?: { pedido: string; numero: string | null; total: number; titulo: string | null } }
   | { ok: false; erro: string };
 
 const METODOS = ["dinheiro", "pix", "debito", "cartao"];
@@ -23,7 +23,8 @@ function ehUuid(v: string): boolean {
 }
 
 async function exigirOperador(): Promise<
-  { erro: string } | { userId: string; admin: ReturnType<typeof createAdminClient> }
+  | { erro: string }
+  | { userId: string; role: string; admin: ReturnType<typeof createAdminClient> }
 > {
   const supabase = createClient();
   const {
@@ -40,7 +41,7 @@ async function exigirOperador(): Promise<
   if (!perfil || perfil.status !== "ativo" || !PAPEIS_OPERACIONAIS.includes(perfil.role)) {
     return { erro: "Sem permissão para operar o PDV." };
   }
-  return { userId: user.id, admin };
+  return { userId: user.id, role: perfil.role, admin };
 }
 
 async function auditar(
@@ -68,6 +69,14 @@ function erroDaRpc(msg: string | undefined): string {
   if (m.includes("SEM_PRECO_OU_INATIVO")) return "Item sem preço no canal escolhido ou inativo.";
   if (m.includes("CHAVE_IDEMPOTENCIA")) return "Falha interna de idempotência — tente de novo.";
   if (m.includes("CARRINHO_VAZIO")) return "Adicione ao menos um item à venda.";
+  if (m.includes("MOTIVO_OBRIGATORIO")) return "Informe o motivo do movimento.";
+  if (m.includes("GAVETA_INSUFICIENTE")) {
+    // CX-05: "A gaveta tem só R$ 1.234,56 em dinheiro."
+    return m.split("GAVETA_INSUFICIENTE:")[1]?.trim() || "Sangria maior que o dinheiro da gaveta.";
+  }
+  if (m.includes("DESCONTO_EXCEDE_SUBTOTAL") || m.includes("DESCONTO_INVALIDO")) {
+    return "Desconto maior ou igual ao subtotal da venda.";
+  }
   return m || "Falha na operação de PDV.";
 }
 
@@ -164,7 +173,8 @@ export async function registrarVendaPdv(
   itens: { item_id: string; quantity: number }[],
   metodo: string,
   parcelas: number,
-  canal: string
+  canal: string,
+  desconto = 0
 ): Promise<ResultadoPdv> {
   if (!Array.isArray(itens) || itens.length === 0 || itens.length > 100) {
     return { ok: false, erro: "Carrinho inválido (1 a 100 itens)." };
@@ -183,10 +193,42 @@ export async function registrarVendaPdv(
   if (metodo !== "cartao" && n !== 1) {
     return { ok: false, erro: "Parcelamento só no cartão de crédito." };
   }
+  const desc = Number(desconto);
+  if (!Number.isFinite(desc) || desc < 0 || desc > 99999) {
+    return { ok: false, erro: "Desconto inválido." };
+  }
 
   const acesso = await exigirOperador();
   if ("erro" in acesso) return { ok: false, erro: acesso.erro };
-  const { userId, admin } = acesso;
+  const { userId, role, admin } = acesso;
+
+  // PDV-10 no servidor: o teto por perfil precisa do subtotal REAL, entao
+  // refaz o mesmo resolve_price da RPC (preco do canal por quantidade).
+  let subtotal = 0;
+  for (const it of itens) {
+    const { data, error } = await admin.rpc("resolve_price", {
+      p_item_id: it.item_id,
+      p_channel: canal,
+      p_qty: Number(it.quantity),
+    });
+    if (error || data === null) {
+      return { ok: false, erro: "Item sem preço no canal escolhido ou inativo." };
+    }
+    subtotal += Number(data) * Number(it.quantity);
+  }
+  const subC = Math.round(subtotal * 100);
+  const descC = Math.round(desc * 100);
+  if (descC > 0 && descC >= subC) {
+    return { ok: false, erro: "Desconto maior ou igual ao subtotal da venda." };
+  }
+  // operador/vendedor: ate 10% do subtotal; gerente/master sem limite
+  if ((role === "operador" || role === "vendedor") && descC > Math.floor(subC / 10)) {
+    const teto = Math.floor(subC / 10) / 100;
+    return {
+      ok: false,
+      erro: `Desconto de ${brl(desc)} acima do limite de 10% do seu perfil (máximo ${brl(teto)}).`,
+    };
+  }
 
   const { data, error } = await admin.rpc("pdv_register_sale", {
     p_items: itens.map((i) => ({ item_id: i.item_id, quantity: Number(i.quantity) })),
@@ -195,18 +237,25 @@ export async function registrarVendaPdv(
     p_installments: n,
     p_customer_id: null,
     p_idempotency_key: crypto.randomUUID(),
+    p_discount: descC / 100,
   });
   if (error) return { ok: false, erro: erroDaRpc(error.message) };
 
   const pedido = String(data?.order_id ?? "");
   const total = Number(data?.total ?? 0);
   const titulo = data?.title_id ? String(data.title_id) : null;
+  const { data: numeroRow } = await admin
+    .from("orders")
+    .select("venda_numero")
+    .eq("id", pedido)
+    .maybeSingle();
 
   await auditar(admin, userId, "pdv.venda", "orders", pedido, {
     total,
     metodo,
     parcelas: n,
     canal,
+    desconto: descC / 100,
     itens: itens.length,
   });
   revalidatePath("/pdv");
@@ -214,7 +263,61 @@ export async function registrarVendaPdv(
   revalidatePath("/financeiro");
   return {
     ok: true,
-    msg: `Venda registrada: ${brl(total)} em ${metodo}${n > 1 ? ` em ${n}x` : ""}.`,
-    venda: { pedido, total, titulo },
+    msg: `Venda registrada: ${brl(total)} em ${metodo}${n > 1 ? ` em ${n}x` : ""}${
+      descC > 0 ? ` (desconto de ${brl(descC / 100)})` : ""
+    }.`,
+    venda: { pedido, numero: numeroRow?.venda_numero ?? null, total, titulo },
+  };
+}
+
+// NFC-e do balcao (FV-05, pendencia documentada): o botao no comprovante e
+// opcional. Em dev/E2E (SEFAZ_MOCK=1) a emissao responde mock; em producao
+// falha fechado ate o modelo 65 ter CSC e homologacao proprios. A venda em si
+// ja esta gravada pela pdv_register_sale — isto aqui e só o documento.
+export async function emitirNfcePdv(pedidoId: string): Promise<ResultadoPdv> {
+  if (!ehUuid(pedidoId ?? "")) return { ok: false, erro: "Venda inválida." };
+
+  const acesso = await exigirOperador();
+  if ("erro" in acesso) return { ok: false, erro: acesso.erro };
+  const { userId, admin } = acesso;
+
+  const { data: pedido } = await admin
+    .from("orders")
+    .select("id, origem, status")
+    .eq("id", pedidoId)
+    .eq("tenant_id", NUVEM_DE_PAPEL_TENANT_ID)
+    .maybeSingle();
+  if (!pedido) return { ok: false, erro: "Venda não encontrada." };
+  if (pedido.origem !== "pdv") return { ok: false, erro: "Só vendas do PDV têm NFC-e." };
+
+  const { data: nota } = await admin
+    .from("nfe_emissoes")
+    .select("id, numero")
+    .eq("order_id", pedidoId)
+    .eq("tipo", "saida")
+    .limit(1)
+    .maybeSingle();
+  if (nota) {
+    return { ok: false, erro: `A venda já tem a nota ${nota.numero} — nada emitido duas vezes.` };
+  }
+
+  const mock = process.env.SEFAZ_MOCK === "1";
+  await auditar(admin, userId, "nfce.emitir", "orders", pedidoId, {
+    mock,
+    resultado: mock ? "autorizada_mock" : "pendente_modelo_65",
+  });
+  revalidatePath("/pdv");
+
+  if (!mock) {
+    return {
+      ok: false,
+      erro:
+        "NFC-e pendente: o modelo 65 exige CSC e homologação próprios. " +
+        "A venda já está registrada — use o comprovante não fiscal.",
+    };
+  }
+  return {
+    ok: true,
+    msg: `NFC-e (mock) autorizada para a venda ${pedidoId.slice(0, 8)} — protocolo MOCK-NFCE.`,
   };
 }
