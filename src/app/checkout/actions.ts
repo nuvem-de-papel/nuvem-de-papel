@@ -287,6 +287,25 @@ export async function finalizarCheckout(input: {
     };
   }
 
+  // rastro: pedido da loja nao gravava audit_log (bloco 1, auditoria 0020).
+  await admin.from("audit_log").insert({
+    tenant_id: NUVEM_DE_PAPEL_TENANT_ID,
+    actor_user_id: user.id,
+    action: "pedido.criar",
+    entity: "orders",
+    entity_id: pedido.id,
+    after: {
+      channel: canal,
+      origem: "loja",
+      status: "aguardando_pagamento",
+      total_amount: total,
+      discount_amount: desconto,
+      payment_method: input.pagamento,
+      customer_id: clienteRes.id,
+      itens: linhas.length,
+    },
+  });
+
   // 6) preferência Mercado Pago (quando configurado)
   let initPoint: string | null = null;
   let aviso: string | undefined;

@@ -191,20 +191,33 @@ export async function criarFornecedor(input: {
     userId = vinculado.id;
   }
 
-  const { error } = await admin.from("suppliers").insert({
-    tenant_id: NUVEM_DE_PAPEL_TENANT_ID,
-    name: nome,
-    contact_email: emailContato || null,
-    cnpj: cnpj || null,
-    user_id: userId,
-    uf: uf || null,
-  });
+  const { data: criado, error } = await admin
+    .from("suppliers")
+    .insert({
+      tenant_id: NUVEM_DE_PAPEL_TENANT_ID,
+      name: nome,
+      contact_email: emailContato || null,
+      cnpj: cnpj || null,
+      user_id: userId,
+      uf: uf || null,
+    })
+    .select("id")
+    .single();
   if (error) {
     if (/duplicate|conflict/i.test(error.message)) {
       return { ok: false, erro: "Já existe um fornecedor com este nome." };
     }
     return { ok: false, erro: `Falha ao criar fornecedor: ${error.message}` };
   }
+
+  // rastro: era o unico cadastro da tela de compras que nao gravava audit_log.
+  await auditoria(admin, gestor.id, "fornecedor.criado", "suppliers", criado?.id ?? null, {
+    name: nome,
+    contact_email: emailContato || null,
+    cnpj: cnpj || null,
+    user_id: userId,
+    uf: uf || null,
+  });
 
   revalidatePath("/compras");
   return { ok: true };

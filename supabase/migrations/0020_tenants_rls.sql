@@ -1,0 +1,30 @@
+-- 0020_tenants_rls.sql - Bloco 1 (blindagem), item 1.1.
+--
+-- EVIDENCIA (04/10/2026, producao cbnmnpnpioukbzircmzn, leitura pura):
+--   set role anon -> rls_tenants=false, visivel_para_anon=1,
+--                    slugs_vistos='nuvem-de-papel'
+--   grants       -> anon e authenticated tem INSERT/SELECT/UPDATE/DELETE
+--                    em public.tenants
+--   public.tenants e FK com on delete cascade de profiles, catalog_items,
+--   orders, audit_log... -> um DELETE anon apagaria o tenant inteiro.
+--   Diagnostico: TOTAL_TABELAS=43, TABELAS_SEM_RLS=1 (a 1 era `tenants`).
+--
+-- DIVERGENCIA STAGING x PRODUCAO que esta migration corrige:
+--   no staging a RLS ja estava ligada (TABELAS_SEM_RLS=0), mas NADA no repo
+--   a liga - `git log -S "tenants enable row level security"` e grep em
+--   supabase/migrations = 0 hits. Estado manual nao versionado = nao
+--   reproduzivel: um reset do staging perdia a protecao. Agora o estado
+--   versionado e identico nas duas bases.
+--
+-- DENY-ALL DELIBERADO: RLS habilitada + zero policies = anon e authenticated
+-- nao enxergam nem alteram linha alguma (RLS com policy ausente nega tudo).
+-- service_role segue operando por BYPASSRLS e o dono da tabela (postgres,
+-- que roda as migrations) nao e afetado - por isso NAO usamos
+-- `force row level security`: assim uma futura migration de onboarding de
+-- tenant continua podendo inserir direto.
+--
+-- NENHUM CODIGO LE OU ESCREVE `tenants`: o id vem da constante
+-- NUVEM_DE_PAPEL_TENANT_ID (.env) - grep em src/ por from("tenants") = 0
+-- ocorrencias. Logo o deny-all nao quebra nada.
+
+alter table public.tenants enable row level security;

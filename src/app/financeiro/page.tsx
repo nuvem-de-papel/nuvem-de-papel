@@ -52,7 +52,13 @@ export default async function FinanceiroPage() {
       .limit(2000),
     admin
       .from("order_items")
-      .select("total, quantity, catalog_items(item_commercial_data(cost_price))")
+      .select(
+        "total, quantity, orders!inner(created_at, status), catalog_items(item_commercial_data(cost_price))"
+      )
+      // mesmo recorte da receita acima (30 dias + cancelados excluidos): sem
+      // isto a margem subtraia custo de TODO o historico de uma receita de 30d.
+      .gte("orders.created_at", new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString())
+      .neq("orders.status", "cancelado")
       .limit(2000),
   ]);
 
