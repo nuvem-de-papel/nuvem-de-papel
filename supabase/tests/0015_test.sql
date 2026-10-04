@@ -79,8 +79,15 @@ do $$
 declare
   v_item uuid;
 begin
-  update caixa_sessions set status = 'fechado', closed_at = now()
-    where status = 'aberto';
+  -- o check da 0008 exige counted_amount quando status = 'fechado': a caixa
+  -- legada de prod (aberta ha semanas) nunca passou por pdv_close_cash
+  update caixa_sessions
+     set status = 'fechado',
+         closed_at = now(),
+         expected_amount = coalesce(expected_amount, opening_amount),
+         counted_amount = coalesce(counted_amount, opening_amount),
+         difference_amount = coalesce(difference_amount, 0)
+   where status = 'aberto';
   if pdv_open_cash(100, null, 'e2e-0015-abertura') is null then
     raise exception 'seed: abertura de caixa falhou';
   end if;
