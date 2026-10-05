@@ -308,16 +308,48 @@ export async function salvarProduto(input: ProdutoInput): Promise<ResultadoAcao 
   });
   if (errCom) return { ok: false, erro: `Falha nos dados comerciais: ${errCom.message}` };
 
+  // A faixa 1 do varejo e a base do produto. A PK de item_prices inclui
+  // valid_from, entao um upsert "cego" criaria uma SEGUNDA linha para a mesma
+  // faixa e o checkout passaria a escolher preco de forma indefinida - por isso
+  // a Tabela de precos (/configuracoes/precos) mantem UMA linha por faixa.
+  // Grava sempre na linha base existente e, em seguida, apaga as demais.
+  const { data: baseExistente } = await admin
+    .from("item_prices")
+    .select("valid_from")
+    .eq("item_id", itemId)
+    .eq("channel", "varejo")
+    .eq("min_quantity", 1)
+    .order("valid_from", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const vigenciaBase = baseExistente?.valid_from
+    ? String(baseExistente.valid_from).slice(0, 10)
+    : "1970-01-01";
+
   const { error: errPrice } = await admin.from("item_prices").upsert(
     {
       item_id: itemId,
       channel: "varejo",
       price: venda,
       min_quantity: 1,
+      valid_from: vigenciaBase,
     },
     { onConflict: "item_id,channel,min_quantity,valid_from" }
   );
   if (errPrice) return { ok: false, erro: `Falha no preço de venda: ${errPrice.message}` };
+
+  // consolida a faixa 1 do varejo: sobra apenas a linha que acabou de ser
+  // gravada (as outras, inclusive a de 1970, saem daqui).
+  const { error: errLimpaPreco } = await admin
+    .from("item_prices")
+    .delete()
+    .eq("item_id", itemId)
+    .eq("channel", "varejo")
+    .eq("min_quantity", 1)
+    .neq("valid_from", vigenciaBase);
+  if (errLimpaPreco) {
+    return { ok: false, erro: `Falha ao consolidar o preco: ${errLimpaPreco.message}` };
+  }
 
   await auditar(admin, gestor.id, eraNovo ? "produto.criado" : "produto.atualizado", "catalog_items", itemId, {
     sku,

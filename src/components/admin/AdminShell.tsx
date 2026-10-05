@@ -186,6 +186,16 @@ const CONFIG: Link[] = [
     ),
   },
   {
+    href: "/configuracoes/precos",
+    label: "Tabela de preços",
+    icon: (
+      <>
+        <path d="M20.6 13.4 12 4.8H4.8V12l8.6 8.6a1.7 1.7 0 0 0 2.4 0l4.8-4.8a1.7 1.7 0 0 0 0-2.4z" />
+        <circle cx="8.6" cy="8.6" r="1.3" />
+      </>
+    ),
+  },
+  {
     href: "/configuracoes/auditoria",
     label: "Auditoria",
     icon: (
