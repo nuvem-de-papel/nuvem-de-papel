@@ -13,10 +13,12 @@ import {
   importarPedidosLoja,
   registrarOcorrencia,
   transmitirNfe,
+  buscarXmlNota,
   type EntradaNfe,
   type Resultado,
   type ResultadoNfe,
 } from "@/app/vendas/actions";
+import BotaoImprimir from "@/components/compras/BotaoImprimir";
 
 // Console do módulo Vendas (Vendas Detalhada): gestão de pedidos de venda e
 // de compra em telas simples + emissão de nota fiscal (emissão interna da
@@ -456,6 +458,37 @@ export function ConsoleVendas({
   const [emissao, setEmissao] = useState<{ tipo: "saida" | "entrada"; pedido: PedidoVenda | PedidoCompra } | null>(null);
   const [form, setForm] = useState<FormNfe | null>(null);
   const [doc, setDoc] = useState<NotaEmitida | null>(null);
+  const [xmlPendente, setXmlPendente] = useState(false);
+  const [xmlErro, setXmlErro] = useState<string | null>(null);
+
+  // Bloco 4 - download do XML autorizado. Busca sob demanda (o XML nao vai
+  // dentro da listagem) e dispara o download pelo browser. Armazenado em Blob
+  // + object URL para nao depender de rota publica.
+  const baixarXml = async () => {
+    if (!doc || xmlPendente) return;
+    setXmlPendente(true);
+    setXmlErro(null);
+    try {
+      const r = await buscarXmlNota(doc.id);
+      if (!r.ok) {
+        setXmlErro(r.erro);
+        return;
+      }
+      const blob = new Blob([r.xml], { type: "application/xml;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = r.nome;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 5000);
+    } catch {
+      setXmlErro("Falha ao baixar o XML.");
+    } finally {
+      setXmlPendente(false);
+    }
+  };
   const [aviso, setAviso] = useState<{ tipo: "ok" | "erro"; texto: string } | null>(null);
   const [pendente, startTransition] = useTransition();
   // Vendas v5: funil/busca/canais (VD-02), expedicao (EN-*) e importar loja
@@ -1739,7 +1772,10 @@ export function ConsoleVendas({
                       <button
                         type="button"
                         aria-label={`Ver documento NF-e ${n.numero}`}
-                        onClick={() => setDoc(n)}
+                        onClick={() => {
+                          setXmlErro(null);
+                          setDoc(n);
+                        }}
                         style={{ ...BTN, background: "var(--bg-cloud)", color: "var(--navy)", marginRight: 8 }}
                       >
                         Ver
@@ -2087,6 +2123,7 @@ export function ConsoleVendas({
       {/* ------------------------------------------------ documento (modal) -- */}
       {doc && (
         <div
+          className="doc-print"
           style={{
             position: "fixed",
             inset: 0,
@@ -2105,6 +2142,7 @@ export function ConsoleVendas({
           <div
             role="dialog"
             aria-modal="true"
+            className="doc-print-inner"
             aria-label={`Documento da NF-e ${doc.numero}`}
             style={{
               background: "#FFF",
@@ -2152,15 +2190,46 @@ export function ConsoleVendas({
                   <div style={{ fontSize: 11.5, color: "#991B1B" }}>{doc.motivo}</div>
                 )}
               </div>
-              <button
-                type="button"
-                aria-label="Fechar documento"
-                onClick={() => setDoc(null)}
-                style={{ ...BTN, background: "var(--bg-cloud)", color: "var(--navy)" }}
-              >
-                Fechar
-              </button>
+              <div style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0 }}>
+                <BotaoImprimir rotulo="Imprimir / PDF" />
+                <button
+                  type="button"
+                  data-no-print
+                  aria-label="Baixar XML da nota"
+                  disabled={xmlPendente}
+                  onClick={() => void baixarXml()}
+                  style={{ ...BTN, background: "var(--bg-cloud)", color: "var(--navy)", opacity: xmlPendente ? 0.6 : 1 }}
+                >
+                  {xmlPendente ? "…" : "Baixar XML"}
+                </button>
+                <button
+                  type="button"
+                  data-no-print
+                  aria-label="Fechar documento"
+                  onClick={() => setDoc(null)}
+                  style={{ ...BTN, background: "var(--navy)", color: "#fff" }}
+                >
+                  Fechar
+                </button>
+              </div>
             </div>
+
+            {xmlErro && (
+              <div
+                data-no-print
+                style={{
+                  margin: "10px 22px 0",
+                  padding: "8px 12px",
+                  borderRadius: 10,
+                  background: "#FEE2E2",
+                  color: "#991B1B",
+                  fontSize: 12.5,
+                  fontWeight: 700,
+                }}
+              >
+                {xmlErro}
+              </div>
+            )}
 
             <div style={{ padding: "18px 22px 24px", fontSize: 13.5, color: "var(--ink)" }}>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>

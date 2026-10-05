@@ -1011,9 +1011,20 @@ export function ConsoleCompras({
                             )}
                           </td>
                           <td style={{ padding: "10px", whiteSpace: "nowrap" }}>
-                            <button type="button" onClick={a.rodar} style={a.estilo}>
-                              {a.rotulo}
-                            </button>
+                            <div style={{ display: "flex", gap: 5, alignItems: "center" }}>
+                              <button type="button" onClick={a.rodar} style={a.estilo}>
+                                {a.rotulo}
+                              </button>
+                              <button
+                                type="button"
+                                aria-label={`Abrir PDF do pedido ${p.codigo}`}
+                                title="Abrir em A4 para imprimir ou salvar em PDF"
+                                onClick={() => window.open(`/compras/pedido/${p.id}`, "_blank")}
+                                style={{ ...CHIP, border: "1px solid var(--border)", cursor: "pointer" }}
+                              >
+                                PDF
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       );

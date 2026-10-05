@@ -564,3 +564,78 @@ body:has(.admin-shell) .floating-social {
     padding-bottom: 84px;
   }
 }
+
+/* ============================================================
+   Bloco 4 - impressao / PDF (DANFE e pedido de compra).
+   O PDF sai do proprio browser (Ctrl+P -> Salvar como PDF):
+   nada de lib de PDF no servidor e nada de headless no deploy.
+   O elemento marcado .doc-print vira a unica coisa impressa e
+   os controles com [data-no-print] somem do papel.
+   ============================================================ */
+@media print {
+  @page {
+    size: A4;
+    margin: 12mm;
+  }
+
+  html,
+  body {
+    background: #fff !important;
+  }
+
+  body * {
+    visibility: hidden !important;
+  }
+
+  .doc-print,
+  .doc-print * {
+    visibility: visible !important;
+  }
+
+  .doc-print {
+    position: static !important;
+    inset: auto !important;
+    display: block !important;
+    overflow: visible !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    background: none !important;
+    box-shadow: none !important;
+  }
+
+  .doc-print-inner {
+    width: 100% !important;
+    max-width: none !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    margin: 0 !important;
+  }
+
+  [data-no-print] {
+    display: none !important;
+  }
+
+  .doc-print,
+  .doc-print * {
+    color: #111 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
+  .doc-print table {
+    page-break-inside: auto;
+  }
+
+  .doc-print tr {
+    page-break-inside: avoid;
+  }
+
+  .doc-print thead {
+    display: table-header-group;
+  }
+
+  .doc-print-quebra {
+    page-break-after: always;
+  }
+}

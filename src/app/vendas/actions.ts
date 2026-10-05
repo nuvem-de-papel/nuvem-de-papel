@@ -1028,3 +1028,33 @@ async function avisarCliente(
     console.error("[vendas] aviso de entrega falhou:", e);
   }
 }
+
+// Bloco 4 - download do XML autorizado. O XML mora em nfe_emissoes.xml e
+// pode pesar varios KB, entao ele NAO entra na listagem: busca sob demanda,
+// com a mesma trinca de permissao (exigirGestao) das demais acoes do modulo.
+export type ResultadoXml =
+  | { ok: true; xml: string; nome: string }
+  | { ok: false; erro: string };
+
+const UUID_XML = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export async function buscarXmlNota(notaId: string): Promise<ResultadoXml> {
+  if (!UUID_XML.test(notaId ?? "")) return { ok: false, erro: "Nota invalida." };
+  const acesso = await exigirGestao();
+  if ("erro" in acesso) return { ok: false, erro: acesso.erro };
+
+  const { data: nota } = await acesso.admin
+    .from("nfe_emissoes")
+    .select("id, numero, serie, chave, xml, tipo")
+    .eq("tenant_id", NUVEM_DE_PAPEL_TENANT_ID)
+    .eq("id", notaId)
+    .maybeSingle();
+
+  if (!nota) return { ok: false, erro: "Nota nao encontrada." };
+  if (!nota.xml)
+    return { ok: false, erro: "Esta nota ainda nao tem XML (nada transmitido ate agora)." };
+
+  const chave = nota.chave && nota.chave.length === 44 ? nota.chave : null;
+  const nome = chave ? `${chave}.xml` : `nfe-${nota.tipo}-${nota.numero}-s${nota.serie}.xml`;
+  return { ok: true, xml: nota.xml, nome };
+}
