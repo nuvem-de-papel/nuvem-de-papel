@@ -6,6 +6,7 @@ import { PAPEIS_GESTAO } from "@/lib/rbac";
 import { NUVEM_DE_PAPEL_TENANT_ID } from "@/lib/tenant";
 import {
   CadastrosTelaUnica,
+  type ClienteCad,
   type EmpresaCad,
   type FornecedorCad,
   type ProdutoCad,
@@ -41,7 +42,7 @@ export default async function CadastroPage() {
   if (!user) redirect("/login?next=/configuracoes/cadastro");
 
   const admin = createAdminClient();
-  const [fornRes, revRes, meuRes, empRes, sefazRes, prodRes] = await Promise.all([
+  const [fornRes, revRes, meuRes, empRes, sefazRes, prodRes, cliRes] = await Promise.all([
     admin
       .from("suppliers")
       .select("id, name, contact_email, cnpj, active")
@@ -68,6 +69,13 @@ export default async function CadastroPage() {
         "id, sku, name, category, active, item_fiscal_data(gtin, ncm, cst_csosn, cest, origem, unit, icms_rate, ipi_rate, weight_kg, weight_gross_kg), item_commercial_data(cost_price, margin_percent, min_stock), item_prices(price, min_quantity, channel)"
       )
       .order("name", { ascending: true }),
+    // Bloco 5 passo 3: clientes reais (antes os contadores e a ficha eram fixos)
+    admin
+      .from("customers")
+      .select("id, name, email, documento, ie, uf, tier, points, created_at, orders(count)")
+      .eq("tenant_id", NUVEM_DE_PAPEL_TENANT_ID)
+      .order("name", { ascending: true })
+      .limit(500),
   ]);
 
   const meu = meuRes.data;
@@ -173,12 +181,38 @@ export default async function CadastroPage() {
     };
   });
 
+  type BrutoCliente = {
+    id: string;
+    name: string;
+    email: string;
+    documento: string | null;
+    ie: string | null;
+    uf: string | null;
+    tier: string;
+    points: number | string;
+    created_at: string;
+    orders: { count: number }[] | null;
+  };
+  const clientes: ClienteCad[] = ((cliRes.data ?? []) as unknown as BrutoCliente[]).map((c) => ({
+    id: c.id,
+    nome: c.name,
+    email: c.email,
+    documento: c.documento ?? "",
+    ie: c.ie ?? "",
+    uf: c.uf ?? "",
+    tier: c.tier,
+    pontos: Number(c.points ?? 0),
+    criadoEm: c.created_at,
+    pedidos: Array.isArray(c.orders) ? Number(c.orders[0]?.count ?? 0) : 0,
+  }));
+
   return (
     <CadastrosTelaUnica
       fornecedoresReais={fornecedoresReais}
       revendas={revendas}
       empresa={empresa}
       produtos={produtos}
+      clientes={clientes}
     />
   );
 }

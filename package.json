@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "next lint",
     "type-check": "tsc --noEmit",
-    "e2e": "node e2e/f2.cjs && node e2e/f3.cjs && node e2e/f4.cjs && node e2e/f5.cjs && node e2e/f6.cjs && node e2e/email.cjs && node e2e/clube.cjs && node e2e/vendas.cjs && node e2e/fiscal.cjs && node e2e/sefaz.cjs && node e2e/pdv-v6.cjs && node e2e/vendas-v5.cjs && node e2e/compras-v1.cjs && node e2e/dre.cjs && node e2e/documentos.cjs && node e2e/vendedores.cjs && node e2e/precos.cjs"
+    "e2e": "node e2e/f2.cjs && node e2e/f3.cjs && node e2e/f4.cjs && node e2e/f5.cjs && node e2e/f6.cjs && node e2e/email.cjs && node e2e/clube.cjs && node e2e/vendas.cjs && node e2e/fiscal.cjs && node e2e/sefaz.cjs && node e2e/pdv-v6.cjs && node e2e/vendas-v5.cjs && node e2e/compras-v1.cjs && node e2e/dre.cjs && node e2e/documentos.cjs && node e2e/vendedores.cjs && node e2e/precos.cjs && node e2e/clientes.cjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.5.2",

@@ -5,6 +5,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { criarFornecedor } from "@/app/compras/actions";
 import { alternarStatus } from "@/app/configuracoes/usuarios/actions";
 import {
+  removerCliente,
+  salvarCliente,
   salvarEmpresa,
   salvarProduto,
   type EmpresaInput,
@@ -295,6 +297,53 @@ export type ProdutoCad = {
   margemPct: number;
 };
 
+// Bloco 5 passo 3: cliente vem do banco (customers) em vez de ficha fixa.
+export type ClienteCad = {
+  id: string;
+  nome: string;
+  email: string;
+  documento: string;
+  ie: string;
+  uf: string;
+  tier: string;
+  pontos: number;
+  criadoEm: string;
+  pedidos: number;
+};
+
+type CliForm = {
+  nome: string;
+  email: string;
+  documento: string;
+  ie: string;
+  uf: string;
+  tier: string;
+  pontos: string;
+};
+
+const FORM_CLI_VAZIO: CliForm = {
+  nome: "",
+  email: "",
+  documento: "",
+  ie: "",
+  uf: "SP",
+  tier: "bronze",
+  pontos: "0",
+};
+
+function cliDeRegistro(c: ClienteCad | null): CliForm {
+  if (!c) return FORM_CLI_VAZIO;
+  return {
+    nome: c.nome,
+    email: c.email,
+    documento: c.documento,
+    ie: c.ie,
+    uf: c.uf || "SP",
+    tier: c.tier,
+    pontos: String(c.pontos),
+  };
+}
+
 const TELAS = ["cliente", "produto", "empresa", "fornecedor", "revenda"] as const;
 type Tela = (typeof TELAS)[number];
 
@@ -312,11 +361,13 @@ export function CadastrosTelaUnica({
   revendas = [],
   empresa = null,
   produtos = [],
+  clientes = [],
 }: {
   fornecedoresReais?: FornecedorCad[];
   revendas?: RevendaCad[];
   empresa?: EmpresaCad | null;
   produtos?: ProdutoCad[];
+  clientes?: ClienteCad[];
 }) {
   const params = useSearchParams();
   const telaUrl = params?.get("tela") ?? "cliente";
@@ -338,10 +389,22 @@ export function CadastrosTelaUnica({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tela]);
   const [modal, setModal] = useState<null | "cliente" | "fornecedor">(null);
-  const [tipoPre, setTipoPre] = useState<"pj" | "pf">("pj");
   const [tipoForn, setTipoForn] = useState<"pj" | "pf">("pj");
-  const [preAddr, setPreAddr] = useState(false);
   const [fornAddr, setFornAddr] = useState(false);
+
+  // ---- Bloco 5 passo 3: cadastro de cliente funcional --------------------
+  const [cliId, setCliId] = useState<string | null>(clientes[0]?.id ?? null);
+  const [cliBusca, setCliBusca] = useState("");
+  const [cliPesquisaAberta, setCliPesquisaAberta] = useState(false);
+  const [formCli, setFormCli] = useState<CliForm>(() => cliDeRegistro(clientes[0] ?? null));
+  // "novos no mês" é calculado depois da hidratação: o relógio do servidor não
+  // pode entrar no HTML inicial (senão o React reclama de mismatch de hydrate).
+  const [cliNovos, setCliNovos] = useState(0);
+  useEffect(() => {
+    const agora = new Date();
+    const inicioMes = new Date(agora.getFullYear(), agora.getMonth(), 1);
+    setCliNovos(clientes.filter((c) => new Date(c.criadoEm) >= inicioMes).length);
+  }, [clientes]);
   const [extra, setExtra] = useState<Record<string, string>>({
     cliente: "obs",
     produto: "obs",
@@ -467,17 +530,6 @@ export function CadastrosTelaUnica({
     return limpo ? lista.filter((v) => v.toLowerCase().includes(limpo)) : [...lista].sort((a, b) => a.localeCompare(b, "pt-BR"));
   };
 
-  const onCepCliente = async (e: React.FocusEvent<HTMLInputElement>) => {
-    const data = await buscarCep(e.target.value);
-    if (!data) return;
-    const bairro = document.getElementById("ct-cli-bairro") as HTMLInputElement | null;
-    const cidade = document.getElementById("ct-cli-cidade") as HTMLInputElement | null;
-    const uf = document.getElementById("ct-cli-uf") as HTMLSelectElement | null;
-    if (bairro && data.bairro) bairro.value = data.bairro;
-    if (cidade && data.localidade) cidade.value = data.localidade;
-    if (uf && data.uf) uf.value = data.uf;
-  };
-
   const onCepEmpresa = async (e: React.FocusEvent<HTMLInputElement>) => {
     const data = await buscarCep(e.target.value);
     if (!data) return;
@@ -491,7 +543,7 @@ export function CadastrosTelaUnica({
     if (uf && data.uf) uf.value = data.uf;
   };
 
-  const onCepModal = async (prefixo: "pre" | "forn", e: React.FocusEvent<HTMLInputElement>) => {
+  const onCepModal = async (prefixo: "forn", e: React.FocusEvent<HTMLInputElement>) => {
     const data = await buscarCep(e.target.value);
     const logr = document.getElementById(`ct-${prefixo}-logradouro`) as HTMLInputElement | null;
     const bairro = document.getElementById(`ct-${prefixo}-bairro`) as HTMLInputElement | null;
@@ -501,8 +553,7 @@ export function CadastrosTelaUnica({
       if (bairro) bairro.value = data.bairro || "";
       if (cidade) cidade.value = `${data.localidade || ""}${data.uf ? "/" + data.uf : ""}`;
     }
-    if (prefixo === "pre") setPreAddr(true);
-    else setFornAddr(true);
+    setFornAddr(true);
     const numero = document.getElementById(`ct-${prefixo}-numero`);
     if (numero) setTimeout(() => numero.focus(), 50);
   };
@@ -565,12 +616,6 @@ export function CadastrosTelaUnica({
   const iconeCheck = (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><path d="M20 6 9 17l-5-5" /></svg>
   );
-  const iconeZap = (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M4 5c0 8 7 15 15 15l3-4-6-3-2 2c-2-1-4-3-5-5l2-2-3-6z" /></svg>
-  );
-  const iconeCalendario = (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M7 2v4M17 2v4M3 10h18" /></svg>
-  );
   const iconeFoto = (
     <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"><rect x="3" y="5" width="18" height="14" rx="2" /><circle cx="9" cy="10" r="2" /><path d="m21 16-5-4-4 3-3-2-6 5" /></svg>
   );
@@ -596,154 +641,240 @@ export function CadastrosTelaUnica({
     </div>
   );
 
+  // ---- ficha de cliente: busca, contadores e ações ------------------------
+  const cliQ = cliBusca.trim().toLowerCase();
+  const cliAchados = cliPesquisaAberta
+    ? clientes
+        .filter(
+          (c) =>
+            !cliQ ||
+            c.nome.toLowerCase().includes(cliQ) ||
+            c.email.toLowerCase().includes(cliQ) ||
+            c.documento.includes(cliQ)
+        )
+        .slice(0, 12)
+    : [];
+  const cliComPedido = clientes.filter((c) => c.pedidos > 0).length;
+  const cliSelecionado = clientes.find((c) => c.id === cliId) ?? null;
+
+  function selecionarCliente(c: ClienteCad | null) {
+    setCliId(c?.id ?? null);
+    setFormCli(cliDeRegistro(c));
+    setCliBusca("");
+    setCliPesquisaAberta(false);
+    setFeedback(null);
+  }
+
+  function pesquisarCliente() {
+    setCliPesquisaAberta(true);
+    const el = document.getElementById("ct-cli-busca") as HTMLInputElement | null;
+    el?.focus();
+    el?.select();
+  }
+
+  function salvarClienteUI() {
+    if (formCli.nome.trim().length < 3) {
+      setFeedback({ tipo: "err", texto: "Informe o nome do cliente." });
+      return;
+    }
+    if (!formCli.email.trim()) {
+      setFeedback({ tipo: "err", texto: "Informe o e-mail do cliente." });
+      return;
+    }
+    setFeedback(null);
+    startTransition(async () => {
+      const r = await salvarCliente({ id: cliId, ...formCli });
+      if (!r.ok) {
+        setFeedback({ tipo: "err", texto: r.erro });
+        return;
+      }
+      if (!cliId && r.id) setCliId(r.id);
+      setFeedback({
+        tipo: "ok",
+        texto: cliId ? "Cliente atualizado com sucesso." : "Cliente cadastrado com sucesso.",
+      });
+      router.refresh();
+    });
+  }
+
+  function apagarClienteUI() {
+    if (!cliId) {
+      setFeedback({ tipo: "err", texto: "Nenhum cliente selecionado para excluir." });
+      return;
+    }
+    if (!window.confirm(`Excluir o cliente "${formCli.nome}"?`)) return;
+    setFeedback(null);
+    startTransition(async () => {
+      const r = await removerCliente({ id: cliId });
+      if (!r.ok) {
+        setFeedback({ tipo: "err", texto: r.erro });
+        return;
+      }
+      selecionarCliente(null);
+      setFeedback({ tipo: "ok", texto: "Cliente removido com sucesso." });
+      router.refresh();
+    });
+  }
+
+  function salvarClienteNovo(e: React.FormEvent) {
+    e.preventDefault();
+    const nome =
+      (document.getElementById("ct-cli-novo-nome") as HTMLInputElement | null)?.value ?? "";
+    const email =
+      (document.getElementById("ct-cli-novo-email") as HTMLInputElement | null)?.value ?? "";
+    const documento =
+      (document.getElementById("ct-cli-novo-doc") as HTMLInputElement | null)?.value ?? "";
+    const tier =
+      (document.getElementById("ct-cli-novo-tier") as HTMLSelectElement | null)?.value ??
+      "bronze";
+    if (nome.trim().length < 3) {
+      setFeedback({ tipo: "err", texto: "Informe o nome do cliente." });
+      return;
+    }
+    if (!email.trim()) {
+      setFeedback({ tipo: "err", texto: "Informe o e-mail do cliente." });
+      return;
+    }
+    setFeedback(null);
+    startTransition(async () => {
+      const r = await salvarCliente({ nome, email, documento, tier });
+      if (!r.ok) {
+        setFeedback({ tipo: "err", texto: r.erro });
+        return;
+      }
+      setModal(null);
+      setCliId(r.id ?? null);
+      setFormCli({
+        nome: nome.trim().replace(/\s+/g, " "),
+        email: email.trim().toLowerCase(),
+        documento,
+        ie: "",
+        uf: "SP",
+        tier,
+        pontos: "0",
+      });
+      setFeedback({ tipo: "ok", texto: "Cliente cadastrado com sucesso." });
+      router.refresh();
+    });
+  }
+
   const telaCliente = (
     <div className="ct-screen">
       <div className="ct-window">
         <div className="ct-header">
-          <div className="ct-h-title"><span className="eyebrow">Nuvem de Papel · Cliente</span><h1>Cadastro de pessoa</h1></div>
+          <div className="ct-h-title"><span className="eyebrow">Nuvem de Papel · Cliente</span><h1>Cadastro de cliente</h1></div>
           <button className="ct-act primary" onClick={() => setModal("cliente")}>{iconePlus}Incluir</button>
-          <button className="ct-act danger">{iconeLixeira}Apagar</button>
-          <button className="ct-act">{iconeLupa}Pesquisar</button>
-          <button className="ct-act">{iconeImpressora}Imprimir</button>
+          <button className="ct-act danger" aria-label="Apagar cliente" disabled={salvando || !cliId} onClick={apagarClienteUI}>{iconeLixeira}Apagar</button>
+          <button className="ct-act" aria-label="Pesquisar cliente" onClick={pesquisarCliente}>{iconeLupa}Pesquisar</button>
+          <button className="ct-act" onClick={() => window.print()}>{iconeImpressora}Imprimir</button>
           <span className="ct-spacer" />
-          <button className="ct-act">Vendas</button>
-          <button className="ct-act">Extrato</button>
-          <button className="ct-act">Orçamentos</button>
-          <span className="ct-pill">Código 000042</span>
+          <button className="ct-act primary" aria-label="Salvar cliente" disabled={salvando} onClick={salvarClienteUI}>{iconeCheck}{salvando ? "Salvando..." : "Salvar"}</button>
+          <span className="ct-pill">{cliId ? `Cód. ${cliId.slice(0, 6).toUpperCase()}` : "novo"}</span>
         </div>
 
         <div className="ct-grid">
           <div className="ct-main">
             <div className="ct-counters">
-              <div className="code">CÓD. 000042</div>
-              <div className="tot"><span className="k">Clientes total</span><b>318</b></div>
-              <div className="ativ"><span className="k">Ativos</span><b>302</b></div>
-              <div className="inat"><span className="k">Inativos</span><b>16</b></div>
+              <div className="code">{cliId ? `CÓD. ${cliId.slice(0, 6).toUpperCase()}` : "CÓD. NOVO"}</div>
+              <div className="tot"><span className="k">Clientes total</span><b aria-label="Clientes total">{clientes.length}</b></div>
+              <div className="ativ"><span className="k">Novos no mês</span><b aria-label="Novos no mes">{cliNovos}</b></div>
+              <div className="inat"><span className="k">Com pedidos</span><b aria-label="Clientes com pedidos">{cliComPedido}</b></div>
+            </div>
+
+            <div className="ct-grp">
+              <div className="ct-field ct-ac">
+                <label>Localizar cliente</label>
+                <input
+                  id="ct-cli-busca"
+                  aria-label="Localizar cliente"
+                  placeholder="nome, e-mail ou CPF/CNPJ"
+                  value={cliBusca}
+                  onChange={(e) => {
+                    setCliBusca(e.target.value);
+                    setCliPesquisaAberta(true);
+                  }}
+                  onFocus={() => setCliPesquisaAberta(true)}
+                  onBlur={() => window.setTimeout(() => setCliPesquisaAberta(false), 160)}
+                />
+                <ul className={`ct-ac-list${cliAchados.length ? " on" : ""}`}>
+                  {cliAchados.length === 0 ? (
+                    <li className="ct-ac-empty">Nenhum cliente encontrado.</li>
+                  ) : (
+                    cliAchados.map((c) => (
+                      <li key={c.id} onMouseDown={() => selecionarCliente(c)}>
+                        {c.nome}
+                        <span style={{ color: "var(--ink-soft)" }}> · {c.email}</span>
+                      </li>
+                    ))
+                  )}
+                </ul>
+              </div>
             </div>
 
             <div className="ct-grp">
               <div className="ct-row ct-r1">
-                <div className="ct-field"><label>Nome / Razão social<span className="ct-req">*</span></label><input defaultValue="Carla Beatriz Andrade Souza" /></div>
-              </div>
-              <div className="ct-row ct-r-2-1">
-                <div className="ct-field"><label>Endereço (logradouro)</label><input defaultValue="Rua das Camélias" /></div>
-                <div className="ct-field"><label>Número</label><input defaultValue="412" /></div>
-              </div>
-              <div className="ct-row ct-r-1-2">
-                <div className="ct-field"><label>Complemento</label><input defaultValue="Apto 61" /></div>
-                <div className="ct-field"><label>CEP <span className="ct-hint">busca automática</span></label><input defaultValue="09750-310" maxLength={9} onChange={(e) => (e.target.value = mascaraCep(e.target.value))} onBlur={onCepCliente} /></div>
-              </div>
-              <div className="ct-row ct-r3">
-                <div className="ct-field"><label>Bairro</label><input id="ct-cli-bairro" defaultValue="Jardim Silvina" /></div>
-                <div className="ct-field"><label>Cidade</label><input id="ct-cli-cidade" defaultValue="São Bernardo do Campo" /></div>
-                <div className="ct-field"><label>Estado</label><select id="ct-cli-uf" defaultValue="SP">{UFS.map((u) => <option key={u}>{u}</option>)}</select></div>
-              </div>
-            </div>
-
-            <div className="ct-grp">
-              <p className="ct-grp-label">Documentos</p>
-              <div className="ct-row ct-r3">
-                <div className="ct-field"><label>CPF/CNPJ</label><input defaultValue="123.456.789-10" maxLength={18} onChange={(e) => (e.target.value = mascaraDoc(e.target.value))} onBlur={(e) => verificarDoc(e.target)} /><div className="ct-doc-msg" /></div>
-                <div className="ct-field"><label>Identidade (RG)</label><input defaultValue="42.118.905-3" /></div>
-                <div className="ct-field"><label>Profissão</label><input defaultValue="Professora" /></div>
-              </div>
-              <div className="ct-row ct-r2">
-                <div className="ct-field"><label>Nascimento</label><input type="date" defaultValue="1988-04-12" /></div>
-                <div className="ct-field"><label>Filiação</label><input defaultValue="Regina Andrade Souza" /></div>
-              </div>
-            </div>
-
-            <div className="ct-grp">
-              <p className="ct-grp-label">Contato</p>
-              <div className="ct-row ct-r2">
-                <div className="ct-field"><label>Telefones</label><input defaultValue="(11) 4123-7788" maxLength={15} onChange={(e) => (e.target.value = mascaraTelefone(e.target.value))} /></div>
-                <div className="ct-field"><label>Celular / WhatsApp</label><input defaultValue="(11) 9 8877-2244" maxLength={16} onChange={(e) => (e.target.value = mascaraTelefone(e.target.value))} /></div>
-              </div>
-              <div className="ct-row ct-r2">
-                <div className="ct-field"><label>E-mail</label><input defaultValue="carla.andrade@exemplo.com.br" /></div>
-                <div className="ct-field"><label>Vendedor</label><select><option>Equipe Nuvem de Papel</option></select></div>
-              </div>
-            </div>
-
-            <div className="ct-grp">
-              <div className="ct-row ct-r2">
-                <div className="ct-radio-group"><span className="rg-label">Pessoa</span>
-                  <label className="ct-radio-opt"><input type="radio" name="pessoa" defaultChecked />Física</label>
-                  <label className="ct-radio-opt"><input type="radio" name="pessoa" />Jurídica</label>
+                <div className="ct-field"><label>Nome / Razão social<span className="ct-req">*</span></label>
+                  <input aria-label="Nome do cliente" maxLength={160} value={formCli.nome} onChange={(e) => setFormCli((f) => ({ ...f, nome: e.target.value }))} />
                 </div>
-                <div className="ct-radio-group"><span className="rg-label">Ordenar por</span>
-                  <label className="ct-radio-opt"><input type="radio" name="ordem" defaultChecked />Nome</label>
-                  <label className="ct-radio-opt"><input type="radio" name="ordem" />CPF/CNPJ</label>
-                  <label className="ct-radio-opt"><input type="radio" name="ordem" />Código</label>
+              </div>
+              <div className="ct-row ct-r2">
+                <div className="ct-field"><label>E-mail<span className="ct-req">*</span></label>
+                  <input aria-label="E-mail do cliente" type="email" value={formCli.email} onChange={(e) => setFormCli((f) => ({ ...f, email: e.target.value }))} />
+                </div>
+                <div className="ct-field"><label>CPF/CNPJ</label>
+                  <input aria-label="CPF ou CNPJ do cliente" maxLength={18} value={formCli.documento} onChange={(e) => setFormCli((f) => ({ ...f, documento: mascaraDoc(e.target.value) }))} onBlur={(e) => verificarDoc(e.target)} />
+                  <div className="ct-doc-msg" />
+                </div>
+              </div>
+              <div className="ct-row ct-r3">
+                <div className="ct-field"><label>Inscrição estadual</label>
+                  <input aria-label="Inscricao estadual" maxLength={20} value={formCli.ie} onChange={(e) => setFormCli((f) => ({ ...f, ie: e.target.value }))} />
+                </div>
+                <div className="ct-field"><label>Estado</label>
+                  <select aria-label="Estado do cliente" value={formCli.uf} onChange={(e) => setFormCli((f) => ({ ...f, uf: e.target.value }))}>
+                    {UFS.map((u) => <option key={u} value={u}>{u}</option>)}
+                  </select>
+                </div>
+                <div className="ct-field"><label>Pontos de fidelidade</label>
+                  <input aria-label="Pontos do cliente" type="number" min={0} value={formCli.pontos} onChange={(e) => setFormCli((f) => ({ ...f, pontos: e.target.value }))} />
                 </div>
               </div>
             </div>
-
-            <label className="ct-checkline"><input type="checkbox" />Bloquear atendimento para este cliente</label>
           </div>
 
           <div className="ct-side">
             <div className="ct-grp" style={{ marginBottom: 0 }}>
               <p className="ct-grp-label">Situação comercial</p>
-              <div className="ct-row ct-r1"><div className="ct-field"><label>Tipo de cliente</label><select><option>Consumidor final</option><option>Revenda</option></select></div></div>
-              <div className="ct-row ct-r2">
-                <div className="ct-field"><label>Limite de crédito</label><input defaultValue="R$ 0,00" /></div>
-                <div className="ct-field"><label>Data do cadastro</label><input type="date" defaultValue="2026-02-18" disabled style={{ opacity: 0.7 }} /></div>
+              <div className="ct-row ct-r1">
+                <div className="ct-field"><label>Nível do cliente (tier)</label>
+                  <select aria-label="Nivel do cliente" value={formCli.tier} onChange={(e) => setFormCli((f) => ({ ...f, tier: e.target.value }))}>
+                    <option value="bronze">Bronze</option>
+                    <option value="prata">Prata</option>
+                    <option value="ouro">Ouro</option>
+                    <option value="diamante">Diamante</option>
+                  </select>
+                </div>
               </div>
-              <span className="ct-pill ok">Em dia</span>
+              <div className="ct-row ct-r2">
+                <div className="ct-field"><label>Data do cadastro</label>
+                  <input aria-label="Data de cadastro" type="date" disabled style={{ opacity: 0.7 }} value={cliSelecionado ? cliSelecionado.criadoEm.slice(0, 10) : ""} />
+                </div>
+                <div className="ct-field"><label>Pedidos</label>
+                  <input aria-label="Pedidos do cliente" disabled style={{ opacity: 0.7 }} value={String(cliSelecionado?.pedidos ?? 0)} readOnly />
+                </div>
+              </div>
+              <span className="ct-pill ok">{cliSelecionado ? `tier ${formCli.tier}` : "novo cadastro"}</span>
             </div>
-
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              <button className="ct-act" style={{ width: "100%", justifyContent: "center" }}>{iconeZap}Mensagem WhatsApp</button>
-              <button className="ct-act" style={{ width: "100%", justifyContent: "center" }}>{iconeCalendario}Ver histórico</button>
-            </div>
-
-            {abasExtra(
-              "cliente",
-              [
-                { id: "obs", label: "Observações" },
-                { id: "net", label: "Internet" },
-                { id: "outros", label: "Outros dados" },
-                { id: "foto", label: "Foto" },
-              ],
-              {
-                obs: <div className="ct-field"><textarea placeholder="Observações internas..." defaultValue="Prefere ser atendida à tarde. Compra sempre à vista." /></div>,
-                net: (
-                  <div className="ct-row ct-r1">
-                    <div className="ct-field"><label>Site</label><input placeholder="https://" /></div>
-                    <div className="ct-field"><label>E-mail alternativo</label><input placeholder="opcional" /></div>
-                  </div>
-                ),
-                outros: (
-                  <>
-                    <div className="ct-row ct-r2">
-                      <div className="ct-field"><label>Cartão de crédito</label><select><option>Nenhum</option></select></div>
-                      <div className="ct-field"><label>Número</label><input placeholder="**** **** **** ****" /></div>
-                    </div>
-                    <div className="ct-row ct-r2">
-                      <div className="ct-field"><label>Validade</label><input placeholder="MM/AA" /></div>
-                      <div className="ct-field"><label>Nome impresso</label><input placeholder="Nome no cartão" /></div>
-                    </div>
-                    <div className="ct-row ct-r1"><div className="ct-field"><label>Referências bancárias</label><input placeholder="Banco, agência..." /></div></div>
-                    <div className="ct-row ct-r1"><div className="ct-field"><label>Atividade principal</label><input placeholder="ex.: Educação" /></div></div>
-                    <div className="ct-row ct-r1"><div className="ct-field"><label>Referências comerciais</label><input placeholder="Fornecedores/lojas" /></div></div>
-                  </>
-                ),
-                foto: (
-                  <>
-                    <div className="ct-photo">{iconeFoto}Sem foto</div>
-                    <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-                      <button className="ct-act" style={{ flex: 1, justifyContent: "center" }}>Alterar</button>
-                      <button className="ct-act" style={{ flex: 1, justifyContent: "center" }}>Apagar</button>
-                    </div>
-                  </>
-                ),
-              }
-            )}
           </div>
         </div>
 
-        <div className="ct-status"><span>Este é um cadastro de exemplo</span></div>
+        {feedback && (
+          <p className={`ct-feed ${feedback.tipo}`} role="status">{feedback.texto}</p>
+        )}
+
+        <div className="ct-status">
+          <span>Obrigatórios: nome e e-mail (o e-mail identifica o cliente e não se repete). Endereço e telefone ainda não têm coluna própria.</span>
+        </div>
       </div>
     </div>
   );
@@ -1364,44 +1495,43 @@ export function CadastrosTelaUnica({
       {tela === "revenda" && telaRevenda}
 
       {modal === "cliente" && (
-        <div className="ct-overlay" onClick={(e) => e.target === e.currentTarget && setModal(null)}>
+        <form
+          className="ct-overlay"
+          onSubmit={salvarClienteNovo}
+          onClick={(e) => e.target === e.currentTarget && setModal(null)}
+        >
           <div className="ct-modal">
-            <div className="ct-modal-head"><h2>Inclusão de cliente</h2><button className="ct-modal-close" onClick={() => setModal(null)}>✕</button></div>
+            <div className="ct-modal-head"><h2>Inclusão de cliente</h2><button type="button" className="ct-modal-close" onClick={() => setModal(null)}>✕</button></div>
             <div className="ct-modal-body">
-              <div className="ct-radio-group" style={{ marginBottom: 14 }}>
-                <span className="rg-label">Tipo de cliente</span>
-                <label className="ct-radio-opt"><input type="radio" name="pre-tipo" checked={tipoPre === "pj"} onChange={() => setTipoPre("pj")} />Pessoa jurídica</label>
-                <label className="ct-radio-opt"><input type="radio" name="pre-tipo" checked={tipoPre === "pf"} onChange={() => setTipoPre("pf")} />Pessoa física</label>
+              <div className="ct-row ct-r1" style={{ marginBottom: 12 }}>
+                <div className="ct-field"><label>Nome / Razão social<span className="ct-req">*</span></label>
+                  <input id="ct-cli-novo-nome" aria-label="Nome do cliente novo" maxLength={160} autoFocus /></div>
+              </div>
+              <div className="ct-row ct-r1" style={{ marginBottom: 12 }}>
+                <div className="ct-field"><label>E-mail<span className="ct-req">*</span></label>
+                  <input id="ct-cli-novo-email" aria-label="E-mail do cliente novo" type="email" placeholder="nome@provedor.com.br" /></div>
               </div>
               <div className="ct-row ct-r2" style={{ marginBottom: 12 }}>
-                <div className="ct-field">
-                  <label>{tipoPre === "pj" ? "CNPJ" : "CPF"}</label>
-                  <input key={tipoPre} placeholder={tipoPre === "pj" ? "00.000.000/0000-00" : "000.000.000-00"} onChange={(e) => (e.target.value = mascaraDoc(e.target.value))} onBlur={(e) => verificarDoc(e.target)} />
-                  <div className="ct-doc-msg" />
-                </div>
-                <div className="ct-field"><label>Telefone</label><input placeholder="(00) 00000-0000" maxLength={15} onChange={(e) => (e.target.value = mascaraTelefone(e.target.value))} /></div>
+                <div className="ct-field"><label>CPF/CNPJ</label>
+                  <input id="ct-cli-novo-doc" aria-label="CPF ou CNPJ do cliente novo" maxLength={18} placeholder="000.000.000-00" onChange={(e) => (e.target.value = mascaraDoc(e.target.value))} />
+                  <div className="ct-doc-msg" /></div>
+                <div className="ct-field"><label>Nível (tier)</label>
+                  <select id="ct-cli-novo-tier" aria-label="Nivel do cliente novo" defaultValue="bronze">
+                    <option value="bronze">Bronze</option>
+                    <option value="prata">Prata</option>
+                    <option value="ouro">Ouro</option>
+                    <option value="diamante">Diamante</option>
+                  </select></div>
               </div>
-              <label className="ct-checkline" style={{ marginBottom: 14 }}><input type="checkbox" defaultChecked />Obter dados da Receita Federal</label>
-              <div className="ct-row ct-r1" style={{ marginBottom: 12 }}>
-                <div className="ct-field"><label>CEP <span className="ct-hint">busca automática</span></label><input placeholder="00000-000" maxLength={9} onChange={(e) => (e.target.value = mascaraCep(e.target.value))} onBlur={(e) => onCepModal("pre", e)} /></div>
-              </div>
-              <div className={`ct-addr-box${preAddr ? " on" : ""}`}>
-                <div className="ct-row ct-r1" style={{ marginBottom: 12 }}><div className="ct-field"><label>Logradouro</label><input id="ct-pre-logradouro" /></div></div>
-                <div className="ct-row ct-r3" style={{ marginBottom: 12 }}>
-                  <div className="ct-field"><label>Número</label><input id="ct-pre-numero" placeholder="Nº" /></div>
-                  <div className="ct-field"><label>Bairro</label><input id="ct-pre-bairro" /></div>
-                  <div className="ct-field"><label>Cidade/UF</label><input id="ct-pre-cidade" /></div>
-                </div>
-              </div>
-              <div className="ct-row ct-r1"><div className="ct-field"><label>E-mail</label><input placeholder="opcional" /></div></div>
-              <p className="ct-lookup-note">Ao continuar, buscamos CNPJ/CEP e trazemos os dados já preenchidos no cadastro completo — só confirmar ou corrigir.</p>
+              {feedback && <p className={`ct-feed ${feedback.tipo}`} role="status">{feedback.texto}</p>}
+              <p className="ct-lookup-note">O e-mail é obrigatório: é ele que identifica o cliente na loja e não pode se repetir no mesmo cadastro.</p>
             </div>
             <div className="ct-modal-foot">
-              <button className="ct-act" onClick={() => setModal(null)}>Cancelar</button>
-              <button className="ct-act primary" onClick={() => setModal(null)}>{iconeCheck}Continuar</button>
+              <button type="button" className="ct-act" onClick={() => setModal(null)}>Cancelar</button>
+              <button type="submit" className="ct-act primary" disabled={salvando}>{iconeCheck}{salvando ? "Salvando..." : "Salvar cliente"}</button>
             </div>
           </div>
-        </div>
+        </form>
       )}
 
       {modal === "fornecedor" && (

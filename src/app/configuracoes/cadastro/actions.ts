@@ -361,3 +361,185 @@ export async function salvarProduto(input: ProdutoInput): Promise<ResultadoAcao 
   revalidatePath("/produtos");
   return { ok: true, id: itemId ?? undefined };
 }
+
+// ---------------------------------------------------------------------------
+// Bloco 5 - passo 3: cadastro de cliente FUNCIONAL (antes era formulario de
+// exemplo hardcoded, com campos que nao gravavam nada).
+//
+// Regras do proprio banco (migration 0003):
+//   * customers.email e NOT NULL + unique(tenant_id,email) -> e-mail obrigatorio
+//     e conflito 23505 vira mensagem amigavel;
+//   * customers.tier nasce em bronze e so aceita bronze/prata/ouro/diamante;
+//   * orders.customer_id e FK on delete restrict -> cliente com pedido nao sai.
+//
+// Endereco, telefone, nascimento etc. NAO existem na tabela e ficaram FORA da
+// tela de proposito: mostrar campo que nao grava e mentira para o usuario.
+// ---------------------------------------------------------------------------
+
+export type ClienteInput = {
+  id?: string | null;
+  nome: string;
+  email: string;
+  documento?: string;
+  ie?: string;
+  uf?: string;
+  tier?: string;
+  pontos?: number | string;
+};
+
+const TIERS_VALIDOS = ["bronze", "prata", "ouro", "diamante"];
+const UFS_VALIDAS = [
+  "AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG","PA","PB","PR","PE","PI",
+  "RJ","RN","RS","RO","RR","SC","SP","SE","TO",
+];
+const RE_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+const UUID_CLIENTE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function cpfValido(valor: string): boolean {
+  const c = digitos(valor);
+  if (c.length !== 11 || /^(\d)\1{10}$/.test(c)) return false;
+  const dv = (base: string, pesos: number[]) => {
+    const soma = base.split("").reduce((acc, d, i) => acc + Number(d) * pesos[i], 0);
+    const r = soma % 11;
+    return r < 2 ? 0 : 11 - r;
+  };
+  const d1 = dv(c.slice(0, 9), [10, 9, 8, 7, 6, 5, 4, 3, 2]);
+  const d2 = dv(c.slice(0, 10), [11, 10, 9, 8, 7, 6, 5, 4, 3, 2]);
+  return d1 === Number(c[9]) && d2 === Number(c[10]);
+}
+
+function erroDeGravacao(error: { code?: string; message?: string } | null): string {
+  if (!error) return "Falha ao gravar o cliente.";
+  if (error.code === "23505") return "Já existe um cliente com este e-mail.";
+  if (error.code === "23514") return "Valor fora do que o banco permite.";
+  if (error.code === "23502") return "Campo obrigatório em falta (provável e-mail).";
+  return `Falha ao gravar o cliente: ${error.message ?? "desconhecida"}`;
+}
+
+export async function salvarCliente(input: ClienteInput): Promise<ResultadoAcao & { id?: string }> {
+  const gestor = await gestaoAtual();
+  if (!gestor) return { ok: false, erro: "Sem permissão para cadastrar clientes." };
+
+  const nome = String(input?.nome ?? "")
+    .trim()
+    .replace(/\s+/g, " ");
+  if (nome.length < 3 || nome.length > 160) {
+    return { ok: false, erro: "Nome do cliente precisa de 3 a 160 caracteres." };
+  }
+
+  const email = String(input?.email ?? "").trim().toLowerCase();
+  if (!email) return { ok: false, erro: "Informe o e-mail do cliente." };
+  if (email.length > 254 || !RE_EMAIL.test(email)) return { ok: false, erro: "E-mail inválido." };
+
+  const tier = String(input?.tier ?? "bronze");
+  if (!TIERS_VALIDOS.includes(tier)) return { ok: false, erro: "Nível do cliente inválido." };
+
+  const documento = digitos(input?.documento ?? "");
+  if (documento) {
+    const okDoc =
+      documento.length === 11 ? cpfValido(documento) : documento.length === 14 && cnpjValido(documento);
+    if (!okDoc) return { ok: false, erro: "CPF/CNPJ inválido: confira os dígitos." };
+  }
+
+  const ie = String(input?.ie ?? "")
+    .replace(/[^0-9A-Za-z./-]/g, "")
+    .slice(0, 20);
+  const uf = String(input?.uf ?? "").trim().toUpperCase();
+  if (uf && !UFS_VALIDAS.includes(uf)) return { ok: false, erro: "Estado (UF) inválido." };
+
+  const pontos = Number(input?.pontos ?? 0);
+  if (!Number.isInteger(pontos) || pontos < 0 || pontos > 1000000000) {
+    return { ok: false, erro: "Pontos precisa ser inteiro, de 0 a 1.000.000.000." };
+  }
+
+  const id = typeof input?.id === "string" && input.id ? input.id : null;
+  if (id && !UUID_CLIENTE.test(id)) return { ok: false, erro: "Cliente inválido." };
+
+  const registro = {
+    name: nome,
+    email,
+    documento: documento || null,
+    ie: ie || null,
+    uf: uf || null,
+    tier,
+    points: pontos,
+  };
+
+  const admin = createAdminClient();
+  let salvoId: string | null = id;
+
+  if (id) {
+    const { data, error } = await admin
+      .from("customers")
+      .update(registro)
+      .eq("id", id)
+      .eq("tenant_id", NUVEM_DE_PAPEL_TENANT_ID)
+      .select("id")
+      .maybeSingle();
+    if (error) return { ok: false, erro: erroDeGravacao(error) };
+    if (!data) return { ok: false, erro: "Cliente não encontrado." };
+    salvoId = data.id;
+  } else {
+    const { data, error } = await admin
+      .from("customers")
+      .insert({ tenant_id: NUVEM_DE_PAPEL_TENANT_ID, ...registro })
+      .select("id")
+      .single();
+    if (error || !data) return { ok: false, erro: erroDeGravacao(error) };
+    salvoId = data.id;
+  }
+
+  await auditar(
+    admin,
+    gestor.id,
+    id ? "cliente.atualizado" : "cliente.criado",
+    "customers",
+    salvoId,
+    registro
+  );
+
+  revalidatePath("/configuracoes/cadastro");
+  revalidatePath("/crm");
+  revalidatePath("/vendas");
+  return { ok: true, id: salvoId ?? undefined };
+}
+
+export async function removerCliente(input: { id: string }): Promise<ResultadoAcao> {
+  const gestor = await gestaoAtual();
+  if (!gestor) return { ok: false, erro: "Sem permissão para excluir clientes." };
+
+  const id = String(input?.id ?? "");
+  if (!UUID_CLIENTE.test(id)) return { ok: false, erro: "Cliente inválido." };
+
+  const admin = createAdminClient();
+  const { data: antes } = await admin
+    .from("customers")
+    .select("name, email")
+    .eq("id", id)
+    .eq("tenant_id", NUVEM_DE_PAPEL_TENANT_ID)
+    .maybeSingle();
+  if (!antes) return { ok: false, erro: "Cliente não encontrado." };
+
+  const { error } = await admin
+    .from("customers")
+    .delete()
+    .eq("id", id)
+    .eq("tenant_id", NUVEM_DE_PAPEL_TENANT_ID);
+  if (error) {
+    if (error.code === "23503") {
+      return { ok: false, erro: "Este cliente tem pedidos vinculados e não pode ser excluído." };
+    }
+    return { ok: false, erro: `Falha ao excluir: ${error.message}` };
+  }
+
+  // audit_log guarda apenas "depois"; numa exclusao o conteudo apagado e o que
+  // interessa a trilha.
+  await auditar(admin, gestor.id, "cliente.removido", "customers", id, {
+    removido: antes,
+  });
+
+  revalidatePath("/configuracoes/cadastro");
+  revalidatePath("/crm");
+  revalidatePath("/vendas");
+  return { ok: true };
+}
