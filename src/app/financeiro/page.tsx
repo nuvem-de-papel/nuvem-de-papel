@@ -8,6 +8,7 @@ import {
   type ParcelaPendente,
   type ResumoFinanceiro,
   type FaturamentoCanal,
+  type LinhaDRE,
 } from "@/components/financeiro/ConsoleFinanceiro";
 
 export const dynamic = "force-dynamic";
@@ -25,7 +26,7 @@ export default async function FinanceiroPage() {
   if (!user) redirect("/login?next=/financeiro");
 
   const admin = createAdminClient();
-  const [meuRes, parcelasRes, pagarRes, liqRes, pedidosRes, custosRes] = await Promise.all([
+  const [meuRes, parcelasRes, pagarRes, liqRes, pedidosRes, custosRes, dreRes] = await Promise.all([
     admin.from("profiles").select("role, status").eq("id", user.id).maybeSingle(),
     admin
       .from("financial_installments")
@@ -60,6 +61,18 @@ export default async function FinanceiroPage() {
       .gte("orders.created_at", new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString())
       .neq("orders.status", "cancelado")
       .limit(2000),
+    // DRE por competencia (12 meses) - view v_dre criada na migration 0021.
+    admin
+      .from("v_dre")
+      .select("mes, dre_grupo, code, name, valor")
+      .gte(
+        "mes",
+        new Date(new Date().getFullYear(), new Date().getMonth() - 11, 1)
+          .toISOString()
+          .slice(0, 10)
+      )
+      .order("mes", { ascending: true })
+      .order("code", { ascending: true }),
   ]);
 
   const meu = meuRes.data;
@@ -83,6 +96,19 @@ export default async function FinanceiroPage() {
     ? await admin.from("customers").select("id, name").in("id", idsClientes)
     : null;
   const nomesClientes = new Map((clientesRes?.data ?? []).map((c) => [c.id, c.name]));
+
+  // DRE: uma linha por conta, por mes de competencia. `mes` volta como string
+  // de data (AAAA-MM-DD) porque a view agrupa por date_trunc do mes.
+  if (dreRes.error) {
+    console.error("financeiro: falha ao ler v_dre", dreRes.error.message);
+  }
+  const dre: LinhaDRE[] = (dreRes.data ?? []).map((l) => ({
+    mes: String(l.mes).slice(0, 10),
+    grupo: l.dre_grupo ?? "",
+    code: l.code,
+    nome: l.name,
+    valor: Number(l.valor),
+  }));
 
   const parcelas: ParcelaPendente[] = (parcelasRes.data ?? []).map((p) => {
     const tRaw = p.financial_titles as unknown;
@@ -172,6 +198,11 @@ export default async function FinanceiroPage() {
   };
 
   return (
-    <ConsoleFinanceiro resumo={resumo} parcelas={emAberto} faturamento={faturamentoCanais} />
+    <ConsoleFinanceiro
+      resumo={resumo}
+      parcelas={emAberto}
+      faturamento={faturamentoCanais}
+      dre={dre}
+    />
   );
 }

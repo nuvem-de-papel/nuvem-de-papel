@@ -29,6 +29,17 @@ export type ResumoFinanceiro = {
 
 export type FaturamentoCanal = { canal: string; total: number; pedidos: number };
 
+/** Uma linha da view `v_dre` (migration 0021): valor ja com sinal da conta.
+ * Classe 4 sai `credito - debito` (receita positiva, deducao negativa);
+ * classes 5 e 6 sao `debito - credito` (custo/despesa positivo). */
+export type LinhaDRE = {
+  mes: string;
+  grupo: string;
+  code: string;
+  nome: string;
+  valor: number;
+};
+
 const BTN = {
   border: "none",
   borderRadius: 999,
@@ -41,6 +52,48 @@ const BTN = {
 
 function brl(v: number) {
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
+}
+
+function rotuloMes(mes: string) {
+  return new Date(mes + "T00:00:00").toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+}
+
+type LinhaDREMostrada = { rotulo: string; valor: number; tipo: "item" | "total" | "final" };
+
+/** Monta o DRE completo a partir das linhas de UM mes de competencia.
+ *  Receita (grupo receita_bruta) ja vem positiva; deducoes ja vem negativas;
+ *  CMV e despesas valem como positivo e entram subtraidos. */
+function montarDRE(linhas: LinhaDRE[]): LinhaDREMostrada[] {
+  const soma = (g: string) => linhas.filter((l) => l.grupo === g).reduce((a, l) => a + l.valor, 0);
+  const depr = linhas.filter((l) => l.code === "6.1.5").reduce((a, l) => a + l.valor, 0);
+  const rb = soma("receita_bruta");
+  const ded = soma("deducoes_receita");
+  const liq = rb + ded;
+  const cmv = soma("custo_vendidos");
+  const bruto = liq - cmv;
+  const oper = soma("despesa_operacional") - depr;
+  const ebitda = bruto - oper;
+  const ebit = ebitda - depr;
+  const outras = soma("outras_receitas");
+  const fin = soma("despesa_financeira");
+  const lair = ebit + outras - fin;
+  const ir = soma("ir_csf");
+  return [
+    { rotulo: "Receita bruta de vendas", valor: rb, tipo: "item" },
+    { rotulo: "(-) Deduções da receita bruta", valor: ded, tipo: "item" },
+    { rotulo: "= Receita líquida", valor: liq, tipo: "total" },
+    { rotulo: "(-) Custo dos produtos vendidos", valor: -cmv, tipo: "item" },
+    { rotulo: "= Lucro bruto", valor: bruto, tipo: "total" },
+    { rotulo: "(-) Despesas operacionais", valor: -oper, tipo: "item" },
+    { rotulo: "= EBITDA", valor: ebitda, tipo: "total" },
+    { rotulo: "(-) Depreciação e amortização", valor: -depr, tipo: "item" },
+    { rotulo: "= Resultado operacional (EBIT)", valor: ebit, tipo: "total" },
+    { rotulo: "(+) Outras receitas", valor: outras, tipo: "item" },
+    { rotulo: "(-) Despesas financeiras", valor: -fin, tipo: "item" },
+    { rotulo: "= Resultado antes do imposto (LAIR)", valor: lair, tipo: "total" },
+    { rotulo: "(-) IRPJ e CSLL", valor: -ir, tipo: "item" },
+    { rotulo: "= Lucro líquido do período", valor: lair - ir, tipo: "final" },
+  ];
 }
 
 const CARD: React.CSSProperties = {
@@ -78,15 +131,18 @@ export function ConsoleFinanceiro({
   resumo,
   parcelas,
   faturamento,
+  dre,
 }: {
   resumo: ResumoFinanceiro;
   parcelas: ParcelaPendente[];
   faturamento: FaturamentoCanal[];
+  dre: LinhaDRE[];
 }) {
   const router = useRouter();
   const [pendente, startTransition] = useTransition();
   const [aviso, setAviso] = useState<{ tipo: "ok" | "erro"; texto: string } | null>(null);
   const [form, setForm] = useState<Record<string, { valor: string; metodo: string }>>({});
+  const [mesDRE, setMesDRE] = useState("");
 
   function formDa(p: ParcelaPendente) {
     return form[p.id] ?? { valor: p.saldo.toFixed(2), metodo: "pix" };
@@ -104,6 +160,10 @@ export function ConsoleFinanceiro({
       if (r.ok) router.refresh();
     });
   }
+
+  const mesesDRE = [...new Set(dre.map((l) => l.mes))].sort();
+  const mesEscolhido = mesesDRE.includes(mesDRE) ? mesDRE : mesesDRE[mesesDRE.length - 1] ?? "";
+  const linhasDRE = montarDRE(dre.filter((l) => l.mes === mesEscolhido));
 
   return (
     <div style={{ maxWidth: 1240, margin: "0 auto", padding: "26px 24px 60px" }}>
@@ -215,6 +275,110 @@ export function ConsoleFinanceiro({
               ))}
             </tbody>
           </table>
+        )}
+      </section>
+
+      <section style={{ ...CARD, marginBottom: 20 }} aria-label="DRE">
+        <div
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            gap: 12,
+            alignItems: "center",
+            justifyContent: "space-between",
+            marginBottom: 10,
+          }}
+        >
+          <h2 style={{ fontSize: 16, margin: 0, color: "var(--navy)" }}>
+            DRE — Demonstrativo do Resultado do Exercício (competência)
+          </h2>
+          {mesesDRE.length > 0 && (
+            <label
+              style={{ fontSize: 12.5, color: "var(--ink-soft)", display: "flex", gap: 8, alignItems: "center" }}
+            >
+              Competência
+              <select
+                aria-label="Competência da DRE"
+                value={mesEscolhido}
+                onChange={(e) => setMesDRE(e.target.value)}
+                style={{ ...INPUT, fontWeight: 700 }}
+              >
+                {mesesDRE.map((m) => (
+                  <option key={m} value={m}>
+                    {rotuloMes(m)}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+        </div>
+
+        {dre.length === 0 ? (
+          <p style={{ fontSize: 13.5, color: "var(--ink-soft)", margin: 0 }}>
+            Nenhum lançamento contábil gravado até agora. As vendas faturadas, os recebimentos de
+            compra e as liquidações de título passam a gerar lançamento automático (dupla entrada,
+            chave por evento) — nenhum lançamento é digitado à mão.
+          </p>
+        ) : (
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+              <thead>
+                <tr
+                  style={{
+                    textAlign: "left",
+                    color: "var(--ink-soft)",
+                    fontSize: 11.5,
+                    textTransform: "uppercase",
+                  }}
+                >
+                  <th style={{ padding: "6px 8px" }}>Linha</th>
+                  <th style={{ padding: "6px 8px", textAlign: "right" }}>Valor</th>
+                </tr>
+              </thead>
+              <tbody>
+                {linhasDRE.map((l) => (
+                  <tr
+                    key={l.rotulo}
+                    style={{
+                      borderTop: l.tipo === "item" ? "1px solid var(--border)" : "2px solid var(--navy)",
+                      background: l.tipo === "final" ? "#DCFCE7" : l.tipo === "total" ? "var(--bg-cotton)" : undefined,
+                    }}
+                  >
+                    <td
+                      style={{
+                        padding: "9px 8px",
+                        fontWeight: l.tipo === "item" ? 500 : 800,
+                        color: l.tipo === "item" ? "var(--ink)" : "var(--navy)",
+                      }}
+                    >
+                      {l.rotulo}
+                    </td>
+                    <td
+                      style={{
+                        padding: "9px 8px",
+                        textAlign: "right",
+                        fontWeight: l.tipo === "item" ? 700 : 800,
+                        color:
+                          l.tipo === "final"
+                            ? l.valor >= 0
+                              ? "#166534"
+                              : "#991B1B"
+                            : l.valor < 0
+                              ? "#991B1B"
+                              : "var(--navy)",
+                      }}
+                    >
+                      {brl(l.valor)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: "10px 0 0" }}>
+              Fonte: <code>v_dre</code> — diário de dupla entrada por mês de competência (migration
+              0021/0022). O caixa continua em “A receber”, “A pagar” e “Liquidado no mês”.
+            </p>
+          </div>
         )}
       </section>
 
