@@ -14,9 +14,15 @@ import {
   registrarOcorrencia,
   transmitirNfe,
   buscarXmlNota,
+  salvarVendedor,
+  removerVendedor,
+  definirVendedorPedido,
   type EntradaNfe,
+  type EntradaVendedor,
+  type LinhaComissao,
   type Resultado,
   type ResultadoNfe,
+  type Vendedor,
 } from "@/app/vendas/actions";
 import BotaoImprimir from "@/components/compras/BotaoImprimir";
 
@@ -53,6 +59,7 @@ export type PedidoVenda = {
   data: string;
   total: number;
   itens: ItemPedido[];
+  vendedorId: string | null;
 };
 
 // Vendas v5: funil (VD-02), expedicao (EN-*) e importacao da loja (secao 4)
@@ -90,7 +97,7 @@ export type PendenteLoja = {
   pagamento: string | null;
 };
 
-type Aba = "vendas" | "expedicao" | "importar" | "compras" | "notas";
+type Aba = "vendas" | "expedicao" | "importar" | "compras" | "notas" | "vendedores";
 type FiltroFunil = "todos" | "pedidos" | "afaturar" | "emitidas" | "rejeitadas";
 type FiltroCanal = "todos" | "varejo" | "atacado" | "loja";
 type FiltroExp = "expedir" | "caminho" | "problema" | "entregues";
@@ -442,6 +449,8 @@ export function ConsoleVendas({
   expedicao,
   pendentes,
   emitente,
+  vendedores,
+  comissoes,
 }: {
   vendas: PedidoVenda[];
   compras: PedidoCompra[];
@@ -450,6 +459,8 @@ export function ConsoleVendas({
   expedicao: DadoEntrega[];
   pendentes: PendenteLoja[];
   emitente?: ConsoleEmitente | null;
+  vendedores: Vendedor[];
+  comissoes: LinhaComissao[];
 }) {
   const emitenteDoc: ConsoleEmitente = emitente ?? EMITENTE;
   const cnpjEmitente = emitenteDoc.cnpj.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5");
@@ -460,6 +471,61 @@ export function ConsoleVendas({
   const [doc, setDoc] = useState<NotaEmitida | null>(null);
   const [xmlPendente, setXmlPendente] = useState(false);
   const [xmlErro, setXmlErro] = useState<string | null>(null);
+
+  // Bloco 5 passo 1 - aba "Vendedores": cadastro, comissao e vendedor do pedido
+  const vazioVendedor = (): EntradaVendedor => ({
+    nome: "",
+    email: "",
+    documento: "",
+    telefone: "",
+    commissionPct: 0,
+    meta: 0,
+    ativo: true,
+  });
+  const [formVend, setFormVend] = useState<EntradaVendedor>(vazioVendedor());
+  const [trabalhando, startTrabalho] = useTransition();
+
+  const salvarNovoVendedor = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (trabalhando) return;
+    const entrada = { ...formVend };
+    startTrabalho(async () => {
+      const r = await salvarVendedor(entrada);
+      setAviso(r.ok ? { tipo: "ok", texto: r.msg } : { tipo: "erro", texto: r.erro });
+      if (r.ok) setFormVend(vazioVendedor());
+    });
+  };
+
+  const editarVendedor = (v: Vendedor) => {
+    setFormVend({
+      id: v.id,
+      nome: v.nome,
+      email: v.email,
+      documento: v.documento,
+      telefone: v.telefone,
+      commissionPct: v.commissionPct,
+      meta: v.meta,
+      ativo: v.ativo,
+    });
+    setAviso(null);
+  };
+
+  const apagarVendedor = (v: Vendedor) => {
+    if (!window.confirm(`Remover o vendedor ${v.nome}? O historico de vendas fica.`)) return;
+    if (formVend.id === v.id) setFormVend(vazioVendedor());
+    startTrabalho(async () => {
+      const r = await removerVendedor(v.id);
+      setAviso(r.ok ? { tipo: "ok", texto: r.msg } : { tipo: "erro", texto: r.erro });
+    });
+  };
+
+  const trocarVendedorDoPedido = (pedidoId: string, valor: string) => {
+    if (trabalhando) return;
+    startTrabalho(async () => {
+      const r = await definirVendedorPedido(pedidoId, valor || null);
+      setAviso(r.ok ? { tipo: "ok", texto: r.msg } : { tipo: "erro", texto: r.erro });
+    });
+  };
 
   // Bloco 4 - download do XML autorizado. Busca sob demanda (o XML nao vai
   // dentro da listagem) e dispara o download pelo browser. Armazenado em Blob
@@ -856,6 +922,7 @@ export function ConsoleVendas({
     { id: "importar", label: "Importar da loja", qtd: pendentes.length },
     { id: "compras", label: "Compras", qtd: compras.length },
     { id: "notas", label: "Notas emitidas", qtd: notas.length },
+    { id: "vendedores", label: "Vendedores", qtd: vendedores.length },
   ];
 
   return (
@@ -1211,6 +1278,50 @@ export function ConsoleVendas({
                               )}
                             </tbody>
                           </table>
+
+                          <div
+                            style={{
+                              display: "flex",
+                              gap: 10,
+                              alignItems: "center",
+                              marginTop: 12,
+                              paddingTop: 10,
+                              borderTop: "1px dashed var(--border)",
+                              flexWrap: "wrap",
+                            }}
+                          >
+                            <label
+                              htmlFor={`vend-${p.id}`}
+                              style={{ fontSize: 12, fontWeight: 800, color: "var(--ink-soft)" }}
+                            >
+                              Vendedor
+                            </label>
+                            <select
+                              id={`vend-${p.id}`}
+                              aria-label={`Vendedor do pedido ${p.codigo}`}
+                              value={p.vendedorId ?? ""}
+                              disabled={trabalhando}
+                              onChange={(e) => trocarVendedorDoPedido(p.id, e.target.value)}
+                              style={{
+                                fontSize: 13,
+                                padding: "6px 10px",
+                                borderRadius: 8,
+                                border: "1px solid var(--border)",
+                                background: "#FFF",
+                                color: "var(--ink)",
+                              }}
+                            >
+                              <option value="">Sem vendedor</option>
+                              {vendedores.map((v) => (
+                                <option key={v.id} value={v.id}>
+                                  {v.nome}
+                                </option>
+                              ))}
+                            </select>
+                            <span style={{ fontSize: 11.5, color: "var(--ink-soft)" }}>
+                              A venda fica na comissao do mes do vendedor.
+                            </span>
+                          </div>
                         </td>
                       </tr>
                     ) : null
@@ -1713,6 +1824,231 @@ export function ConsoleVendas({
               </tbody>
             </table>
           )}
+        </div>
+      )}
+
+      {/* -------------------------------------------- vendedores (Bloco 5) -- */}
+      {aba === "vendedores" && (
+        <div style={{ display: "grid", gap: 22 }}>
+          <section style={CARD}>
+            <div
+              style={{
+                fontSize: 12,
+                fontWeight: 800,
+                textTransform: "uppercase",
+                letterSpacing: "0.07em",
+                color: "var(--pink-600)",
+                marginBottom: 4,
+              }}
+            >
+              {formVend.id ? "Editando vendedor" : "Novo vendedor"}
+            </div>
+            <form onSubmit={salvarNovoVendedor} style={{ display: "flex", gap: 14, flexWrap: "wrap", alignItems: "flex-end" }}>
+              <Campo label="Nome" largura={220}>
+                <input
+                  value={formVend.nome}
+                  onChange={(e) => setFormVend({ ...formVend, nome: e.target.value })}
+                  placeholder="Nome do vendedor"
+                  style={INPUT}
+                />
+              </Campo>
+              <Campo label="E-mail" largura={220}>
+                <input
+                  type="email"
+                  value={formVend.email ?? ""}
+                  onChange={(e) => setFormVend({ ...formVend, email: e.target.value })}
+                  placeholder="vendedor@..."
+                  style={INPUT}
+                />
+              </Campo>
+              <Campo label="CPF / CNPJ" largura={150}>
+                <input
+                  inputMode="numeric"
+                  maxLength={14}
+                  value={formVend.documento ?? ""}
+                  onChange={(e) => setFormVend({ ...formVend, documento: e.target.value.replace(/\D/g, "") })}
+                  placeholder="somente digitos"
+                  style={INPUT}
+                />
+              </Campo>
+              <Campo label="Telefone" largura={140}>
+                <input
+                  value={formVend.telefone ?? ""}
+                  onChange={(e) => setFormVend({ ...formVend, telefone: e.target.value })}
+                  style={INPUT}
+                />
+              </Campo>
+              <Campo label="Comissao %" largura={110}>
+                <input
+                  type="number"
+                  min={0}
+                  max={100}
+                  step={0.01}
+                  value={formVend.commissionPct}
+                  onChange={(e) => setFormVend({ ...formVend, commissionPct: Number(e.target.value) })}
+                  style={INPUT}
+                />
+              </Campo>
+              <Campo label="Meta (R$)" largura={130}>
+                <input
+                  type="number"
+                  min={0}
+                  step={0.01}
+                  value={formVend.meta ?? 0}
+                  onChange={(e) => setFormVend({ ...formVend, meta: Number(e.target.value) })}
+                  style={INPUT}
+                />
+              </Campo>
+              <label style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 13, paddingBottom: 8 }}>
+                <input
+                  type="checkbox"
+                  checked={formVend.ativo !== false}
+                  onChange={(e) => setFormVend({ ...formVend, ativo: e.target.checked })}
+                />
+                Ativo
+              </label>
+              <div style={{ display: "flex", gap: 8, paddingBottom: 4 }}>
+                <button
+                  type="submit"
+                  disabled={trabalhando}
+                  aria-label={formVend.id ? "Salvar vendedor" : "Criar vendedor"}
+                  style={{ ...BTN, background: "var(--pink-600)", color: "#fff", opacity: trabalhando ? 0.6 : 1 }}
+                >
+                  {trabalhando ? "..." : formVend.id ? "Salvar" : "Criar"}
+                </button>
+                {formVend.id && (
+                  <button
+                    type="button"
+                    onClick={() => setFormVend(vazioVendedor())}
+                    aria-label="Cancelar edicao do vendedor"
+                    style={{ ...BTN, background: "var(--bg-cloud)", color: "var(--navy)" }}
+                  >
+                    Cancelar
+                  </button>
+                )}
+              </div>
+            </form>
+            <p style={{ fontSize: 12, color: "var(--ink-soft)", marginTop: 10, marginBottom: 0 }}>
+              A comissao e calculada sobre os pedidos <b>faturados</b> (mesma regra do diario) no mes em que o
+              pedido foi criado. Quem registra o pagamento da comissao e o financeiro.
+            </p>
+          </section>
+
+          <section style={CARD}>
+            <div
+              style={{
+                fontSize: 12,
+                fontWeight: 800,
+                textTransform: "uppercase",
+                letterSpacing: "0.07em",
+                color: "var(--navy)",
+                marginBottom: 10,
+              }}
+            >
+              Vendedores ({vendedores.length})
+            </div>
+            {vendedores.length === 0 ? (
+              <p style={{ color: "var(--ink-soft)", fontSize: 14, margin: 0, padding: "8px 0" }}>
+                Nenhum vendedor cadastrado - comece pelo formulario acima.
+              </p>
+            ) : (
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <thead>
+                  <tr>
+                    <th style={th}>Nome</th>
+                    <th style={th}>Contato</th>
+                    <th style={th}>CPF / CNPJ</th>
+                    <th style={{ ...th, textAlign: "right" }}>Comissao</th>
+                    <th style={{ ...th, textAlign: "right" }}>Meta</th>
+                    <th style={th}>Situacao</th>
+                    <th style={{ ...th, textAlign: "right" }}>Acoes</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {vendedores.map((v) => (
+                    <tr key={v.id} style={{ borderBottom: "1px solid var(--border)" }}>
+                      <td style={{ ...td, fontWeight: 700 }}>{v.nome}</td>
+                      <td style={td}>
+                        {v.email || "—"}
+                        {v.telefone ? <span style={{ display: "block", fontSize: 11.5, color: "var(--ink-soft)" }}>{v.telefone}</span> : null}
+                      </td>
+                      <td style={td}>{v.documento || "—"}</td>
+                      <td style={{ ...td, textAlign: "right" }}>{v.commissionPct}%</td>
+                      <td style={{ ...td, textAlign: "right" }}>{brl(v.meta)}</td>
+                      <td style={td}>
+                        <Badge bg={v.ativo ? "#DCFCE7" : "#FEE2E2"} fg={v.ativo ? "#166534" : "#991B1B"}>
+                          {v.ativo ? "Ativo" : "Inativo"}
+                        </Badge>
+                      </td>
+                      <td style={{ ...td, textAlign: "right", whiteSpace: "nowrap" }}>
+                        <button
+                          type="button"
+                          aria-label={`Editar vendedor ${v.nome}`}
+                          onClick={() => editarVendedor(v)}
+                          style={{ ...BTN, background: "var(--bg-cloud)", color: "var(--navy)", marginRight: 8 }}
+                        >
+                          Editar
+                        </button>
+                        <button
+                          type="button"
+                          aria-label={`Remover vendedor ${v.nome}`}
+                          onClick={() => apagarVendedor(v)}
+                          style={{ ...BTN, background: "#FEE2E2", color: "#991B1B" }}
+                        >
+                          Remover
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </section>
+
+          <section style={CARD}>
+            <div
+              style={{
+                fontSize: 12,
+                fontWeight: 800,
+                textTransform: "uppercase",
+                letterSpacing: "0.07em",
+                color: "var(--navy)",
+                marginBottom: 10,
+              }}
+            >
+              Comissao por mes
+            </div>
+            {comissoes.length === 0 ? (
+              <p style={{ color: "var(--ink-soft)", fontSize: 14, margin: 0, padding: "8px 0" }}>
+                Nada a comissionar ainda: atribua vendedor a um pedido e fature a venda.
+              </p>
+            ) : (
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <thead>
+                  <tr>
+                    <th style={th}>Competencia</th>
+                    <th style={th}>Vendedor</th>
+                    <th style={{ ...th, textAlign: "right" }}>Pedidos</th>
+                    <th style={{ ...th, textAlign: "right" }}>Base</th>
+                    <th style={{ ...th, textAlign: "right" }}>%</th>
+                    <th style={{ ...th, textAlign: "right" }}>Comissao</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {comissoes.map((c) => (
+                    <tr key={`${c.sellerId}-${c.periodo}`} style={{ borderBottom: "1px solid var(--border)" }}>
+                      <td style={td}>{c.periodo}</td>
+                      <td style={{ ...td, fontWeight: 700 }}>{c.vendedor}</td>
+                      <td style={{ ...td, textAlign: "right" }}>{c.pedidos}</td>
+                      <td style={{ ...td, textAlign: "right" }}>{brl(c.base)}</td>
+                      <td style={{ ...td, textAlign: "right" }}>{c.pct}%</td>
+                      <td style={{ ...td, textAlign: "right", fontWeight: 800 }}>{brl(c.comissao)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </section>
         </div>
       )}
 

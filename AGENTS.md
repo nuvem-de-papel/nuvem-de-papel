@@ -146,6 +146,15 @@ Valem para qualquer sessão/IA, mesmo sem ser lembradas na conversa:
 7. **Smoke do A1 agora e arquivo do repo**: `scripts/sefaz-a1-smoke.cjs` (nao roda na CI; exige `SEFAZ_A1_PFX` + `SEFAZ_A1_SENHA` fora do git). Confere `HTTP 200 / cStat 107 / tpAmb 2 / verAplic SP_NFE_PL009_V4`.
 8. **NFC-e (modelo 65) continua nao emitida** (pendencia do Bloco 3): `emitirNfcePdv` segue fail-closed (`src/app/pdv/actions.ts:273-307`). O CSC ja esta gravado em `sefaz_config`, mas faltam o **credenciamento na NF-e Paulistana** (passo do cliente) e a formula oficial do QR Code da SEFAZ-SP - nao da para escrever sem o manual na mao.
 
+## Bloco 5 - passo 1: vendedores e comissao (05/10/2026)
+
+1. **Migration `0024_vendedores_comissao.sql`** (preflight -> migration -> pgTAP em **staging e producao**, **18 asserts / 0 falhas nos dois**): `sellers` (`0024:31`) com `commission_pct` 0-100, documento CPF/CNPJ e nome unico por tenant; `orders.seller_id` com FK `on delete set null` (`0024:77`); view `v_comissao` (`0024:103`); RLS de leitura so para master/gerente (`0024:130`). Sem pre-seed: a tabela nasce vazia.
+2. **Politica de comissao e PARAMETRIZAVEL** (4 pontos, todos trocaveis na view): base = pedidos **faturados** (mesma regra do 0023: `status not in ('aguardando_pagamento','cancelado')`), competencia = mes de `orders.created_at`, percentual = `sellers.commission_pct` por vendedor, e **ninguem paga comissao automaticamente** - o sistema calcula, quem baixa e o financeiro.
+3. **Telas**: aba `Vendedores` do console (`ConsoleVendas.tsx:925`, bloco `ConsoleVendas.tsx:1830`) com form de cadastro (nome/e-mail/CPF-CNPJ/telefone/% comissao/meta/ativo), edicao in-place, lista com Editar/Remover e a tabela **Comissao por mes**. **Atribuicao** no pedido exposto: `select[aria-label="Vendedor do pedido"]` (`ConsoleVendas.tsx:1301`) grava `orders.seller_id`.
+4. **Server actions** em `src/app/vendas/actions.ts`, todas sob `exigirGestao()` + `audit_log`: `salvarVendedor` (`:1105`), `removerVendedor` (`:1175`) e `definirVendedorPedido` (`:1205`, recusa vendedor inativo). Leituras na pagina: `sellers` (`src/app/vendas/page.tsx:138`) e `v_comissao` (`:144`) via service_role - a view foi revogada de `anon`/`authenticated` no 0024.
+5. **Ritual**: type-check 0, lint 0, build ok, **E2E 452/452 - 0 falhas** (16 suítes; a nova `e2e/vendedores.cjs` fecha `TOTAL 12 | PASS 12`, `e2e/vendedores.cjs:1`). Pegadinha de teste: os titulos usam `textTransform: uppercase`, entao `document.body.innerText` volta **em caixa alta** e a assercao de texto tem de comparar em minusculas.
+6. **Ainda faltam 2 passos do Bloco 5**: (2) tabela de preco - `item_prices` ja aceita canal/faixa/vigencia (`item_prices_pkey = item_id,channel,min_quantity,valid_from`), falta tela de CRUD e aplicar `customers.tier` (bronze/prata/ouro/diamante) na resolucao do preco; (3) cadastro de cliente funcional (hoje prototipo) - `customers.email` e **not null**.
+
 Next.js (App Router) + TypeScript + Supabase/PostgreSQL + Vercel + Mercado Pago + pgTAP + Playwright.
 
 ## Identidade visual — paleta v3 cinza (aprovada pelo cliente 25/09/2026)

@@ -14,6 +14,7 @@ import {
   type PedidoVenda,
   type PendenteLoja,
 } from "@/components/vendas/ConsoleVendas";
+import type { LinhaComissao, Vendedor } from "@/app/vendas/actions";
 
 export const dynamic = "force-dynamic";
 
@@ -48,11 +49,13 @@ export default async function VendasPage() {
     entregasRes,
     eventosRes,
     pendentesRes,
+    vendRes,
+    comRes,
   ] = await Promise.all([
     admin
       .from("orders")
       .select(
-        "id, status, channel, total_amount, created_at, origem, etapa, pedido_numero, venda_numero, cancelado_em, frete, payment_method, customers(id, name, email, documento, uf)"
+        "id, status, channel, total_amount, created_at, origem, etapa, pedido_numero, venda_numero, cancelado_em, frete, payment_method, seller_id, customers(id, name, email, documento, uf)"
       )
       .eq("tenant_id", NUVEM_DE_PAPEL_TENANT_ID)
       .order("created_at", { ascending: false })
@@ -130,6 +133,19 @@ export default async function VendasPage() {
       .is("cancelado_em", null)
       .order("created_at", { ascending: false })
       .limit(500),
+    // Bloco 5 passo 1 (0024): vendedores do tenant e comissao por mes
+    admin
+      .from("sellers")
+      .select("id, name, email, documento, telefone, commission_pct, meta, ativo")
+      .eq("tenant_id", NUVEM_DE_PAPEL_TENANT_ID)
+      .order("name", { ascending: true })
+      .limit(500),
+    admin
+      .from("v_comissao")
+      .select("seller_id, vendedor, periodo, pedidos, base, pct, comissao")
+      .eq("tenant_id", NUVEM_DE_PAPEL_TENANT_ID)
+      .order("periodo", { ascending: false })
+      .limit(500),
   ]);
 
   const meu = meuRes.data;
@@ -162,6 +178,7 @@ export default async function VendasPage() {
       origem: (o.origem as string) ?? "erp",
       etapa: (o.etapa as string | null) ?? null,
       cancelado: !!o.cancelado_em,
+      vendedorId: (o.seller_id as string | null) ?? null,
       pedidoNumero: (o.pedido_numero as string | null) ?? null,
       vendaNumero: (o.venda_numero as string | null) ?? null,
       status: o.status,
@@ -337,6 +354,28 @@ export default async function VendasPage() {
     };
   });
 
+  // ------------------------------------------------------- vendedores ----
+  const vendedores: Vendedor[] = (vendRes.data ?? []).map((s) => ({
+    id: s.id,
+    nome: s.name,
+    email: s.email ?? "",
+    documento: s.documento ?? "",
+    telefone: s.telefone ?? "",
+    commissionPct: Number(s.commission_pct ?? 0),
+    meta: Number(s.meta ?? 0),
+    ativo: s.ativo !== false,
+  }));
+
+  const comissoes: LinhaComissao[] = (comRes.data ?? []).map((c) => ({
+    vendedor: c.vendedor,
+    sellerId: c.seller_id,
+    periodo: String(c.periodo ?? "").slice(0, 7),
+    pedidos: Number(c.pedidos ?? 0),
+    base: Number(c.base ?? 0),
+    pct: Number(c.pct ?? 0),
+    comissao: Number(c.comissao ?? 0),
+  }));
+
   const emp = empRes.data;
   const emitente: ConsoleEmitente | null = emp
     ? {
@@ -357,6 +396,8 @@ export default async function VendasPage() {
       expedicao={expedicao}
       pendentes={pendentes}
       emitente={emitente}
+      vendedores={vendedores}
+      comissoes={comissoes}
     />
   );
 }

@@ -1058,3 +1058,190 @@ export async function buscarXmlNota(notaId: string): Promise<ResultadoXml> {
   const nome = chave ? `${chave}.xml` : `nfe-${nota.tipo}-${nota.numero}-s${nota.serie}.xml`;
   return { ok: true, xml: nota.xml, nome };
 }
+
+// ---------------------------------------------------------------------------
+// Bloco 5 (Comercial), passo 1 - vendedores e comissao.
+// Dados: sellers + orders.seller_id + view v_comissao (migration 0024).
+// Politica de comissao e PARAMETRIZAVEL (sellers.commission_pct); a view
+// calcula base faturada * pct / 100 por mes. Nada de pagamento automatico:
+// quem baixa a comissao e o financeiro.
+// ---------------------------------------------------------------------------
+
+const UUID_5 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const digitos = (v: string) => (v ?? "").replace(/\D/g, "");
+
+export type Vendedor = {
+  id: string;
+  nome: string;
+  email: string;
+  documento: string;
+  telefone: string;
+  commissionPct: number;
+  meta: number;
+  ativo: boolean;
+};
+
+export type EntradaVendedor = {
+  id?: string | null;
+  nome: string;
+  email?: string;
+  documento?: string;
+  telefone?: string;
+  commissionPct: number;
+  meta?: number;
+  ativo?: boolean;
+};
+
+export type LinhaComissao = {
+  vendedor: string;
+  sellerId: string;
+  periodo: string;
+  pedidos: number;
+  base: number;
+  pct: number;
+  comissao: number;
+};
+
+export async function salvarVendedor(entrada: EntradaVendedor): Promise<Resultado> {
+  const nome = String(entrada?.nome ?? "").trim();
+  if (nome.length < 2) return { ok: false, erro: "Informe o nome do vendedor." };
+
+  const pct = Number(entrada.commissionPct);
+  if (!Number.isFinite(pct) || pct < 0 || pct > 100) {
+    return { ok: false, erro: "Comissao deve estar entre 0 e 100%." };
+  }
+
+  const meta = Number(entrada.meta ?? 0);
+  if (!Number.isFinite(meta) || meta < 0) return { ok: false, erro: "Meta invalida." };
+
+  const doc = digitos(entrada.documento ?? "");
+  if (doc && !/^(\d{11}|\d{14})$/.test(doc)) {
+    return { ok: false, erro: "CPF/CNPJ deve ter 11 ou 14 digitos." };
+  }
+
+  const email = String(entrada.email ?? "").trim();
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return { ok: false, erro: "E-mail invalido." };
+  }
+
+  const acesso = await exigirGestao();
+  if ("erro" in acesso) return { ok: false, erro: acesso.erro };
+  const { userId, admin } = acesso;
+
+  const id = entrada.id && UUID_5.test(entrada.id) ? entrada.id : null;
+  const payload = {
+    tenant_id: NUVEM_DE_PAPEL_TENANT_ID,
+    name: nome,
+    email: email || null,
+    documento: doc || null,
+    telefone: String(entrada.telefone ?? "").trim() || null,
+    commission_pct: pct,
+    meta,
+    ativo: entrada.ativo !== false,
+    updated_at: new Date().toISOString(),
+  };
+
+  const { data, error } = id
+    ? await admin
+        .from("sellers")
+        .update(payload)
+        .eq("id", id)
+        .eq("tenant_id", NUVEM_DE_PAPEL_TENANT_ID)
+        .select("id")
+        .maybeSingle()
+    : await admin.from("sellers").insert(payload).select("id").single();
+
+  if (error) {
+    if (/duplicate|unique/i.test(error.message)) {
+      return { ok: false, erro: "Ja existe um vendedor com esse nome." };
+    }
+    return { ok: false, erro: `Falha ao salvar o vendedor: ${error.message}` };
+  }
+  if (id && !data) return { ok: false, erro: "Vendedor nao encontrado." };
+
+  await admin.from("audit_log").insert({
+    tenant_id: NUVEM_DE_PAPEL_TENANT_ID,
+    actor_user_id: userId,
+    action: id ? "vendedor.atualizado" : "vendedor.criado",
+    entity: "sellers",
+    entity_id: data?.id ?? id,
+    after: { nome, pct, meta, ativo: payload.ativo },
+  });
+
+  revalidatePath("/vendas");
+  return { ok: true, msg: id ? `Vendedor ${nome} atualizado.` : `Vendedor ${nome} criado.` };
+}
+
+export async function removerVendedor(vendedorId: string): Promise<Resultado> {
+  if (!UUID_5.test(vendedorId ?? "")) return { ok: false, erro: "Vendedor invalido." };
+
+  const acesso = await exigirGestao();
+  if ("erro" in acesso) return { ok: false, erro: acesso.erro };
+  const { userId, admin } = acesso;
+
+  const { data, error } = await admin
+    .from("sellers")
+    .delete()
+    .eq("id", vendedorId)
+    .eq("tenant_id", NUVEM_DE_PAPEL_TENANT_ID)
+    .select("id, name");
+  if (error) return { ok: false, erro: `Falha ao remover o vendedor: ${error.message}` };
+  if (!data || data.length === 0) return { ok: false, erro: "Vendedor nao encontrado." };
+
+  await admin.from("audit_log").insert({
+    tenant_id: NUVEM_DE_PAPEL_TENANT_ID,
+    actor_user_id: userId,
+    action: "vendedor.removido",
+    entity: "sellers",
+    entity_id: vendedorId,
+    after: { nome: data[0].name },
+  });
+
+  revalidatePath("/vendas");
+  // orders.seller_id e on delete set null (0024): o historico de vendas fica.
+  return { ok: true, msg: `Vendedor ${data[0].name} removido. Os pedidos ficaram com ele sem vendedor.` };
+}
+
+export async function definirVendedorPedido(
+  pedidoId: string,
+  vendedorId: string | null
+): Promise<Resultado> {
+  if (!UUID_5.test(pedidoId ?? "")) return { ok: false, erro: "Pedido invalido." };
+  if (vendedorId && !UUID_5.test(vendedorId)) return { ok: false, erro: "Vendedor invalido." };
+
+  const acesso = await exigirGestao();
+  if ("erro" in acesso) return { ok: false, erro: acesso.erro };
+  const { userId, admin } = acesso;
+
+  if (vendedorId) {
+    const { data: vend } = await admin
+      .from("sellers")
+      .select("id, name, ativo")
+      .eq("id", vendedorId)
+      .eq("tenant_id", NUVEM_DE_PAPEL_TENANT_ID)
+      .maybeSingle();
+    if (!vend) return { ok: false, erro: "Vendedor nao encontrado." };
+    if (!vend.ativo) return { ok: false, erro: "Vendedor inativo nao pode receber pedido." };
+  }
+
+  const { data, error } = await admin
+    .from("orders")
+    .update({ seller_id: vendedorId })
+    .eq("id", pedidoId)
+    .eq("tenant_id", NUVEM_DE_PAPEL_TENANT_ID)
+    .select("id, pedido_numero, venda_numero");
+  if (error) return { ok: false, erro: `Falha ao gravar o vendedor do pedido: ${error.message}` };
+  if (!data || data.length === 0) return { ok: false, erro: "Pedido nao encontrado." };
+
+  await admin.from("audit_log").insert({
+    tenant_id: NUVEM_DE_PAPEL_TENANT_ID,
+    actor_user_id: userId,
+    action: "pedido.vendedor",
+    entity: "orders",
+    entity_id: pedidoId,
+    after: { seller_id: vendedorId },
+  });
+
+  revalidatePath("/vendas");
+  return { ok: true, msg: vendedorId ? "Vendedor do pedido gravado." : "Pedido ficou sem vendedor." };
+}
