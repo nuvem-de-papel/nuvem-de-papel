@@ -49,17 +49,21 @@ export default async function FinanceiroPage() {
       .from("orders")
       .select("channel, total_amount, created_at")
       .gte("created_at", new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString())
-      .neq("status", "cancelado")
+      // mesmo corte de FATURAMENTO do diario (0022/0023): cancelado sai,
+      // aguardando_pagamento nao e receita. Sem isto o card somava pedido que
+      // a DRE nao enxergava e os dois brigavam na mesma tela.
+      .not("status", "in", "(cancelado,aguardando_pagamento)")
       .limit(2000),
     admin
       .from("order_items")
       .select(
         "total, quantity, orders!inner(created_at, status), catalog_items(item_commercial_data(cost_price))"
       )
-      // mesmo recorte da receita acima (30 dias + cancelados excluidos): sem
-      // isto a margem subtraia custo de TODO o historico de uma receita de 30d.
+      // mesmo recorte da receita acima (30 dias + faturamento): sem isto a
+      // margem subtraia custo de pedido que a receita ja tinha excluido - ou
+      // pior, custo de TODO o historico de uma receita de 30d.
       .gte("orders.created_at", new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString())
-      .neq("orders.status", "cancelado")
+      .not("orders.status", "in", "(cancelado,aguardando_pagamento)")
       .limit(2000),
     // DRE por competencia (12 meses) - view v_dre criada na migration 0021.
     admin
