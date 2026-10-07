@@ -196,6 +196,17 @@ const CONFIG: Link[] = [
     ),
   },
   {
+    href: "/configuracoes/marketplaces",
+    label: "Marketplaces",
+    icon: (
+      <>
+        <circle cx="12" cy="12" r="9" />
+        <path d="M3 12h18" />
+        <path d="M12 3a14 14 0 0 1 0 18a14 14 0 0 1 0-18z" />
+      </>
+    ),
+  },
+  {
     href: "/configuracoes/auditoria",
     label: "Auditoria",
     icon: (
