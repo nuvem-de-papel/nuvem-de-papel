@@ -354,25 +354,37 @@ export function montarXmlNfe(
   const cMun = cMunEmit ?? 3550308;
   const cMunDest = (dest && resolverMunicipio(dest.cidade, dest.uf)) ?? 3550308;
 
+  // NT 2025.002 (leiaute PL_010): grupo IBSCBS obrigatorio em 2026. Regra
+  // geral (LC 214/25): CST 000 + cClassTrib 000001 (tributacao integral) e
+  // aliquotas de transicao 2026 = IBS 0,1% + CBS 0,9% (por fora do vNF).
+  const pIbs2026 = 0.1;
+  const pCbs2026 = 0.9;
+  const r2 = (v: number) => Math.round(v * 100) / 100;
+  const bcIbsCbs = (n.itens ?? []).reduce((s, i) => s + r2(Number(i.total) || 0), 0);
+  const vIbsTot = (n.itens ?? []).reduce((s, i) => s + r2(((Number(i.total) || 0) * pIbs2026) / 100), 0);
+  const vCbsTot = (n.itens ?? []).reduce((s, i) => s + r2(((Number(i.total) || 0) * pCbs2026) / 100), 0);
+
   const det = (n.itens ?? [])
     .map((i, idx) => {
       const orig = escXml(String(i.origem ?? "0").padStart(1, "0"));
+      // banco/UI: CST do ICMS com 3 digitos ("000"); o XSD da NF-e usa 2 ("00".."90")
+      const cst3 = /^\d{3}$/.test(String(i.cst)) ? String(i.cst) : /^\d{2}$/.test(String(i.cst)) ? `0${String(i.cst)}` : "000";
       let icms: string;
       if (crt === "3") {
-        const cst = /^\d{3}$/.test(String(i.cst)) ? i.cst : "00";
+        const cst = cst3.slice(1);
         const pIcms = Math.min(100, Math.max(0, Number(i.icmsPct) || 0));
         const vIcms = (i.total * pIcms) / 100;
         if (cst === "00") {
           icms =
-            `<ICMS><ICMS00><orig>${orig}</orig><CST>00</CST><vBC>${num2(i.total)}</vBC>` +
+            `<ICMS><ICMS00><orig>${orig}</orig><CST>00</CST><modBC>3</modBC><vBC>${num2(i.total)}</vBC>` +
             `<pICMS>${num2(pIcms)}</pICMS><vICMS>${num2(vIcms)}</vICMS></ICMS00></ICMS>`;
         } else {
-          icms = `<ICMS><ICMS90><orig>${orig}</orig><CST>${escXml(cst)}</CST><vBC>${num2(i.total)}</vBC>` +
+          icms = `<ICMS><ICMS90><orig>${orig}</orig><CST>${escXml(cst)}</CST><modBC>3</modBC><vBC>${num2(i.total)}</vBC>` +
             `<pICMS>${num2(pIcms)}</pICMS><vICMS>${num2(vIcms)}</vICMS></ICMS90></ICMS>`;
         }
       } else {
-        // Simples Nacional: CSOSN (sem credito por padrao; ST quando CST 60)
-        const csosn = String(i.cst) === "60" ? "500" : "102";
+        // Simples Nacional: CSOSN (sem credito por padrao; ST quando CST 060)
+        const csosn = cst3 === "060" ? "500" : "102";
         icms =
           csosn === "500"
             ? `<ICMS><ICMSSN500><orig>${orig}</orig><CSOSN>500</CSOSN></ICMSSN500></ICMS>`
@@ -388,6 +400,16 @@ export function montarXmlNfe(
           ? `<COFINS><COFINSAliq><CST>01</CST><vBC>${num2(i.total)}</vBC><pCOFINS>${num2(i.cofinsPct)}</pCOFINS>` +
             `<vCOFINS>${num2((i.total * i.cofinsPct) / 100)}</vCOFINS></COFINSAliq></COFINS>`
           : `<COFINS><COFINSNT><CST>08</CST></COFINSNT></COFINS>`;
+      const vIbsItem = r2(((Number(i.total) || 0) * pIbs2026) / 100);
+      const vCbsItem = r2(((Number(i.total) || 0) * pCbs2026) / 100);
+      const ibsCbs =
+        `<IBSCBS><CST>000</CST><cClassTrib>000001</cClassTrib><gIBSCBS>` +
+        `<vBC>${num2(i.total)}</vBC>` +
+        `<gIBSUF><pIBSUF>${num2(pIbs2026)}</pIBSUF><vIBSUF>${num2(vIbsItem)}</vIBSUF></gIBSUF>` +
+        `<gIBSMun><pIBSMun>0.00</pIBSMun><vIBSMun>0.00</vIBSMun></gIBSMun>` +
+        `<vIBS>${num2(vIbsItem)}</vIBS>` +
+        `<gCBS><pCBS>${num2(pCbs2026)}</pCBS><vCBS>${num2(vCbsItem)}</vCBS></gCBS>` +
+        `</gIBSCBS></IBSCBS>`;
       const ncm = /^\d{8}$/.test(digitos(i.ncm)) ? digitos(i.ncm) : "49019900";
       return (
         `<det nItem="${idx + 1}"><prod><cProd>${escXml(i.sku || `ITEM${idx + 1}`)}</cProd>` +
@@ -396,7 +418,7 @@ export function montarXmlNfe(
         `<vUnCom>${num4(i.unit)}</vUnCom><vProd>${num2(i.total)}</vProd>` +
         `<cEANTrib>SEM GTIN</cEANTrib><uTrib>UN</uTrib><qTrib>${num4(i.qtd)}</qTrib>` +
         `<vUnTrib>${num4(i.unit)}</vUnTrib><indTot>1</indTot></prod>` +
-        `<imposto>${icms}${pis}${cofins}</imposto></det>`
+        `<imposto>${icms}${pis}${cofins}${ibsCbs}</imposto></det>`
       );
     })
     .join("");
@@ -457,7 +479,14 @@ export function montarXmlNfe(
     `<vFCPST>0.00</vFCPST><vFCPSTRet>0.00</vFCPSTRet><vProd>${num2(totalProd)}</vProd>` +
     `<vFrete>${num2(freteValor)}</vFrete><vSeg>0.00</vSeg><vDesc>0.00</vDesc><vII>0.00</vII>` +
     `<vIPI>0.00</vIPI><vIPIDevol>0.00</vIPIDevol><vPIS>${num2(pisTot)}</vPIS>` +
-    `<vCOFINS>${num2(cofinsTot)}</vCOFINS><vOutro>0.00</vOutro><vNF>${num2(vNf)}</vNF></ICMSTot></total>` +
+    `<vCOFINS>${num2(cofinsTot)}</vCOFINS><vOutro>0.00</vOutro><vNF>${num2(vNf)}</vNF></ICMSTot>` +
+    `<IBSCBSTot><vBCIBSCBS>${num2(bcIbsCbs)}</vBCIBSCBS>` +
+    `<gIBS><gIBSUF><vDif>0.00</vDif><vDevTrib>0.00</vDevTrib><vIBSUF>${num2(vIbsTot)}</vIBSUF></gIBSUF>` +
+    `<gIBSMun><vDif>0.00</vDif><vDevTrib>0.00</vDevTrib><vIBSMun>0.00</vIBSMun></gIBSMun>` +
+    `<vIBS>${num2(vIbsTot)}</vIBS><vCredPres>0.00</vCredPres><vCredPresCondSus>0.00</vCredPresCondSus></gIBS>` +
+    `<gCBS><vDif>0.00</vDif><vDevTrib>0.00</vDevTrib><vCBS>${num2(vCbsTot)}</vCBS>` +
+    `<vCredPres>0.00</vCredPres><vCredPresCondSus>0.00</vCredPresCondSus></gCBS>` +
+    `</IBSCBSTot></total>` +
     `<transp><modFrete>${escXml(String(modFrete))}</modFrete></transp>` +
     `<pag><detPag><tPag>01</tPag><vPag>${num2(vNf)}</vPag></detPag></pag>` +
     (infCpl ? `<infAdic>${infCpl}</infAdic>` : "") +
