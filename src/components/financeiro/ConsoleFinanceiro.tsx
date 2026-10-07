@@ -289,9 +289,43 @@ export function ConsoleFinanceiro({
             marginBottom: 10,
           }}
         >
-          <h2 style={{ fontSize: 16, margin: 0, color: "var(--navy)" }}>
-            DRE — Demonstrativo do Resultado do Exercício (competência)
-          </h2>
+          <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+            <h2 style={{ fontSize: 16, margin: 0, color: "var(--navy)" }}>
+              DRE — Demonstrativo do Resultado do Exercício (competência)
+            </h2>
+            <a
+              href="/financeiro/despesas"
+              aria-label="Lançar despesas"
+              style={{
+                fontSize: 12.5,
+                fontWeight: 700,
+                color: "var(--navy)",
+                textDecoration: "none",
+                border: "1px solid var(--ink-faint)",
+                borderRadius: 999,
+                padding: "5px 14px",
+                background: "#FFFFFF",
+              }}
+            >
+              Lançar despesas
+            </a>
+            <a
+              href="/financeiro/conciliacao"
+              aria-label="Conciliar extrato"
+              style={{
+                fontSize: 12.5,
+                fontWeight: 700,
+                color: "var(--navy)",
+                textDecoration: "none",
+                border: "1px solid var(--ink-faint)",
+                borderRadius: 999,
+                padding: "5px 14px",
+                background: "#FFFFFF",
+              }}
+            >
+              Conciliar extrato
+            </a>
+          </div>
           {mesesDRE.length > 0 && (
             <label
               style={{ fontSize: 12.5, color: "var(--ink-soft)", display: "flex", gap: 8, alignItems: "center" }}
