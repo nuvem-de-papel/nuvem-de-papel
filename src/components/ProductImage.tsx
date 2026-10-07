@@ -1,8 +1,27 @@
-import type { CSSProperties, ReactNode } from "react";
+/* eslint-disable @next/next/no-img-element */
+"use client";
+
+import { useState, type CSSProperties, type ReactNode } from "react";
 
 type IconDef = { match: RegExp; node: ReactNode };
+type FotoDef = { match: RegExp; src: string; alt: string };
 
-const ICONS: IconDef[] = [
+/* Fotos ilustrativas REAIS (Wikimedia Commons - licencas livres, credito em
+ * public/produtos/CREDITS.md). A chave junta categoria + nome do produto;
+ * nao achou a foto cai na padrao; arquivo faltando ou erro de carga cai no
+ * placeholder SVG de sempre (o visual antigo, intacto). */
+const FOTOS: FotoDef[] = [
+  { match: /planner|agenda/, src: "/produtos/agenda.jpg", alt: "Agenda e planner com lápis" },
+  { match: /caderno|fichari|bloco|bloqu/, src: "/produtos/caderno.jpg", alt: "Cadernos de espiral" },
+  { match: /escolar|estojo|l[áa]pis|caneta|material|p[ée]ncil/, src: "/produtos/escolar.jpg", alt: "Lápis de cor em leque" },
+  { match: /adesiv|criativ|papel|arma|cola|tesoura|artesan/, src: "/produtos/criativo.jpg", alt: "Adesivos coloridos" },
+  { match: /presente|gift|acessor|caneca/, src: "/produtos/presente.jpg", alt: "Caneca de café sobre a mesa" },
+];
+const FOTO_PADRAO = { src: "/produtos/papelaria.jpg", alt: "Papelaria sobre a mesa" };
+
+type IconDefList = IconDef[];
+
+const ICONS: IconDefList = [
   {
     match: /caderno|agenda|planner|fichari|bloco|bloqu/,
     node: (
@@ -61,14 +80,18 @@ const DEFAULT_ICON: ReactNode = (
 
 export function ProductImage({
   category,
+  name,
   style,
   iconSize = 64,
 }: {
   category?: string | null;
+  name?: string | null;
   style?: CSSProperties;
   iconSize?: number;
 }) {
-  const key = (category ?? "").toLowerCase();
+  const [falhou, setFalhou] = useState(false);
+  const key = `${category ?? ""} ${name ?? ""}`.toLowerCase();
+  const foto = FOTOS.find((f) => f.match.test(key)) ?? FOTO_PADRAO;
   const icon = ICONS.find((i) => i.match.test(key));
 
   return (
@@ -80,22 +103,33 @@ export function ProductImage({
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
+        overflow: "hidden",
         ...style,
       }}
-      aria-hidden="true"
+      aria-hidden={falhou ? "true" : undefined}
     >
-      <svg
-        width={iconSize}
-        height={iconSize}
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="#B4D4E0"
-        strokeWidth="1.3"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      >
-        {icon ? icon.node : DEFAULT_ICON}
-      </svg>
+      {falhou ? (
+        <svg
+          width={iconSize}
+          height={iconSize}
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="#B4D4E0"
+          strokeWidth="1.3"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          {icon ? icon.node : DEFAULT_ICON}
+        </svg>
+      ) : (
+        <img
+          src={foto.src}
+          alt={foto.alt}
+          loading="lazy"
+          onError={() => setFalhou(true)}
+          style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+        />
+      )}
     </div>
   );
 }

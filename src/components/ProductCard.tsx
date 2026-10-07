@@ -17,7 +17,7 @@ export function ProductCard({ produto }: { produto: VarejoProduct }) {
         boxShadow: "var(--shadow-card)",
       }}
     >
-      <ProductImage category={produto.category} />
+      <ProductImage category={produto.category} name={produto.name} />
       {produto.category && (
         <span
           style={{

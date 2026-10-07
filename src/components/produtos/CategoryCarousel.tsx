@@ -88,7 +88,7 @@ export function CategoryCarousel({ title, products }: { title: string; products:
                 boxShadow: "0 2px 8px rgba(7,59,76,0.06)",
               }}
             >
-              <ProductImage category={p.category} style={{ borderRadius: 0, height: 150, aspectRatio: "auto" }} iconSize={54} />
+              <ProductImage category={p.category} name={p.name} style={{ borderRadius: 0, height: 150, aspectRatio: "auto" }} iconSize={54} />
               <div style={{ padding: "14px 16px 16px" }}>
                 {p.category && (
                   <span
