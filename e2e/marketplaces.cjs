@@ -115,14 +115,11 @@ async function esperaPendentes(page, alvo) {
 // null, fora do filtro por conta) aparecem na fila e contaminam os contadores.
 async function limpar() {
   await admin.from("marketplace_jobs").delete().eq("tenant_id", TENANT);
-  const { data: contas } = await admin
-    .from("marketplace_accounts")
-    .select("id")
-    .eq("tenant_id", TENANT)
-    .like("label", "Conta E2E MKT%");
-  for (const c of contas ?? []) {
-    await admin.from("marketplace_accounts").delete().eq("id", c.id);
-  }
+  // contas do TENANTE inteiro (nao so as "Conta E2E MKT%"): uma conta manual
+  // criada pela UI esconde o botao "Adicionar conta" do canal e quebra a S4 -
+  // a run fica refem do ultimo humano que clicou na tela. Anuncios caem em
+  // cascata (account_id references marketplace_accounts on delete cascade).
+  await admin.from("marketplace_accounts").delete().eq("tenant_id", TENANT);
   await admin.from("marketplace_webhooks").delete().eq("tenant_id", TENANT).like("event_id", "EVT-E2E-%");
   await admin.from("catalog_items").delete().eq("tenant_id", TENANT).like("sku", "SKU-E2E-MKT-%");
 }
