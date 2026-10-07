@@ -188,7 +188,7 @@ async function main() {
   const { ent: venda, linhas: lv } = await linhasDe(`venda:${pedidoId}`);
   check("gatilho: pedido pago gerou o lancamento venda:<id>", !!venda, `chave=venda:${pedidoId}`);
   if (venda) {
-    check("gatilho: venda tem 4 linhas (caixa + receita + cmv + estoque)", lv.length === 4, `linhas=${lv.length}`);
+    check("gatilho: venda tem 4 linhas (contraparte + receita + cmv + estoque)", lv.length === 4, `linhas=${lv.length}`);
     const d = totalDe(lv, "debit");
     const c = totalDe(lv, "credit");
     check("gatilho: lancamento da venda quita (debitos = creditos)", d === c, `D=${d} C=${c}`);
@@ -207,10 +207,16 @@ async function main() {
       Math.abs(soma(lv, "credit", "1.1.3") - cmvEsperado) < 0.005,
       `1.1.3 credito=${soma(lv, "credit", "1.1.3")}`
     );
+    /* 0025_titulo_web (Bloco 6): o checkout web gera um titulo 'web' no pago,
+     * entao a receita da venda da loja NAO cai direto no caixa - a regra
+     * anti-dobra (0022) manda para 1.1.2 Contas a receber e a liquidacao
+     * posterior e que leva o dinheiro ao 1.1.1. Venda sem titulo (PDV em
+     * dinheiro/pix, sem financial_titles) continua debitando 1.1.1 - coberta
+     * em "vendas a dinheiro/pix entraram no caixa" la embaixo. */
     check(
-      "gatilho: pix sem titulo entra direto no caixa (debita 1.1.1)",
-      Math.abs(soma(lv, "debit", "1.1.1") - TOTAL_VENDA) < 0.005,
-      `1.1.1 debito=${soma(lv, "debit", "1.1.1")}`
+      "gatilho: pix da loja gera titulo web e entra em contas a receber (debita 1.1.2)",
+      Math.abs(soma(lv, "debit", "1.1.2") - TOTAL_VENDA) < 0.005,
+      `1.1.2 debito=${soma(lv, "debit", "1.1.2")}`
     );
     check(
       "gatilho: lancamento registra a proveniencia (source_type=venda, source_id=pedido)",
@@ -325,9 +331,9 @@ async function main() {
       `1.1.3 debito=${soma(le, "debit", "1.1.3")}`
     );
     check(
-      "gatilho: estorno tira do caixa o que entrou (1.1.1 vira credito)",
-      Math.abs(soma(le, "credit", "1.1.1") - TOTAL_VENDA) < 0.005,
-      `1.1.1 credito=${soma(le, "credit", "1.1.1")}`
+      "gatilho: estorno tira do contas a receber o que entrou (1.1.2 vira credito)",
+      Math.abs(soma(le, "credit", "1.1.2") - TOTAL_VENDA) < 0.005,
+      `1.1.2 credito=${soma(le, "credit", "1.1.2")}`
     );
     const balancoLiquido =
       soma(lv, "credit", "4.1.1") - soma(lv, "debit", "4.1.1") + soma(le, "credit", "4.1.1") - soma(le, "debit", "4.1.1");
