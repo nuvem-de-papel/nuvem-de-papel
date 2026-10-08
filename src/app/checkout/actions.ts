@@ -32,8 +32,118 @@ export type ResultadoCheckout =
   | { ok: true; pedidoId: string; initPoint: string | null; aviso?: string }
   | { ok: false; erro: string };
 
+export type OpcaoFrete = { servico: "pac" | "sedex"; valor: number; prazo: number };
+
+export type ResultadoCotacao =
+  | { ok: true; opcoes: OpcaoFrete[]; peso: number; aviso: string | null }
+  | { ok: false; erro: string };
+
 function ehUuid(v: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
+}
+
+// Peso do frete (0028): soma do peso BRUTO do item (item_fiscal_data, com
+// embalagem) x qty. Item sem peso cadastrado entra com 0,3 kg - o demo nao
+// tem pesos preenchidos e 0,3 kg e o minimo dos Correios (faixa 0.3 da
+// matriz). A tabela e lida no servidor: preco de frete NUNCA vem do
+// navegador, igual ao preco dos itens.
+const PESO_PADRAO_KG = 0.3;
+
+type CotacaoInterna = { peso: number; opcoes: OpcaoFrete[] } | { erro: string };
+
+async function cotarInterno(
+  admin: ReturnType<typeof createAdminClient>,
+  cepDestino: string,
+  porId: Map<string, number>
+): Promise<CotacaoInterna> {
+  const digitos = String(cepDestino ?? "").replace(/\D/g, "");
+  if (!/^\d{8}$/.test(digitos)) return { erro: "CEP de destino inválido." };
+
+  const { data: fiscais, error: erroFisc } = await admin
+    .from("item_fiscal_data")
+    .select("item_id, weight_kg, weight_gross_kg")
+    .in("item_id", [...porId.keys()]);
+  if (erroFisc) return { erro: "Não foi possível calcular o frete agora." };
+
+  const pesoPorItem = new Map<string, number>();
+  for (const f of fiscais ?? []) {
+    pesoPorItem.set(f.item_id, Number(f.weight_gross_kg ?? f.weight_kg ?? 0) || PESO_PADRAO_KG);
+  }
+  let peso = 0;
+  for (const [id, qty] of porId) peso += (pesoPorItem.get(id) ?? PESO_PADRAO_KG) * qty;
+  peso = Math.max(PESO_PADRAO_KG, Math.round(peso * 100) / 100);
+
+  // origem = CEP da loja (mesma fonte do importador scripts/importar-frete-correios.cjs)
+  const { data: empresa } = await admin
+    .from("tenant_company")
+    .select("endereco")
+    .eq("tenant_id", NUVEM_DE_PAPEL_TENANT_ID)
+    .maybeSingle();
+  const origem = String(empresa?.endereco?.cep ?? "").replace(/\D/g, "");
+  if (!/^\d{8}$/.test(origem)) return { erro: "CEP da loja não configurado para frete." };
+
+  // menor teto de faixa >= peso do pedido, por servico (regiao = 1o digito do CEP)
+  const { data: linhas, error: erroTab } = await admin
+    .from("freight_tabelas")
+    .select("servico, valor, prazo_dias, peso_ate")
+    .eq("tenant_id", NUVEM_DE_PAPEL_TENANT_ID)
+    .eq("origem_cep", origem)
+    .eq("destino_regiao", digitos[0])
+    .gte("peso_ate", peso)
+    .order("peso_ate", { ascending: true });
+  if (erroTab) return { erro: "Não foi possível ler a tabela de frete." };
+
+  const opcoes: OpcaoFrete[] = [];
+  for (const svc of ["pac", "sedex"] as const) {
+    const l = (linhas ?? []).find((x) => x.servico === svc);
+    if (l) opcoes.push({ servico: svc, valor: Number(l.valor), prazo: Number(l.prazo_dias) });
+  }
+  return { peso, opcoes };
+}
+
+// Cotação para o formulario do checkout: devolve so as opcoes DISPONIVEIS
+// (pac/sedex) - a UI sempre oferece "retirar na loja" (frete 0) por fora.
+export async function cotarFrete(input: {
+  cep: string;
+  itens: { item_id: string; qty: number }[];
+}): Promise<ResultadoCotacao> {
+  if (!checkoutAberto()) return { ok: false, erro: "Checkout temporariamente indisponível." };
+
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, erro: "Sessão expirada. Entre novamente." };
+
+  if (!Array.isArray(input.itens) || input.itens.length === 0 || input.itens.length > 50) {
+    return { ok: false, erro: "Carrinho vazio ou inválido." };
+  }
+  const porId = new Map<string, number>();
+  for (const i of input.itens) {
+    if (!i || !ehUuid(String(i.item_id))) return { ok: false, erro: "Item inválido no carrinho." };
+    const q = Math.floor(Number(i.qty));
+    if (!Number.isFinite(q) || q < 1 || q > 99) return { ok: false, erro: "Quantidade inválida." };
+    porId.set(i.item_id, (porId.get(i.item_id) ?? 0) + q);
+  }
+
+  const cot = await cotarInterno(createAdminClient(), input.cep, porId);
+  if ("erro" in cot) return { ok: false, erro: cot.erro };
+
+  let aviso: string | null = null;
+  if (cot.opcoes.length === 0) {
+    // distingue "peso acima de 20 kg" de "regiao sem linha na matriz"
+    const digitos = input.cep.replace(/\D/g, "");
+    const { data: regiao } = await createAdminClient()
+      .from("freight_tabelas")
+      .select("id")
+      .eq("tenant_id", NUVEM_DE_PAPEL_TENANT_ID)
+      .eq("destino_regiao", digitos[0])
+      .limit(1);
+    aviso = (regiao ?? []).length > 0
+      ? `Frete online indisponível: peso estimado de ${cot.peso} kg excede 20 kg. Fale conosco ou retire na loja.`
+      : "Sem frete online para este CEP (fora da área de cobertura da tabela). Fale conosco.";
+  }
+  return { ok: true, opcoes: cot.opcoes, peso: cot.peso, aviso };
 }
 
 function validarEndereco(e: EnderecoInput): string | null {
@@ -53,9 +163,17 @@ export async function finalizarCheckout(input: {
   addressId?: string | null;
   endereco?: EnderecoInput | null;
   salvarEndereco?: boolean;
+  frete?: "pac" | "sedex" | "retirada" | null;
 }): Promise<ResultadoCheckout> {
   if (!checkoutAberto()) {
     return { ok: false, erro: "Checkout temporariamente indisponível." };
+  }
+  // frete: so o TIPO e validado aqui (input barato); a exigencia de ESCOLHA
+  // fica no bloco 4.5, depois do endereco - assim endereco ruim responde
+  // "CEP invalido" antes de falar de frete. Valor nunca vem do navegador.
+  const freteBruto = input.frete as unknown;
+  if (freteBruto != null && freteBruto !== "pac" && freteBruto !== "sedex" && freteBruto !== "retirada") {
+    return { ok: false, erro: "Opção de frete inválida." };
   }
 
   const supabase = createClient();
@@ -228,6 +346,31 @@ export async function finalizarCheckout(input: {
     revalidatePath("/checkout");
   }
 
+  // 4.5) frete (0028): recalculado AQUI com a mesma tabela do cotarFrete -
+  // o navegador manda so a modalidade escolhida, nunca o valor. Retirada = 0;
+  // pac/sedex fora da tabela (peso acima de 20 kg ou regiao sem linha) sao
+  // recusados fail-closed para nao vender com frete errado.
+  // Escolha e OBRIGATORIA: default silencioso "retirada" faria backoffice
+  // marcar a entrega como retirada concluida (vendas/actions.ts EN-01).
+  const freteServico = input.frete;
+  if (freteServico !== "pac" && freteServico !== "sedex" && freteServico !== "retirada") {
+    return { ok: false, erro: "Escolha a modalidade de entrega (retirada na loja ou frete)." };
+  }
+  let freteValor = 0;
+  if (freteServico !== "retirada") {
+    const cot = await cotarInterno(admin, snapshot.cep, porId);
+    if ("erro" in cot) return { ok: false, erro: cot.erro };
+    const opcao = cot.opcoes.find((o) => o.servico === freteServico);
+    if (!opcao) {
+      return {
+        ok: false,
+        erro: "Não foi possível calcular o frete para este destino/peso. Escolha retirar na loja ou fale conosco.",
+      };
+    }
+    freteValor = Math.round(opcao.valor * 100) / 100;
+    total = Math.round((total + freteValor) * 100) / 100;
+  }
+
   // 5) pedido + itens (transação via ordem de escrita; RLS deny-all + service_role)
   const { data: pedido, error: erroPedido } = await admin
     .from("orders")
@@ -242,6 +385,7 @@ export async function finalizarCheckout(input: {
       status: "aguardando_pagamento",
       total_amount: total,
       discount_amount: desconto,
+      frete: freteValor,
       payment_method: input.pagamento,
       address_snapshot: snapshot,
     })
@@ -300,6 +444,7 @@ export async function finalizarCheckout(input: {
       status: "aguardando_pagamento",
       total_amount: total,
       discount_amount: desconto,
+      frete: { modalidade: freteServico, valor: freteValor },
       payment_method: input.pagamento,
       customer_id: clienteRes.id,
       itens: linhas.length,
@@ -317,6 +462,10 @@ export async function finalizarCheckout(input: {
         // desconto do Clube como linha negativa: os itens somam o total
         ...(desconto > 0
           ? [{ title: `Desconto Clube ${pctClube}%`, unit_price: -desconto, quantity: 1, id: "clube-desconto" }]
+          : []),
+        // frete como linha propria (0028): itens + frete - desconto = total
+        ...(freteValor > 0
+          ? [{ title: `Frete ${freteServico.toUpperCase()}`, unit_price: freteValor, quantity: 1, id: "frete" }]
           : []),
       ],
       pagador: { email, name: snapshot.recipientName },

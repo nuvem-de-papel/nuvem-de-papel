@@ -84,6 +84,8 @@ async function preencherCheckout(page) {
   await page.locator('label:has-text("Bairro") input').first().fill("Centro");
   await page.locator('label:has-text("Cidade") input').first().fill("São Paulo");
   await page.locator('label:has-text("UF") input').first().fill("SP");
+  // frete exige escolha explicita (o grupo some enquanto cotar; click espera)
+  await page.locator('label:has-text("Retirar na loja")').click();
 }
 
 async function apagarPedidosDe(email) {

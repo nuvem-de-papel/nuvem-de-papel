@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useCart } from "@/components/carrinho/CartProvider";
-import { finalizarCheckout, type EnderecoInput } from "@/app/checkout/actions";
+import { cotarFrete, finalizarCheckout, type EnderecoInput, type OpcaoFrete } from "@/app/checkout/actions";
 
 type EnderecoSalvo = {
   id: string;
@@ -77,6 +77,62 @@ export function CheckoutForm({
   const [uf, setUf] = useState("");
   const [salvar, setSalvar] = useState(true);
 
+  // frete (0028): cotação automática quando o CEP fica completo; o valor é
+  // sempre do servidor — aqui só escolhemos a modalidade.
+  const [freteOpcoes, setFreteOpcoes] = useState<OpcaoFrete[]>([]);
+  const [freteAviso, setFreteAviso] = useState<string | null>(null);
+  const [freteErro, setFreteErro] = useState<string | null>(null);
+  const [fretePendente, setFretePendente] = useState(false);
+  // null = cliente ainda NAO escolheu. Default silencioso "retirada" faria
+  // pedido de entrega nascer como retirada concluida no backoffice (EN-01).
+  const [freteEscolha, setFreteEscolha] = useState<"pac" | "sedex" | "retirada" | null>(null);
+
+  const cepSalvo = usarSalvo ? enderecos.find((e) => e.id === addressId)?.cep ?? "" : "";
+  const cepEfetivo = (usarSalvo ? cepSalvo : cep).replace(/\D/g, "");
+
+  useEffect(() => {
+    if (cepEfetivo.length !== 8 || itens.length === 0) {
+      setFreteOpcoes([]);
+      setFreteAviso(null);
+      setFreteErro(null);
+      setFreteEscolha(null);
+      return;
+    }
+    let vivo = true;
+    setFretePendente(true);
+    setFreteErro(null);
+    cotarFrete({ cep: cepEfetivo, itens: itens.map((i) => ({ item_id: i.id, qty: i.qty })) })
+      .then((r) => {
+        if (!vivo) return;
+        if (!r.ok) {
+          setFreteOpcoes([]);
+          setFreteAviso(null);
+          setFreteErro(r.erro);
+          // retirada não depende de cotação: escolha explícita é preservada
+          setFreteEscolha((atual) => (atual === "retirada" ? "retirada" : null));
+          return;
+        }
+        setFreteOpcoes(r.opcoes);
+        setFreteAviso(r.aviso);
+        setFreteEscolha((atual) => {
+          if (atual === "retirada") return "retirada";
+          if (atual && r.opcoes.some((o) => o.servico === atual)) return atual;
+          return null;
+        });
+      })
+      .catch(() => {
+        if (!vivo) return;
+        setFreteErro("Não foi possível calcular o frete agora. Tente novamente.");
+        setFreteEscolha((atual) => (atual === "retirada" ? "retirada" : null));
+      })
+      .finally(() => vivo && setFretePendente(false));
+    return () => {
+      vivo = false;
+    };
+    // itens muda com o carrinho (peso), cepEfetivo com o endereco
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cepEfetivo, itens]);
+
   async function buscarCep() {
     const d = soDigitos(cep);
     if (d.length !== 8) return;
@@ -101,6 +157,13 @@ export function CheckoutForm({
     e.preventDefault();
     setErro(null);
 
+    // escolha do frete obrigatoria quando ja da para cotar: sem escolha, o
+    // servidor recusa (e um default silencioso seria pior que um aviso aqui)
+    if (cepEfetivo.length === 8 && !freteEscolha) {
+      setErro("Escolha a modalidade de entrega: retirar na loja ou frete.");
+      return;
+    }
+
     const enderecoNovo: EnderecoInput = {
       recipientName: nome,
       cep: soDigitos(cep),
@@ -119,6 +182,7 @@ export function CheckoutForm({
         addressId: usarSalvo && addressId ? addressId : null,
         endereco: !usarSalvo || !addressId ? enderecoNovo : null,
         salvarEndereco: salvar,
+        frete: freteEscolha,
       });
       if (!r.ok) {
         setErro(r.erro);
@@ -245,6 +309,101 @@ export function CheckoutForm({
             )}
           </section>
 
+          <section style={CARD} data-testid="entrega-frete">
+            <h2 style={{ fontSize: 18, marginBottom: 6 }}>Entrega</h2>
+            <p style={{ fontSize: 12.5, color: "var(--ink-soft)", margin: "0 0 14px" }}>
+              Prazo e valor calculados pela tabela dos Correios para o CEP informado.
+            </p>
+
+            {cepEfetivo.length !== 8 && (
+              <p style={{ fontSize: 13.5, color: "var(--ink-soft)" }}>
+                Informe um CEP completo para ver as opções de entrega.
+              </p>
+            )}
+
+            {cepEfetivo.length === 8 && fretePendente && (
+              <p style={{ fontSize: 13.5, color: "var(--ink-soft)" }}>Calculando o frete…</p>
+            )}
+
+            {freteErro && (
+              <p style={{ background: "#FDECEC", color: "#C62828", fontSize: 13, fontWeight: 600, padding: "10px 14px", borderRadius: 8 }}>
+                {freteErro}
+              </p>
+            )}
+
+            {freteAviso && (
+              <p style={{ background: "#FFF6E5", color: "#8A6100", fontSize: 13, fontWeight: 600, padding: "10px 14px", borderRadius: 8, marginBottom: 12 }}>
+                {freteAviso}
+              </p>
+            )}
+
+            {/* opcoes ficam visiveis tambem com erro de cotacao: retirada nao
+                depende da tabela e e sempre uma saida valida */}
+            {cepEfetivo.length === 8 && !fretePendente && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                <label
+                  style={{
+                    display: "flex",
+                    gap: 10,
+                    alignItems: "center",
+                    padding: "12px 14px",
+                    border: `1.5px solid ${freteEscolha === "retirada" ? "var(--pink-600)" : "var(--border)"}`,
+                    borderRadius: 12,
+                    cursor: "pointer",
+                    background: freteEscolha === "retirada" ? "var(--pink-100)" : "transparent",
+                  }}
+                >
+                  <input
+                    type="radio"
+                    name="frete"
+                    checked={freteEscolha === "retirada"}
+                    onChange={() => setFreteEscolha("retirada")}
+                  />
+                  <span>
+                    <strong style={{ fontSize: 14.5 }}>Retirar na loja</strong>
+                    <span style={{ display: "block", fontSize: 12.5, color: "var(--ink-soft)" }}>Sem custo de frete</span>
+                  </span>
+                </label>
+
+                {freteOpcoes.map((op) => (
+                  <label
+                    key={op.servico}
+                    style={{
+                      display: "flex",
+                      gap: 10,
+                      alignItems: "center",
+                      padding: "12px 14px",
+                      border: `1.5px solid ${freteEscolha === op.servico ? "var(--pink-600)" : "var(--border)"}`,
+                      borderRadius: 12,
+                      cursor: "pointer",
+                      background: freteEscolha === op.servico ? "var(--pink-100)" : "transparent",
+                    }}
+                  >
+                    <input
+                      type="radio"
+                      name="frete"
+                      checked={freteEscolha === op.servico}
+                      onChange={() => setFreteEscolha(op.servico)}
+                    />
+                    <span style={{ flex: 1 }}>
+                      <strong style={{ fontSize: 14.5 }}>{op.servico === "pac" ? "PAC" : "SEDEX"}</strong>
+                      <span style={{ display: "block", fontSize: 12.5, color: "var(--ink-soft)" }}>
+                        até {op.prazo} {op.prazo === 1 ? "dia útil" : "dias úteis"}
+                      </span>
+                    </span>
+                    <span style={{ fontWeight: 700, fontSize: 15 }}>{brl(op.valor)}</span>
+                  </label>
+                ))}
+
+                {freteOpcoes.length === 0 && !freteAviso && !freteErro && (
+                  <p style={{ fontSize: 13.5, color: "var(--ink-soft)" }}>
+                    Nenhuma modalidade disponível para este destino — retire na loja ou fale conosco.
+                  </p>
+                )}
+              </div>
+            )}
+          </section>
+
           <section style={CARD}>
             <h2 style={{ fontSize: 18, marginBottom: 16 }}>Pagamento</h2>
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -295,9 +454,33 @@ export function CheckoutForm({
               <span style={{ fontWeight: 600, whiteSpace: "nowrap" }}>{brl(i.price * i.qty)}</span>
             </div>
           ))}
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 12, fontSize: 14, padding: "7px 0", borderBottom: "1px solid var(--border)" }}>
+            <span style={{ color: "var(--ink)" }}>
+              Frete{" "}
+              {freteEscolha
+                ? freteEscolha === "retirada"
+                  ? "(retirada)"
+                  : `(${freteEscolha.toUpperCase()})`
+                : "(a escolher)"}
+            </span>
+            <span style={{ fontWeight: 600, whiteSpace: "nowrap" }}>
+              {freteEscolha === null
+                ? "—"
+                : freteEscolha === "retirada"
+                  ? "Grátis"
+                  : brl(freteOpcoes.find((o) => o.servico === freteEscolha)?.valor ?? 0)}
+            </span>
+          </div>
           <div style={{ display: "flex", justifyContent: "space-between", marginTop: 16, alignItems: "baseline" }}>
             <span style={{ fontWeight: 700 }}>Total</span>
-            <span className="display" style={{ fontSize: 24 }}>{brl(totalValor)}</span>
+            <span className="display" style={{ fontSize: 24 }}>
+              {brl(
+                totalValor +
+                  (freteEscolha && freteEscolha !== "retirada"
+                    ? freteOpcoes.find((o) => o.servico === freteEscolha)?.valor ?? 0
+                    : 0)
+              )}
+            </span>
           </div>
           <p style={{ fontSize: 11.5, color: "var(--ink-soft)", margin: "6px 0 16px" }}>
             Preço final recalculado no servidor antes de cobrar.

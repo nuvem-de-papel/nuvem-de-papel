@@ -122,6 +122,8 @@ async function login(page, email, senha) {
   await page.locator('label:has-text("Bairro") input').first().fill("Bela Vista");
   await page.locator('label:has-text("Cidade") input').first().fill("São Paulo");
   await page.locator('label:has-text("UF") input').first().fill("SP");
+  // frete exige escolha explicita (null ate o cliente clicar)
+  await page.locator('label:has-text("Retirar na loja")').click();
   await page.click('button:has-text("Confirmar pedido")');
   await page.waitForURL(/\/conta\/pedidos\?novo=/, { timeout: 25000 });
   const pedidoId = new URL(page.url()).searchParams.get("novo");
