@@ -7,6 +7,7 @@ const { chromium } = require("playwright-core");
 const { createClient } = require("@supabase/supabase-js");
 const fs = require("fs");
 const path = require("path");
+const { t0Banco } = require("./_relogio-banco.cjs");
 
 const BASE = "http://localhost:3000";
 const EMAIL_MASTER = "admin@nuvemdepapel.com.br";
@@ -93,7 +94,9 @@ async function garantirOperador() {
 }
 
 async function main() {
-  const t0 = new Date().toISOString();
+  // t0 no RELÓGIO DO BANCO: created_at também é now() do Supabase (~5,5 s
+  // atrasado vs. a máquina) - relógio local flua os checks gte (ver helper).
+  const t0 = await t0Banco(admin, TENANT);
 
   // R) normaliza: caixa fechado antes de começar (igual ao F5) ---------------
   const { data: aberta } = await admin

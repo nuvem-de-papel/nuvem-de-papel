@@ -32,6 +32,13 @@ function mascaraCep(d: string): string {
   return x.replace(/^(\d{5})(\d{3})$/, "$1-$2");
 }
 
+function mascaraTelefone(d: string): string {
+  const x = (d ?? "").replace(/\D/g, "");
+  if (x.length === 11) return x.replace(/^(\d{2})(\d{5})(\d{4})$/, "($1) $2-$3");
+  if (x.length === 10) return x.replace(/^(\d{2})(\d{4})(\d{4})$/, "($1) $2-$3");
+  return d ?? "";
+}
+
 // A tela dentro de /configuracoes/cadastro é escolhida por ?tela=
 // (sub-itens do menu lateral: cliente, produto, empresa, fornecedor, revenda).
 export default async function CadastroPage() {
@@ -72,7 +79,9 @@ export default async function CadastroPage() {
     // Bloco 5 passo 3: clientes reais (antes os contadores e a ficha eram fixos)
     admin
       .from("customers")
-      .select("id, name, email, documento, ie, uf, tier, points, created_at, orders(count)")
+      .select(
+        "id, name, email, documento, ie, uf, tier, points, created_at, orders(count), telefone, whatsapp, nascimento, cep, logradouro, numero, complemento, bairro, cidade, observacoes, limite_credito, ativo, foto_url"
+      )
       .eq("tenant_id", NUVEM_DE_PAPEL_TENANT_ID)
       .order("name", { ascending: true })
       .limit(500),
@@ -192,6 +201,19 @@ export default async function CadastroPage() {
     points: number | string;
     created_at: string;
     orders: { count: number }[] | null;
+    telefone: string | null;
+    whatsapp: string | null;
+    nascimento: string | null;
+    cep: string | null;
+    logradouro: string | null;
+    numero: string | null;
+    complemento: string | null;
+    bairro: string | null;
+    cidade: string | null;
+    observacoes: string | null;
+    limite_credito: number | string | null;
+    ativo: boolean | null;
+    foto_url: string | null;
   };
   const clientes: ClienteCad[] = ((cliRes.data ?? []) as unknown as BrutoCliente[]).map((c) => ({
     id: c.id,
@@ -204,6 +226,19 @@ export default async function CadastroPage() {
     pontos: Number(c.points ?? 0),
     criadoEm: c.created_at,
     pedidos: Array.isArray(c.orders) ? Number(c.orders[0]?.count ?? 0) : 0,
+    telefone: mascaraTelefone(c.telefone ?? ""),
+    whatsapp: mascaraTelefone(c.whatsapp ?? ""),
+    nascimento: c.nascimento ? String(c.nascimento).slice(0, 10) : "",
+    cep: mascaraCep(c.cep ?? ""),
+    logradouro: c.logradouro ?? "",
+    numero: c.numero ?? "",
+    complemento: c.complemento ?? "",
+    bairro: c.bairro ?? "",
+    cidade: c.cidade ?? "",
+    observacoes: c.observacoes ?? "",
+    limiteCredito: Number(c.limite_credito ?? 0),
+    ativo: c.ativo ?? true,
+    fotoUrl: c.foto_url ?? "",
   }));
 
   return (

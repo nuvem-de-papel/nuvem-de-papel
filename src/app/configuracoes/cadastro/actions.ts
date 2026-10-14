@@ -372,8 +372,10 @@ export async function salvarProduto(input: ProdutoInput): Promise<ResultadoAcao 
 //   * customers.tier nasce em bronze e so aceita bronze/prata/ouro/diamante;
 //   * orders.customer_id e FK on delete restrict -> cliente com pedido nao sai.
 //
-// Endereco, telefone, nascimento etc. NAO existem na tabela e ficaram FORA da
-// tela de proposito: mostrar campo que nao grava e mentira para o usuario.
+// Endereco, telefone e nascimento passaram a existir na tabela na 0029:
+// a ficha do cliente virou cadastro completo (contato + endereco + situacao).
+// Continuam valendo as regras acima: documento so digitos com DV conferido,
+// e-mail unico, tier fixo e FK de pedido bloqueando exclusao.
 // ---------------------------------------------------------------------------
 
 export type ClienteInput = {
@@ -385,6 +387,19 @@ export type ClienteInput = {
   uf?: string;
   tier?: string;
   pontos?: number | string;
+  telefone?: string;
+  whatsapp?: string;
+  nascimento?: string;
+  cep?: string;
+  logradouro?: string;
+  numero?: string;
+  complemento?: string;
+  bairro?: string;
+  cidade?: string;
+  observacoes?: string;
+  limiteCredito?: number | string;
+  ativo?: boolean;
+  fotoUrl?: string;
 };
 
 const TIERS_VALIDOS = ["bronze", "prata", "ouro", "diamante"];
@@ -452,6 +467,47 @@ export async function salvarCliente(input: ClienteInput): Promise<ResultadoAcao 
     return { ok: false, erro: "Pontos precisa ser inteiro, de 0 a 1.000.000.000." };
   }
 
+  // 0029: contato + endereco + situacao - gravam SO digitos sem mascara
+  // (mesma convencao de 'documento' na 0016); a tela e que formata.
+  const soDigitos = (v?: string) => String(v ?? "").replace(/\D/g, "");
+  const telefone = soDigitos(input?.telefone);
+  if (telefone && (telefone.length < 10 || telefone.length > 11)) {
+    return { ok: false, erro: "Telefone precisa ter 10 ou 11 dígitos." };
+  }
+  const whatsapp = soDigitos(input?.whatsapp);
+  if (whatsapp && whatsapp.length !== 11) {
+    return { ok: false, erro: "WhatsApp precisa ter 11 dígitos (DDD + número com 9)." };
+  }
+  const cep = soDigitos(input?.cep);
+  if (cep && cep.length !== 8) return { ok: false, erro: "CEP precisa ter 8 dígitos." };
+
+  const nascimento = String(input?.nascimento ?? "").trim();
+  if (nascimento) {
+    const d = new Date(`${nascimento}T00:00:00`);
+    if (Number.isNaN(d.getTime())) return { ok: false, erro: "Data de nascimento inválida." };
+    if (d.getTime() > Date.now()) return { ok: false, erro: "Nascimento não pode ser no futuro." };
+  }
+
+  const linha = (v: string | undefined, max: number) => {
+    const t = String(v ?? "").trim().replace(/\s+/g, " ");
+    return t.slice(0, max);
+  };
+  const logradouro = linha(input?.logradouro, 120);
+  const numero = linha(input?.numero, 20);
+  const complemento = linha(input?.complemento, 80);
+  const bairro = linha(input?.bairro, 80);
+  const cidade = linha(input?.cidade, 80);
+  const fotoUrl = linha(input?.fotoUrl, 500);
+
+  const observacoes = String(input?.observacoes ?? "").trim().slice(0, 2000);
+
+  const limiteCredito = Number(input?.limiteCredito ?? 0);
+  if (!Number.isFinite(limiteCredito) || limiteCredito < 0 || limiteCredito > 10000000) {
+    return { ok: false, erro: "Limite de crédito precisa ser de R$ 0 a R$ 10.000.000." };
+  }
+
+  const ativo = typeof input?.ativo === "boolean" ? input.ativo : true;
+
   const id = typeof input?.id === "string" && input.id ? input.id : null;
   if (id && !UUID_CLIENTE.test(id)) return { ok: false, erro: "Cliente inválido." };
 
@@ -463,6 +519,19 @@ export async function salvarCliente(input: ClienteInput): Promise<ResultadoAcao 
     uf: uf || null,
     tier,
     points: pontos,
+    telefone: telefone || null,
+    whatsapp: whatsapp || null,
+    nascimento: nascimento || null,
+    cep: cep || null,
+    logradouro: logradouro || null,
+    numero: numero || null,
+    complemento: complemento || null,
+    bairro: bairro || null,
+    cidade: cidade || null,
+    observacoes: observacoes || null,
+    limite_credito: limiteCredito,
+    ativo,
+    foto_url: fotoUrl || null,
   };
 
   const admin = createAdminClient();

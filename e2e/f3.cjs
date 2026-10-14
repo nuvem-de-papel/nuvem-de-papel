@@ -99,6 +99,13 @@ async function login(page, email, senha) {
   check("B1 badge do carrinho = 2", (badge || "").includes("2"), badge);
 
   await page.goto(BASE + "/carrinho", { waitUntil: "domcontentloaded" });
+  // o render do carrinho e client-side (domcontentloaded nao garante): sem
+  // espera o count flua quando a pagina demora - o assert continua o mesmo.
+  try {
+    await page.waitForSelector('button[aria-label^="Remover"]', { timeout: 15000 });
+  } catch {
+    await page.waitForSelector("text=×", { timeout: 5000 }).catch(() => {});
+  }
   check("B2 /carrinho lista o item", (await page.locator("text=×").count()) > 0 || (await page.locator('button[aria-label^="Remover"]').count()) > 0);
 
   // preço REAL do banco + preço forjado no localStorage

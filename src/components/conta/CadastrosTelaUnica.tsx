@@ -9,6 +9,7 @@ import {
   salvarCliente,
   salvarEmpresa,
   salvarProduto,
+  type ClienteInput,
   type EmpresaInput,
   type ProdutoInput,
 } from "@/app/configuracoes/cadastro/actions";
@@ -298,6 +299,7 @@ export type ProdutoCad = {
 };
 
 // Bloco 5 passo 3: cliente vem do banco (customers) em vez de ficha fixa.
+// 0029: ficha completa - contato, endereco e situacao comercial.
 export type ClienteCad = {
   id: string;
   nome: string;
@@ -309,6 +311,19 @@ export type ClienteCad = {
   pontos: number;
   criadoEm: string;
   pedidos: number;
+  telefone: string;
+  whatsapp: string;
+  nascimento: string;
+  cep: string;
+  logradouro: string;
+  numero: string;
+  complemento: string;
+  bairro: string;
+  cidade: string;
+  observacoes: string;
+  limiteCredito: number;
+  ativo: boolean;
+  fotoUrl: string;
 };
 
 type CliForm = {
@@ -319,6 +334,18 @@ type CliForm = {
   uf: string;
   tier: string;
   pontos: string;
+  telefone: string;
+  whatsapp: string;
+  nascimento: string;
+  cep: string;
+  logradouro: string;
+  numero: string;
+  complemento: string;
+  bairro: string;
+  cidade: string;
+  observacoes: string;
+  limiteCredito: string;
+  ativo: boolean;
 };
 
 const FORM_CLI_VAZIO: CliForm = {
@@ -329,6 +356,18 @@ const FORM_CLI_VAZIO: CliForm = {
   uf: "SP",
   tier: "bronze",
   pontos: "0",
+  telefone: "",
+  whatsapp: "",
+  nascimento: "",
+  cep: "",
+  logradouro: "",
+  numero: "",
+  complemento: "",
+  bairro: "",
+  cidade: "",
+  observacoes: "",
+  limiteCredito: "0,00",
+  ativo: true,
 };
 
 function cliDeRegistro(c: ClienteCad | null): CliForm {
@@ -341,6 +380,18 @@ function cliDeRegistro(c: ClienteCad | null): CliForm {
     uf: c.uf || "SP",
     tier: c.tier,
     pontos: String(c.pontos),
+    telefone: c.telefone,
+    whatsapp: c.whatsapp,
+    nascimento: c.nascimento,
+    cep: c.cep,
+    logradouro: c.logradouro,
+    numero: c.numero,
+    complemento: c.complemento,
+    bairro: c.bairro,
+    cidade: c.cidade,
+    observacoes: c.observacoes,
+    limiteCredito: c.limiteCredito.toFixed(2).replace(".", ","),
+    ativo: c.ativo,
   };
 }
 
@@ -543,6 +594,19 @@ export function CadastrosTelaUnica({
     if (uf && data.uf) uf.value = data.uf;
   };
 
+  const onCepCliente = async (e: React.FocusEvent<HTMLInputElement>) => {
+    const data = await buscarCep(e.target.value);
+    if (!data) return;
+    setFormCli((f) => ({
+      ...f,
+      cep: mascaraCep(data.cep || e.target.value),
+      logradouro: data.logradouro || f.logradouro,
+      bairro: data.bairro || f.bairro,
+      cidade: data.localidade || f.cidade,
+      uf: data.uf || f.uf,
+    }));
+  };
+
   const onCepModal = async (prefixo: "forn", e: React.FocusEvent<HTMLInputElement>) => {
     const data = await buscarCep(e.target.value);
     const logr = document.getElementById(`ct-${prefixo}-logradouro`) as HTMLInputElement | null;
@@ -655,6 +719,7 @@ export function CadastrosTelaUnica({
         .slice(0, 12)
     : [];
   const cliComPedido = clientes.filter((c) => c.pedidos > 0).length;
+  const cliAtivos = clientes.filter((c) => c.ativo).length;
   const cliSelecionado = clientes.find((c) => c.id === cliId) ?? null;
 
   function selecionarCliente(c: ClienteCad | null) {
@@ -682,8 +747,14 @@ export function CadastrosTelaUnica({
       return;
     }
     setFeedback(null);
+    // limite chega da tela como "1.234,56" (brl) - o servidor espera número.
+    const paraServidor: ClienteInput = {
+      ...formCli,
+      id: cliId,
+      limiteCredito: formCli.limiteCredito.replace(/\./g, "").replace(",", ".") || "0",
+    };
     startTransition(async () => {
-      const r = await salvarCliente({ id: cliId, ...formCli });
+      const r = await salvarCliente(paraServidor);
       if (!r.ok) {
         setFeedback({ tipo: "err", texto: r.erro });
         return;
@@ -745,13 +816,11 @@ export function CadastrosTelaUnica({
       setModal(null);
       setCliId(r.id ?? null);
       setFormCli({
+        ...FORM_CLI_VAZIO,
         nome: nome.trim().replace(/\s+/g, " "),
         email: email.trim().toLowerCase(),
         documento,
-        ie: "",
-        uf: "SP",
         tier,
-        pontos: "0",
       });
       setFeedback({ tipo: "ok", texto: "Cliente cadastrado com sucesso." });
       router.refresh();
@@ -779,6 +848,8 @@ export function CadastrosTelaUnica({
               <div className="tot"><span className="k">Clientes total</span><b aria-label="Clientes total">{clientes.length}</b></div>
               <div className="ativ"><span className="k">Novos no mês</span><b aria-label="Novos no mes">{cliNovos}</b></div>
               <div className="inat"><span className="k">Com pedidos</span><b aria-label="Clientes com pedidos">{cliComPedido}</b></div>
+              <div className="ativ"><span className="k">Ativos</span><b aria-label="Clientes ativos">{cliAtivos}</b></div>
+              <div className="inat"><span className="k">Inativos</span><b aria-label="Clientes inativos">{clientes.length - cliAtivos}</b></div>
             </div>
 
             <div className="ct-grp">
@@ -826,20 +897,74 @@ export function CadastrosTelaUnica({
                   <div className="ct-doc-msg" />
                 </div>
               </div>
+            </div>
+
+            <div className="ct-grp">
+              <p className="ct-grp-label">Endereço</p>
+              <div className="ct-row ct-r-2-1">
+                <div className="ct-field"><label>Endereço (logradouro)</label>
+                  <input aria-label="Logradouro do cliente" maxLength={120} value={formCli.logradouro} onChange={(e) => setFormCli((f) => ({ ...f, logradouro: e.target.value }))} />
+                </div>
+                <div className="ct-field"><label>Número</label>
+                  <input aria-label="Numero do cliente" maxLength={20} value={formCli.numero} onChange={(e) => setFormCli((f) => ({ ...f, numero: e.target.value }))} />
+                </div>
+              </div>
+              <div className="ct-row ct-r-1-2">
+                <div className="ct-field"><label>Complemento</label>
+                  <input aria-label="Complemento do cliente" maxLength={80} value={formCli.complemento} onChange={(e) => setFormCli((f) => ({ ...f, complemento: e.target.value }))} />
+                </div>
+                <div className="ct-field"><label>CEP <span className="ct-hint">busca automática</span></label>
+                  <input aria-label="CEP do cliente" maxLength={9} value={formCli.cep} onChange={(e) => setFormCli((f) => ({ ...f, cep: mascaraCep(e.target.value) }))} onBlur={onCepCliente} />
+                </div>
+              </div>
               <div className="ct-row ct-r3">
-                <div className="ct-field"><label>Inscrição estadual</label>
-                  <input aria-label="Inscricao estadual" maxLength={20} value={formCli.ie} onChange={(e) => setFormCli((f) => ({ ...f, ie: e.target.value }))} />
+                <div className="ct-field"><label>Bairro</label>
+                  <input aria-label="Bairro do cliente" maxLength={80} value={formCli.bairro} onChange={(e) => setFormCli((f) => ({ ...f, bairro: e.target.value }))} />
+                </div>
+                <div className="ct-field"><label>Cidade</label>
+                  <input aria-label="Cidade do cliente" maxLength={80} value={formCli.cidade} onChange={(e) => setFormCli((f) => ({ ...f, cidade: e.target.value }))} />
                 </div>
                 <div className="ct-field"><label>Estado</label>
                   <select aria-label="Estado do cliente" value={formCli.uf} onChange={(e) => setFormCli((f) => ({ ...f, uf: e.target.value }))}>
                     {UFS.map((u) => <option key={u} value={u}>{u}</option>)}
                   </select>
                 </div>
+              </div>
+            </div>
+
+            <div className="ct-grp">
+              <p className="ct-grp-label">Documentos</p>
+              <div className="ct-row ct-r2">
+                <div className="ct-field"><label>Inscrição estadual</label>
+                  <input aria-label="Inscricao estadual" maxLength={20} value={formCli.ie} onChange={(e) => setFormCli((f) => ({ ...f, ie: e.target.value }))} />
+                </div>
+                <div className="ct-field"><label>Nascimento</label>
+                  <input aria-label="Nascimento do cliente" type="date" value={formCli.nascimento} onChange={(e) => setFormCli((f) => ({ ...f, nascimento: e.target.value }))} />
+                </div>
+              </div>
+              <div className="ct-row ct-r1">
                 <div className="ct-field"><label>Pontos de fidelidade</label>
                   <input aria-label="Pontos do cliente" type="number" min={0} value={formCli.pontos} onChange={(e) => setFormCli((f) => ({ ...f, pontos: e.target.value }))} />
                 </div>
               </div>
             </div>
+
+            <div className="ct-grp">
+              <p className="ct-grp-label">Contato</p>
+              <div className="ct-row ct-r2">
+                <div className="ct-field"><label>Telefones</label>
+                  <input aria-label="Telefone do cliente" maxLength={16} value={formCli.telefone} onChange={(e) => setFormCli((f) => ({ ...f, telefone: mascaraTelefone(e.target.value) }))} />
+                </div>
+                <div className="ct-field"><label>Celular / WhatsApp</label>
+                  <input aria-label="WhatsApp do cliente" maxLength={16} value={formCli.whatsapp} onChange={(e) => setFormCli((f) => ({ ...f, whatsapp: mascaraTelefone(e.target.value) }))} />
+                </div>
+              </div>
+            </div>
+
+            <label className="ct-checkline">
+              <input type="checkbox" aria-label="Cliente inativo" checked={!formCli.ativo} onChange={(e) => setFormCli((f) => ({ ...f, ativo: !e.target.checked }))} />
+              Inativo — bloquear atendimento para este cliente
+            </label>
           </div>
 
           <div className="ct-side">
@@ -856,14 +981,40 @@ export function CadastrosTelaUnica({
                 </div>
               </div>
               <div className="ct-row ct-r2">
+                <div className="ct-field"><label>Limite de crédito</label>
+                  <input aria-label="Limite de credito do cliente" value={formCli.limiteCredito} onChange={(e) => setFormCli((f) => ({ ...f, limiteCredito: e.target.value }))} />
+                </div>
                 <div className="ct-field"><label>Data do cadastro</label>
                   <input aria-label="Data de cadastro" type="date" disabled style={{ opacity: 0.7 }} value={cliSelecionado ? cliSelecionado.criadoEm.slice(0, 10) : ""} />
                 </div>
+              </div>
+              <div className="ct-row ct-r2">
                 <div className="ct-field"><label>Pedidos</label>
                   <input aria-label="Pedidos do cliente" disabled style={{ opacity: 0.7 }} value={String(cliSelecionado?.pedidos ?? 0)} readOnly />
                 </div>
+                <div className="ct-field" style={{ display: "flex", alignItems: "flex-end" }}>
+                  <span className={`ct-pill ${formCli.ativo ? "ok" : "bad"}`}>{formCli.ativo ? "ativo" : "inativo"}</span>
+                </div>
               </div>
               <span className="ct-pill ok">{cliSelecionado ? `tier ${formCli.tier}` : "novo cadastro"}</span>
+            </div>
+
+            <a
+              className="ct-act"
+              style={{ width: "100%", justifyContent: "center", textDecoration: "none", opacity: formCli.whatsapp ? 1 : 0.5 }}
+              href={formCli.whatsapp ? `https://wa.me/55${formCli.whatsapp.replace(/\D/g, "")}` : undefined}
+              target="_blank"
+              rel="noreferrer"
+              aria-label="Mensagem WhatsApp"
+            >
+              Mensagem WhatsApp
+            </a>
+
+            <div className="ct-grp" style={{ marginBottom: 0 }}>
+              <p className="ct-grp-label">Observações</p>
+              <div className="ct-field">
+                <textarea aria-label="Observacoes do cliente" maxLength={2000} placeholder="Observações internas sobre o cliente..." value={formCli.observacoes} onChange={(e) => setFormCli((f) => ({ ...f, observacoes: e.target.value }))} />
+              </div>
             </div>
           </div>
         </div>
@@ -873,7 +1024,7 @@ export function CadastrosTelaUnica({
         )}
 
         <div className="ct-status">
-          <span>Obrigatórios: nome e e-mail (o e-mail identifica o cliente e não se repete). Endereço e telefone ainda não têm coluna própria.</span>
+          <span>Obrigatórios: nome e e-mail (o e-mail identifica o cliente e não se repete). Telefone, endereço e observações gravam a partir da migration 0029 — o CEP preenche o endereço sozinho.</span>
         </div>
       </div>
     </div>

@@ -11,6 +11,7 @@ const { chromium } = require("playwright-core");
 const { createClient } = require("@supabase/supabase-js");
 const fs = require("fs");
 const path = require("path");
+const { t0Banco } = require("./_relogio-banco.cjs");
 
 const BASE = "http://localhost:3000";
 const EMAIL_MASTER = "admin@nuvemdepapel.com.br";
@@ -121,7 +122,9 @@ async function main() {
 
   await garantirComprador();
 
-  const t0 = new Date().toISOString();
+  // t0 no RELÓGIO DO BANCO: created_at também é now() do Supabase (~5,5 s
+  // atrasado vs. a máquina) - com relógio local o C3 fluía (ver helper).
+  const t0 = await t0Banco(admin, TENANT);
   const RUN = Date.now().toString(36); // escopo por execução (chaves são únicas no tenant)
 
   // A) RBAC anônimo -------------------------------------------------------
@@ -198,13 +201,20 @@ async function main() {
   await esperarTexto(page, "Comprovante não fiscal");
   check("C2 venda UI registrada com comprovante", true);
 
-  const { data: uiRows } = await admin
-    .from("orders")
-    .select("id, status, total_amount, payment_method, channel")
-    .gte("created_at", t0)
-    .order("created_at", { ascending: false })
-    .limit(1);
-  const uiPedido = uiRows && uiRows[0];
+  // a UI mostra "Venda registrada" quando a action responde, mas a leitura do
+  // banco pode atrasar alguns ms - retry curto para nao fluar por corrida.
+  let uiPedido = null;
+  for (let tentativa = 0; tentativa < 5 && !uiPedido; tentativa++) {
+    const { data: uiRows, error: uiErr } = await admin
+      .from("orders")
+      .select("id, status, total_amount, payment_method, channel")
+      .gte("created_at", t0)
+      .order("created_at", { ascending: false })
+      .limit(1);
+    if (uiErr) console.log(`[diag-f5] query error: ${uiErr.message}`);
+    uiPedido = uiRows && uiRows[0] ? uiRows[0] : null;
+    if (!uiPedido) await new Promise((r) => setTimeout(r, 1000));
+  }
   check(
     "C3 pedido da UI nasce pago em dinheiro/varejo",
     !!uiPedido &&

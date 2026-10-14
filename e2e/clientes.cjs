@@ -11,7 +11,10 @@
  *   P9     edicao de nivel + pontos grava e SOBREVIVE ao reload;
  *   P10    busca por e-mail reabre a ficha ja preenchida;
  *   P11    INVARIANTE: cliente com pedido NAO sai (FK on delete restrict);
- *   P12    sem pedido ele sai e o contador volta ao valor inicial.
+ *   P12    sem pedido ele sai e o contador volta ao valor inicial;
+ *   P13    ficha completa (telefone/CEP/endereco/limite/observacoes) grava (0029);
+ *   P14    contador de ativos e igual ao banco;
+ *   P15    inativar grava ativo=false (bloquear atendimento).
  * Sincronizacao: toda gravacao e um transition - espera-se o botao voltar a
  * ficar habilitado e a mensagem/contador correto antes de seguir.
  * Requisitos: npm run build && npm run start (:3000).
@@ -320,6 +323,76 @@ async function main() {
       emailFicha === EMAIL_TESTE && tier === "diamante" && pontos === "77",
       `email=${emailFicha} tier=${tier} pontos=${pontos}`
     );
+
+    // ----------------------------------------------------------------- P13 --
+    // 0029: ficha completa - telefone/whatsapp/CEP/endereco/limite/observacoes
+    // gravam de verdade (colunas novas) e sobrevivem ao reload.
+    await page.fill('input[aria-label="Telefone do cliente"]', "(11) 4123-7788");
+    await page.fill('input[aria-label="WhatsApp do cliente"]', "(11) 98877-2244");
+    await page.fill('input[aria-label="CEP do cliente"]', "01310-100");
+    await page.fill('input[aria-label="Logradouro do cliente"]', "Av. Paulista");
+    await page.fill('input[aria-label="Numero do cliente"]', "1000");
+    await page.fill('input[aria-label="Limite de credito do cliente"]', "1.234,56");
+    await page.fill('textarea[aria-label="Observacoes do cliente"]', "Prefere atendimento a tarde.");
+    await salvar(page);
+    check(
+      "P13 ficha completa salva pelo servidor",
+      await statusCom(page, "atualizado com sucesso", 25000),
+      await feedbackAtual(page)
+    );
+    const { data: cli0029 } = await admin
+      .from("customers")
+      .select("id")
+      .eq("tenant_id", TENANT)
+      .eq("email", EMAIL_TESTE)
+      .maybeSingle();
+    const id0029 = cli0029?.id ?? null;
+    const { data: pos } = await admin
+      .from("customers")
+      .select("telefone, whatsapp, cep, logradouro, numero, limite_credito, observacoes")
+      .eq("id", id0029 ?? "")
+      .maybeSingle();
+    check(
+      "P13b banco recebeu telefone/whatsapp/cep/endereco/limite/observacoes",
+      !!pos &&
+        pos.telefone === "1141237788" &&
+        pos.whatsapp === "11988772244" &&
+        pos.cep === "01310100" &&
+        pos.logradouro === "Av. Paulista" &&
+        pos.numero === "1000" &&
+        Number(pos.limite_credito) === 1234.56 &&
+        pos.observacoes === "Prefere atendimento a tarde.",
+      JSON.stringify(pos)
+    );
+
+    // ----------------------------------------------------------------- P14 --
+    const ativosTela = await contador(page, "Clientes ativos");
+    const { count: ativosBanco } = await admin
+      .from("customers")
+      .select("id", { count: "exact", head: true })
+      .eq("tenant_id", TENANT)
+      .eq("ativo", true);
+    check(
+      "P14 contador de ativos e igual ao banco",
+      ativosTela === ativosBanco,
+      `tela=${ativosTela} banco=${ativosBanco}`
+    );
+
+    // ----------------------------------------------------------------- P15 --
+    await page.click('input[aria-label="Cliente inativo"]');
+    await salvar(page);
+    const { data: inat } = await admin
+      .from("customers")
+      .select("ativo")
+      .eq("id", id0029 ?? "")
+      .maybeSingle();
+    check(
+      "P15 marcar inativo grava ativo=false (bloquear atendimento)",
+      !!inat && inat.ativo === false,
+      JSON.stringify(inat)
+    );
+    await page.click('input[aria-label="Cliente inativo"]');
+    await salvar(page);
 
     // ----------------------------------------------------------------- P11 --
     const { data: cli } = await admin
