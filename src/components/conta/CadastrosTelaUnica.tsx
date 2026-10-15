@@ -152,6 +152,8 @@ const css = String.raw`
 .ct-r2{grid-template-columns:1fr 1fr}
 .ct-r3{grid-template-columns:1fr 1fr 1fr}
 .ct-r4{grid-template-columns:1fr 1fr 1fr 1fr}
+/* linha de identificacao do produto: Fornecedor mais largo, Unidade pela metade */
+.ct-r4-forn{grid-template-columns:1fr 1.5fr 1fr .5fr}
 .ct-r-2-1{grid-template-columns:2fr 1fr}
 .ct-r-1-2{grid-template-columns:1fr 2fr}
 .ct-field label{display:block;font-size:.74rem;color:var(--ink-soft);margin-bottom:4px;font-weight:600}
@@ -208,11 +210,11 @@ const css = String.raw`
 @media (max-width:920px){
   .ct-grid,.ct-grid.ct-eq{grid-template-columns:1fr}
   .ct-main{border-right:none;border-bottom:1px solid var(--border)}
-  .ct-r3,.ct-r4{grid-template-columns:1fr 1fr}
+  .ct-r3,.ct-r4,.ct-r4-forn{grid-template-columns:1fr 1fr}
   .ct-r-2-1,.ct-r-1-2{grid-template-columns:1fr}
 }
 @media (max-width:560px){
-  .ct-r2,.ct-r3,.ct-r4{grid-template-columns:1fr}
+  .ct-r2,.ct-r3,.ct-r4,.ct-r4-forn{grid-template-columns:1fr}
   .ct-screen{padding:0 12px}
 }
 /* telas de fornecedor e revenda (sub-itens do menu lateral) */
@@ -1247,7 +1249,7 @@ export function CadastrosTelaUnica({
                   </ul>
                 </div>
               </div>
-              <div className="ct-row ct-r4">
+              <div className="ct-row ct-r4-forn">
                 <div className="ct-field ct-ac">
                   <label>Setor/Cadastrar</label>
                   <input
