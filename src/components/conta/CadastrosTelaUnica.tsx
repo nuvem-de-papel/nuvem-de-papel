@@ -1804,7 +1804,7 @@ export function CadastrosTelaUnica({
 
   return (
     <div>
-      <style>{css}</style>
+      <style dangerouslySetInnerHTML={{ __html: css }} />
 
       {tela === "cliente" && telaCliente}
       {tela === "produto" && telaProduto}
