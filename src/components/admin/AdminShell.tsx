@@ -207,6 +207,17 @@ const CONFIG: Link[] = [
     ),
   },
   {
+    href: "/configuracoes/importar",
+    label: "Exportar/Importar Dados",
+    icon: (
+      <>
+        <path d="M12 3v10" />
+        <path d="m8 9 4 4 4-4" />
+        <path d="M4 15v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4" />
+      </>
+    ),
+  },
+  {
     href: "/configuracoes/auditoria",
     label: "Auditoria",
     icon: (

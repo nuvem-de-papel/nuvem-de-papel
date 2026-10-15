@@ -93,6 +93,17 @@ async function main() {
       (await page.locator(".ct-feed.ct-feed-topo").count()) === 1 && (await page.locator(".ct-status .ct-feed").count()) === 0
     );
 
+    // navegacao da lista no header (◀◀ ◀ ▶ ▶▶): 4 botoes e o proximo anda
+    check("P2c 4 botoes de navegacao no header", (await page.locator(".ct-nav-prod button").count()) === 4);
+    const descAntes = await page.inputValue("#ct-prod-descricao");
+    await page.getByRole("button", { name: "Próximo produto" }).click();
+    await page.waitForTimeout(300);
+    const descDepois = await page.inputValue("#ct-prod-descricao");
+    check("P2d proximo produto muda a ficha", descAntes !== descDepois, `${descAntes} -> ${descDepois}`);
+    // volta pra ficha nova (prodId = null) pros asserts seguintes criarem um item
+    await page.getByRole("button", { name: "Incluir" }).click();
+    await page.waitForTimeout(200);
+
     // GTIN master DUN-14 com DV errado -> bloqueado no servidor
     await page.fill("#ct-prod-descricao", "Produto E2E Bloco 2");
     await page.fill("#ct-prod-sku", SKU_PROD);

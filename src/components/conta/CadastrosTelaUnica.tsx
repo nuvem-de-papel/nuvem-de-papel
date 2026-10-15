@@ -131,6 +131,8 @@ const css = String.raw`
 .ct-act.danger{color:#E01F27;border-color:transparent}
 .ct-act.danger:hover{background:rgba(224,31,39,.08);border-color:#E01F27;color:#E01F27}
 .ct-spacer{flex:1;min-width:12px}
+.ct-nav-prod{display:inline-flex;gap:3px;flex-shrink:0}
+.ct-nav-prod .ct-act{padding:7px 8px}
 .ct-pill{font-size:.66rem;text-transform:uppercase;letter-spacing:.04em;font-weight:700;padding:3px 10px;border-radius:999px;background:#fff;color:var(--ink-soft);border:1px solid var(--border);white-space:nowrap;flex-shrink:0}
 .ct-pill.ok{background:rgba(44,156,72,.12);color:#2C9C48;border-color:transparent}
 .ct-pill.strong{background:var(--navy);color:#fff;border-color:var(--navy)}
@@ -479,8 +481,11 @@ export function CadastrosTelaUnica({
   const [mostrarImport, setMostrarImport] = useState(false);
   useEffect(() => {
     const atalhoImport = (e: KeyboardEvent) => {
-      // e.code cobre "[" e "{" (com Shift a tecla vira "{")
-      if (e.ctrlKey && e.shiftKey && e.code === "BracketLeft") {
+      // e.key: "[" com ctrl+shift (mais tolerante a layout/zoom do que e.code);
+      // com Shift a tecla vira "{" em QWERTY, por isso aceitamos as duas.
+      // e.code fica como fallback pra layouts onde e.key vem diferente (ex. ABNT).
+      const teclaOk = e.key === "[" || e.key === "{" || e.code === "BracketLeft";
+      if (e.ctrlKey && e.shiftKey && teclaOk) {
         e.preventDefault();
         setMostrarImport((v) => !v);
       }
@@ -531,6 +536,16 @@ export function CadastrosTelaUnica({
   const brl = (n: number) => `R$ ${n.toFixed(2).replace(".", ",")}`;
   const pct = (n: number) => `${n.toFixed(2).replace(".", ",")}%`;
   const kg = (n: number) => n.toFixed(3).replace(".", ",");
+
+  // navegação por lista (◀◀ ◀ ▶ ▶▶): anda pela ordem alfabética da lista,
+  // a mesma que o select do page.tsx devolve (.order("name")).
+  function navegarProduto(passo: number) {
+    if (produtos.length === 0) return;
+    const idx = produtos.findIndex((x) => x.id === prodId);
+    const base = idx < 0 ? 0 : idx;
+    const novo = Math.min(Math.max(base + passo, 0), produtos.length - 1);
+    carregarProduto(produtos[novo] ?? null);
+  }
 
   function carregarProduto(p: ProdutoCad | null) {
     setProdId(p?.id ?? null);
@@ -852,6 +867,18 @@ export function CadastrosTelaUnica({
   );
   const iconeCheck = (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><path d="M20 6 9 17l-5-5" /></svg>
+  );
+  const iconePrimeiro = (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M6 5h2v14H6zM20 5v14l-11-7z" /></svg>
+  );
+  const iconeAnterior = (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M15 5v14l-9-7z" /></svg>
+  );
+  const iconeProximo = (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M9 5v14l9-7z" /></svg>
+  );
+  const iconeUltimo = (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M16 5h2v14h-2zM4 5l11 7-11 7z" /></svg>
   );
   const iconeFoto = (
     <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"><rect x="3" y="5" width="18" height="14" rx="2" /><circle cx="9" cy="10" r="2" /><path d="m21 16-5-4-4 3-3-2-6 5" /></svg>
@@ -1225,6 +1252,13 @@ export function CadastrosTelaUnica({
           </button>
           <button className="ct-act" onClick={() => carregarProduto(null)}>{iconePlus}Incluir</button>
           <span className="ct-spacer" />
+          {/* navegação da lista: ◀◀ ◀ ▶ ▶▶ (anda pela ordem alfabética) */}
+          <span className="ct-nav-prod">
+            <button className="ct-act" title="Primeiro produto" aria-label="Primeiro produto" onClick={() => navegarProduto(-produtos.length)} disabled={produtos.length === 0}>{iconePrimeiro}</button>
+            <button className="ct-act" title="Produto anterior" aria-label="Produto anterior" onClick={() => navegarProduto(-1)} disabled={produtos.length === 0}>{iconeAnterior}</button>
+            <button className="ct-act" title="Próximo produto" aria-label="Próximo produto" onClick={() => navegarProduto(1)} disabled={produtos.length === 0}>{iconeProximo}</button>
+            <button className="ct-act" title="Último produto" aria-label="Último produto" onClick={() => navegarProduto(produtos.length)} disabled={produtos.length === 0}>{iconeUltimo}</button>
+          </span>
           <span className="ct-pill strong">{produtos.length} produtos</span>
         </div>
 
