@@ -75,6 +75,7 @@ const FIXTURE = `
     <li>Tamanho: A5</li>
   </ul>
 </div>
+<img src="http://www.reval.net/imagem/produtos/m/114148.jpg" alt="" />
 </body></html>
 `;
 
@@ -94,7 +95,7 @@ check("ref fabricante = 354945", p.refFabricante === "354945", `veio=${p.refFabr
 check("nome vem do h1", (p.nome || "").includes("Agenda 2027 Spice"), `veio=${p.nome}`);
 check("categoria do breadcrumb = Papelaria", (p.categoria || "").includes("Papelaria"), `veio=${p.categoria}`);
 check("fornecedor = TILIBRA", p.fornecedor === "TILIBRA", `veio=${p.fornecedor}`);
-check("detalhes viram texto (Capa dura)", (p.descricao || "").includes("Capa: dura"), `veio=${p.descricao}`);
+check("detalhes viram texto (Capa dura)", (p.observacoes || "").includes("Capa: dura"), `veio=${p.observacoes}`);
 
 // --- fiscal -------------------------------------------------------------------
 check("NCM = 48201000", p.ncm === "48201000", `veio=${p.ncm}`);
@@ -117,6 +118,56 @@ check("dim master CxAxL = 36x22,5x16,5", p.masterComprimentoCm === 36 && p.maste
 // --- peso unitario calculado (peso emb / qtd emb) ------------------------------
 // 1,39 / 4 = 0,3475 -> arredondado a 3 casas = 0,348
 check("peso unitario = 0,348 kg (1,39 / 4)", p.pesoUnitarioKg === 0.348, `veio=${p.pesoUnitarioKg}`);
+
+// --- nome: marcacao NOVA do Reval (15/10/2026) ------------------------------
+// O Reval trocou <h1 class="product-name"> por
+// <div class="product-name"><h2 itemprop="name"><span id="MainContent_lblDescricao">... e o
+// unico <h1> da pagina agora e o do LOGO (so <img>, sem texto). Cadeia nova:
+// div.product-name -> span#MainContent_lblDescricao -> meta kdt:product -> h1 com texto.
+const novo = FIXTURE.replace(
+  /<h1 class="product-name">[\s\S]*?<\/h1>/i,
+  '<div class="product-name"><h2 itemprop="name"><span id="MainContent_lblDescricao">Agenda 2027 Spice Girls A5 Capa Dura 160 Fls Sortidas - Tilibra</span></h2></div>'
+).replace(
+  "<body>",
+  '<body><h1 class="logo"><a href="/home" id="wucHeader_aLogo" title="Reval"><img src="/logo.svg" alt="Reval" /></a></h1>'
+);
+const pn = parsePaginaReval(novo, "https://www.reval.net/produto/agenda-2027-114148");
+check("nome vem do novo div.product-name (ignora h1 do logo)", (pn.nome || "").includes("Agenda 2027 Spice"), `veio=${pn.nome}`);
+
+// --- nome: so a meta kdt:product (sem nenhum h1 com texto) --------------------
+const soMeta = "<html><body>" +
+  '<h1 class="logo"><a href="/home" title="Reval"><img src="/logo.svg" alt="Reval"></a></h1>' +
+  '<meta name="kdt:product" content="sku=052458, name=Fita Scotch Fixa Forte Dupla Face Silicone 12 mm x 2 m Transparente e Verde - 3M">' +
+  "</body></html>";
+const pm = parsePaginaReval(soMeta, "https://www.reval.net/produto/fita-scotch-052458");
+check("nome vem da meta kdt:product quando nao ha heading", (pm.nome || "").includes("Fita Scotch"), `veio=${pm.nome}`);
+
+// --- observacoes: forma real do site (h3 + <p> de texto corrido) ----------------
+// Verificado ao vivo no 080000 (15/10/2026): <h3>Detalhes do produto</h3><p>...
+// O 1o <p> sem ancorar capturava a frase de login - por isso o ancoramento.
+const realDet = "<html><body>" +
+  '<div class="product-summary-teaser"><h3>Detalhes do produto</h3><p>Desenvolvido para quem exige alta performance e nao abre mao da sustentabilidade.</p></div>' +
+  '<p>Os precos e condicoes sao exclusivos para clientes cadastrados.</p>' +
+  "</body></html>";
+const pd = parsePaginaReval(realDet, "https://www.reval.net/produto/080000");
+check("observacoes vem do h3 (nao a frase de login)",
+  (pd.observacoes || "").includes("alta performance") && !(pd.observacoes || "").includes("precos"),
+  `veio=${pd.observacoes}`);
+
+// --- foto: g (1200px) > m > pp (miniatura 54px nao serve) ----------------------
+// Verificado no 080000: so existem /g/ e /pp/; a "g" vem com sufixo (080000a.jpg).
+const fotoHtml = "<html><body>" +
+  '<img src="http://www.reval.net/imagem/produtos/g/080000a.jpg" alt="" />' +
+  '<img src="http://www.reval.net/imagem/produtos/pp/080000c.jpg" alt="" />' +
+  "</body></html>";
+const pf = parsePaginaReval(fotoHtml, "https://www.reval.net/produto/080000");
+check("foto prefere /g/ (1200px) e normaliza https",
+  pf.fotoUrl === "https://www.reval.net/imagem/produtos/g/080000a.jpg", `veio=${pf.fotoUrl}`);
+
+// --- foto: fallback monta /m/{codigo}.jpg quando nao ha tag <img> --------------
+const semImg = parsePaginaReval("<html><body><table><tr><th class=\"label\">Codigo</th><td class=\"data\">080000</td></tr></table></body></html>", "https://www.reval.net/produto/080000");
+check("foto fallback monta /m/{codigo}.jpg sem tag img",
+  semImg.fotoUrl === "https://www.reval.net/imagem/produtos/m/080000.jpg", `veio=${semImg.fotoUrl}`);
 
 // --- parser defensivo (pagina quebrada nao explode) ------------------------------
 const quebrado = parsePaginaReval("<html><body>pagina sem nada</body></html>", "https://www.reval.net/produto/999999");

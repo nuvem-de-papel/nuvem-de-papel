@@ -247,6 +247,8 @@ export type ProdutoInput = {
   sourceUrl: string;
   hidePriceTable: boolean;
   lastAdjustedAt: string;
+  // 0032: foto do produto (URL servida pelo fornecedor, ex. Reval /imagem/...)
+  fotoUrl: string;
 };
 
 export async function salvarProduto(input: ProdutoInput): Promise<ResultadoAcao & { id?: string }> {
@@ -277,6 +279,13 @@ export async function salvarProduto(input: ProdutoInput): Promise<ResultadoAcao 
   const lastAdj = (input.lastAdjustedAt ?? "").trim();
   if (lastAdj && !/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(lastAdj)) {
     return { ok: false, erro: "Data do último reajuste inválida." };
+  }
+
+  // 0032: foto do produto (URL servida pelo fornecedor). O banco so aceita
+  // https + extensão de imagem, então valida aqui pra não gravar lixo.
+  const fotoUrl = (input.fotoUrl ?? "").trim().slice(0, 500);
+  if (fotoUrl && !/^https:\/\/\S+\.(jpg|jpeg|png|webp)(\?\S*)?$/i.test(fotoUrl)) {
+    return { ok: false, erro: "Foto inválida: use uma URL https terminada em .jpg, .png ou .webp." };
   }
 
   const fornecedorNome = (input.fornecedorNome ?? "").trim().slice(0, 120);
@@ -348,6 +357,7 @@ export async function salvarProduto(input: ProdutoInput): Promise<ResultadoAcao 
         fabricante: fabricante || null, notes: observacoes || null,
         hide_price_table: hidePriceTable,
         last_adjusted_at: lastAdj || null,
+        foto_url: fotoUrl || null,
       })
       .eq("id", itemId);
     if (error) {
@@ -367,6 +377,7 @@ export async function salvarProduto(input: ProdutoInput): Promise<ResultadoAcao 
         notes: observacoes || null,
         hide_price_table: hidePriceTable,
         last_adjusted_at: lastAdj || null,
+        foto_url: fotoUrl || null,
       })
       .select("id")
       .single();
@@ -536,6 +547,7 @@ export type ProdutoImportado = {
   fornecedorNome: string;
   fabricante: string;
   observacoes: string;
+  fotoUrl: string;
   supplierSku: string;
   refFabricante: string;
   packQty: string;
@@ -587,7 +599,8 @@ export async function importarProdutoFornecedor(
       pesoBruto: n(p.pesoUnitarioKg ?? p.pesoEmbalagemKg),
       fornecedorNome: s(p.fornecedor),
       fabricante: s(p.fabricante),
-      observacoes: s(p.descricao),
+      observacoes: s(p.observacoes),
+      fotoUrl: s(p.fotoUrl),
       supplierSku: s(p.codigo),
       refFabricante: s(p.refFabricante),
       packQty: p.qtdEmbalagem ? String(p.qtdEmbalagem) : "",

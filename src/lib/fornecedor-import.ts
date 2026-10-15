@@ -25,6 +25,8 @@ export type ProdutoFornecedor = {
   fornecedor: string | null;      // "TILIBRA"
   fabricante: string | null;      // derivado do fornecedor
   descricao: string | null;       // detalhes livres (capa dura, 160 fls...)
+  observacoes: string | null;     // texto descritivo (o "Detalhes do Produto")
+  fotoUrl: string | null;         // imagem principal (imagem/produtos/m/XXX.jpg)
 
   // fiscal
   ncm: string | null;             // 48201000
@@ -121,12 +123,31 @@ function chaveNormal(v: string): string {
     .toLowerCase();
 }
 
-// extrai <title>, <h1> e o breadcrumb por regex. Defensivo: se nao achar,
-// devolve null.
+// extrai o nome do produto. O Reval JA MUDOU a marcacao (15/10/2026): era
+// <h1 class="product-name">texto</h1> e virou <div class="product-name"><h2
+// itemprop="name"><span id="MainContent_lblDescricao">texto</span></h2></div> -
+// o unico <h1> que sobrou na pagina e o do LOGO (sem texto). Por isso a cadeia
+// defensiva, nesta ordem: 1) elemento com class product-name; 2) o span com id
+// MainContent_lblDescricao; 3) a meta kdt:product (name=...); 4) o primeiro
+// <h1> com texto de verdade (cai fora o do logo, que so tem <img>).
 function extrairTitulo(html: string): string | null {
-  const m = html.match(/<h1[^>]*class="[^"]*product-name[^"]*"[^>]*>([\s\S]*?)<\/h1>/i)
-    ?? html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
-  return textoLimpo(m?.[1] ?? null);
+  const porClasse = html.match(
+    /<(?:h[1-6]|div|span)[^>]*class=["'][^"']*product-name[^"']*["'][^>]*>([\s\S]*?)<\//i
+  );
+  const porClasseTxt = textoLimpo(porClasse?.[1] ?? null);
+  if (porClasseTxt) return porClasseTxt;
+
+  const porId = html.match(/<span[^>]*id=["']MainContent_lblDescricao["'][^>]*>([\s\S]*?)<\/span>/i);
+  const porIdTxt = textoLimpo(porId?.[1] ?? null);
+  if (porIdTxt) return porIdTxt;
+
+  const meta = html.match(/<meta[^>]*name=["']kdt:product["'][^>]*content=["']([^"']*)["']/i);
+  const metaTxt = textoLimpo(meta?.[1]?.match(/\bname=(.+)$/i)?.[1]?.trim() ?? null);
+  if (metaTxt) return metaTxt;
+
+  const h1 = html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
+  const h1Txt = textoLimpo(h1?.[1] ?? null);
+  return h1Txt && !/reval/i.test(h1Txt) ? h1Txt : null;
 }
 
 function extrairBreadcrumb(html: string): string | null {
@@ -158,14 +179,53 @@ function extrairTabela(html: string): Map<string, string> {
 // "Detalhes do Produto" e seguido de <ul><li>...</li></ul>; nao exigimos um
 // terminador fixo (a pagina pode terminar ali), so pegamos os <li> ate 4000
 // chars depois do marcador.
+// os detalhes vem em duas formas possiveis do site (verificado no 080000 e no
+// 052458 em 15/10/2026): (a) <h3>Detalhes do produto</h3><p>texto corrido</p>
+// - a forma atual; (b) <ul><li>Capa: dura</li>...</ul> - forma antiga. A chave
+// e ancorar NO <h3>: o site tem varias frases depois e o 1o <p> sem ancorar
+// capturava a frase de login ("Os precos e condicoes sao exclusivos...").
 function extrairDetalhes(html: string): string | null {
-  const marc = html.search(/Detalhes do\s*Produto/i);
-  if (marc < 0) return null;
-  const trecho = html.slice(marc, marc + 4000);
-  const linhas = [...trecho.matchAll(/<li[^>]*>([\s\S]*?)<\/li>/gi)]
+  // o site real usa <h3> (verificado no 080000/052458), mas aceitamos h2-h4
+  // pra nao quebrar se o fornecedor trocar o nivel do heading de novo.
+  const bloco = html.match(
+    /<h[2-4][^>]*>\s*Detalhes do\s*Produto\s*<\/h[2-4]>([\s\S]{0,2000})/i
+  )?.[1] ?? "";
+  if (!bloco) return null;
+
+  // (b) pares "Capa: dura" como <li> - uma linha por par.
+  const linhas = [...bloco.matchAll(/<li[^>]*>([\s\S]*?)<\/li>/gi)]
     .map((li) => textoLimpo(li[1]))
     .filter(Boolean);
-  return linhas.length > 0 ? linhas.join("\n") : null;
+  if (linhas.length > 0) return linhas.join("\n");
+
+  // (a) texto corrido no <p> logo apos o <h3>.
+  const p = bloco.match(/<p[^>]*>([\s\S]*?)<\/p>/i);
+  return textoLimpo(p?.[1] ?? null);
+}
+
+// imagem principal do produto: o Reval serve ela em /imagem/produtos/{g|m|pp}/
+// {codigo}[sufixo].jpg - "g" = 1200px (a galeria, a melhor pro cadastro), "m" =
+// media, "pp" = miniatura de 54px (NAO serve). Ordem verificada na pagina real
+// do 080000 (15/10/2026): so existem "g" e "pp" - por isso "g" vem primeiro.
+function extrairFoto(html: string, codigo: string | null): string | null {
+  const acharImg = (dir: string) => {
+    const re = new RegExp(
+      `<img[^>]*src=["']https?:\\/\\/[^"']*\\/imagem\\/produtos\\/${dir}\\/[^"']+["']`,
+      "i"
+    );
+    const m = html.match(re);
+    return m?.[0]?.match(/src=["']([^"']+)["']/i)?.[1]?.trim() ?? null;
+  };
+  let src = acharImg("g") ?? acharImg("m") ?? acharImg("pp");
+  // fallback: o site serve a foto media por /imagem/produtos/m/{codigo}.jpg
+  // (mesmo codigo da tabela, ex. 080000). Usado quando a tag <img> nao vem.
+  if (!src && codigo && /^[0-9]{6,13}$/.test(codigo)) {
+    src = `https://www.reval.net/imagem/produtos/m/${codigo}.jpg`;
+  }
+  if (!src) return null;
+  // o site mistura http e https; normaliza pra https (o browser bloqueia
+  // conteudo misto e o cadastro e servido em https).
+  return src.replace(/^http:\/\//i, "https://");
 }
 
 // "NACIONAL" -> "0", "IMPORTADA"/"IMPORTADO" -> "1", resto -> null
@@ -214,6 +274,8 @@ export function parsePaginaReval(html: string, urlOrigem: string): ProdutoFornec
     fornecedor: get("Fornecedor", "Fabricante"),
     fabricante: get("Fabricante", "Fornecedor"),
     descricao: extrairDetalhes(html),
+    observacoes: extrairDetalhes(html),
+    fotoUrl: extrairFoto(html, codigo),
 
     ncm: normalizaDigitos(get("NCM"), 8),
     cest: normalizaDigitos(get("CEST"), 7),

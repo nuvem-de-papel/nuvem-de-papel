@@ -73,7 +73,7 @@ export default async function CadastroPage() {
     admin
       .from("catalog_items")
       .select(
-        "id, sku, name, category, active, fabricante, notes, hide_price_table, last_adjusted_at, item_fiscal_data(gtin, ncm, cst_csosn, cest, origem, unit, icms_rate, ipi_rate, weight_kg, weight_gross_kg, cst_pis, cst_cofins, icms_base_pct, cst_ibscbs, cclass_trib, gtin_tributavel), item_commercial_data(cost_price, margin_percent, min_stock), item_prices(price, min_quantity, channel), item_supplier_data(supplier_sku, manufacturer_ref, supplier_name, manufacturer, source_type, source_url, pack_qty, master_qty, gtin_inner, gtin_master, emb_comprimento_cm, emb_altura_cm, emb_largura_cm, emb_peso_kg, master_comprimento_cm, master_altura_cm, master_largura_cm, master_peso_kg)"
+        "id, sku, name, category, active, fabricante, notes, hide_price_table, last_adjusted_at, foto_url, item_fiscal_data(gtin, ncm, cst_csosn, cest, origem, unit, icms_rate, ipi_rate, weight_kg, weight_gross_kg, cst_pis, cst_cofins, icms_base_pct, cst_ibscbs, cclass_trib, gtin_tributavel), item_commercial_data(cost_price, margin_percent, min_stock), item_prices(price, min_quantity, channel), item_supplier_data(supplier_sku, manufacturer_ref, supplier_name, manufacturer, source_type, source_url, pack_qty, master_qty, gtin_inner, gtin_master, emb_comprimento_cm, emb_altura_cm, emb_largura_cm, emb_peso_kg, master_comprimento_cm, master_altura_cm, master_largura_cm, master_peso_kg)"
       )
       .order("name", { ascending: true }),
     // Bloco 5 passo 3: clientes reais (antes os contadores e a ficha eram fixos)
@@ -217,6 +217,7 @@ export default async function CadastroPage() {
       // Bloco 2 (0031)
       fabricante: p.fabricante ?? "",
       observacoes: p.notes ?? "",
+      fotoUrl: p.foto_url ?? "",
       cstPis: f?.cst_pis ?? "",
       cstCofins: f?.cst_cofins ?? "",
       icmsBasePct: Number(f?.icms_base_pct ?? 100),

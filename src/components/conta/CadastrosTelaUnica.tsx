@@ -328,6 +328,8 @@ export type ProdutoCad = {
   sourceUrl: string;
   hidePriceTable: boolean;
   lastAdjustedAt: string;
+  // 0032: foto do produto (URL servida pelo fornecedor, ex. Reval /imagem/...)
+  fotoUrl: string;
 };
 
 // Bloco 5 passo 3: cliente vem do banco (customers) em vez de ficha fixa.
@@ -486,6 +488,10 @@ export function CadastrosTelaUnica({
     window.addEventListener("keydown", atalhoImport);
     return () => window.removeEventListener("keydown", atalhoImport);
   }, []);
+  // ao abrir o bloco escondido o cursor ja cai no campo do link (fluxo teclado)
+  useEffect(() => {
+    if (mostrarImport) document.getElementById("ct-prod-link")?.focus();
+  }, [mostrarImport]);
 
   const [modal, setModal] = useState<null | "cliente" | "fornecedor">(null);
   const [tipoForn, setTipoForn] = useState<"pj" | "pf">("pj");
@@ -558,6 +564,8 @@ export function CadastrosTelaUnica({
     // Bloco 2 (0031): campos novos que agora gravam de verdade.
     setVal("ct-prod-fabricante", p?.fabricante ?? "");
     setVal("ct-prod-observacoes", p?.observacoes ?? "");
+    // 0032: foto do produto (URL do fornecedor)
+    setVal("ct-prod-foto", p?.fotoUrl ?? "");
     setVal("ct-prod-cstpis", p?.cstPis ?? "");
     setVal("ct-prod-cstcofins", p?.cstCofins ?? "");
     setVal("ct-prod-icmsbase", p ? pct(p.icmsBasePct) : "100,00%");
@@ -634,6 +642,7 @@ export function CadastrosTelaUnica({
       sourceUrl: val("ct-prod-link"),
       hidePriceTable: g<HTMLInputElement>("ct-prod-oculta-preco")?.checked ?? false,
       lastAdjustedAt: val("ct-prod-reajuste"),
+      fotoUrl: val("ct-prod-foto"),
     };
     startTransition(async () => {
       const r = await salvarProduto(payload);
@@ -668,10 +677,12 @@ export function CadastrosTelaUnica({
         const el = g<HTMLInputElement>(id) ?? g<HTMLTextAreaElement>(id);
         if (el) (el as HTMLInputElement).value = v;
       };
-      if (pr.sku) setSkuQ(pr.sku);
-      setVal("ct-prod-descricao", pr.nome);
-      setSetorQ(pr.categoria);
+      // ordem de preenchimento = ordem de revisao na linha 1 da tela:
+      // GTIN -> Descricao -> Codigo interno, antes de qualquer outro campo.
       setVal("ct-prod-gtin", pr.gtin);
+      setVal("ct-prod-descricao", pr.nome);
+      if (pr.sku) setSkuQ(pr.sku);
+      setSetorQ(pr.categoria);
       setVal("ct-prod-ncm", pr.ncm);
       setVal("ct-prod-cest", pr.cest);
       const origemSel = g<HTMLSelectElement>("ct-prod-origem");
@@ -679,6 +690,7 @@ export function CadastrosTelaUnica({
       setVal("ct-prod-pesobruto", pr.pesoBruto ? pr.pesoBruto : "");
       setVal("ct-prod-fabricante", pr.fabricante);
       setVal("ct-prod-observacoes", pr.observacoes);
+      setVal("ct-prod-foto", pr.fotoUrl);
       setVal("ct-prod-forn-nome", pr.fornecedorNome);
       setVal("ct-prod-forn-sku", pr.supplierSku);
       setVal("ct-prod-forn-ref", pr.refFabricante);
@@ -694,6 +706,12 @@ export function CadastrosTelaUnica({
       setVal("ct-prod-mst-alt", pr.masterAltura);
       setVal("ct-prod-mst-larg", pr.masterLargura);
       setVal("ct-prod-mst-peso", pr.masterPeso);
+      // revisao comeca no GTIN: Tab ja le GTIN -> Descricao -> Codigo interno
+      const gtinEl = g<HTMLInputElement>("ct-prod-gtin");
+      if (gtinEl) {
+        gtinEl.focus();
+        gtinEl.select();
+      }
       setFeedback({ tipo: "ok", texto: r.aviso ?? "Importado. Revise e clique Salvar." });
     });
   }
@@ -1405,6 +1423,7 @@ export function CadastrosTelaUnica({
               </div>
               <div className={`ct-extra-panel${extra.produto === "outros" ? " on" : ""}`}>
                 <div className="ct-row ct-r1"><div className="ct-field"><label>GTIN tributável</label><input id="ct-prod-gtintrib" placeholder="7898943477996" maxLength={14} /></div></div>
+                <div className="ct-row ct-r1"><div className="ct-field"><label>Foto (URL)</label><input id="ct-prod-foto" placeholder="https://.../imagem/produtos/m/080000.jpg" /></div></div>
               </div>
             </div>
           </div>
