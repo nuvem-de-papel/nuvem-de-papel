@@ -1270,7 +1270,7 @@ export function CadastrosTelaUnica({
                   </ul>
                 </div>
                 <div className="ct-field ct-ac">
-                  <label>Fornecedor/Cadastra</label>
+                  <label>Fornecedor/Cadastrar</label>
                   <input
                     autoComplete="off"
                     value={fornQ}
