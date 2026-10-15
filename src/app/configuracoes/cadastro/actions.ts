@@ -462,13 +462,38 @@ export async function salvarProduto(input: ProdutoInput): Promise<ResultadoAcao 
     if (errFich) return { ok: false, erro: `Falha na ficha do fornecedor: ${errFich.message}` };
   }
 
+  // 0033: `preco_custo` e o que o operador digita; `cost_price` virou o CUSTO
+  // MEDIO PONDERADO do modulo de Compras (0017) - por isso nao e gravado aqui.
   const { error: errCom } = await admin.from("item_commercial_data").upsert({
     item_id: itemId,
-    cost_price: custo,
+    preco_custo: custo,
     margin_percent: margem,
     min_stock: Math.floor(minStock),
   });
   if (errCom) return { ok: false, erro: `Falha nos dados comerciais: ${errCom.message}` };
+
+  // O custo medio so acompanha o preco digitado ENQUANTO o produto nao passou
+  // por nota de entrada (purchase_receipt_items). A partir da primeira nota
+  // quem reescreve `cost_price` e o recebimento da Compras (0017:471-494), e
+  // gravar por cima apagaria a media ponderada. Enquanto nao ha nota, "media"
+  // e o proprio preco digitado - e tem de acompanhar a edicao, senao a tela
+  // mostraria um valor velho e o CMV (0022) usaria custo errado.
+  const { data: notasItem } = await admin
+    .from("purchase_receipt_items")
+    .select("id, purchase_order_items!inner(item_id)")
+    .eq("purchase_order_items.item_id", itemId)
+    .limit(1);
+  if (notasItem && notasItem.length > 0) {
+    // produto com entrada de nota: a media ja e do Compras, nao mexe.
+  } else {
+    const { error: errCustoMedio } = await admin
+      .from("item_commercial_data")
+      .update({ cost_price: custo })
+      .eq("item_id", itemId);
+    if (errCustoMedio) {
+      return { ok: false, erro: `Falha no custo médio: ${errCustoMedio.message}` };
+    }
+  }
 
   // A faixa 1 do varejo e a base do produto. A PK de item_prices inclui
   // valid_from, entao um upsert "cego" criaria uma SEGUNDA linha para a mesma

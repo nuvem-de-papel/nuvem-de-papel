@@ -133,6 +133,48 @@ async function main() {
     await page.keyboard.press("Escape");
     await page.waitForTimeout(200);
 
+    // 0033: linha financeira com 4 campos e as duas contas (custo x margem)
+    const camposFin = await page.evaluate(() => {
+      const m = document.getElementById("ct-prod-custo-medio");
+      return {
+        qtd: document.querySelectorAll("#ct-prod-custo, #ct-prod-margem, #ct-prod-custo-medio, #ct-prod-venda").length,
+        medioDisabled: m ? m.disabled === true : false,
+        medioReadOnly: m ? m.readOnly === true : false,
+      };
+    });
+    check(
+      "P2j linha financeira com 4 campos e Custo Medio so leitura",
+      camposFin.qtd === 4 && camposFin.medioDisabled && camposFin.medioReadOnly,
+      JSON.stringify(camposFin)
+    );
+
+    // conta 1: custo + margem -> calcula o preco de venda
+    await page.fill("#ct-prod-custo", "R$ 10,00");
+    await page.fill("#ct-prod-margem", "50,00%");
+    await page.waitForTimeout(200);
+    const vendaCalculada = await page.inputValue("#ct-prod-venda");
+    check(
+      "P2k custo + margem calcula o preco de venda (10 x 1,50 = 15)",
+      vendaCalculada === "R$ 15,00",
+      vendaCalculada
+    );
+
+    // conta 2: custo + preco de venda -> calcula a margem aplicada
+    await page.fill("#ct-prod-custo", "R$ 20,00");
+    await page.fill("#ct-prod-venda", "R$ 30,00");
+    await page.waitForTimeout(200);
+    const margemCalculada = await page.inputValue("#ct-prod-margem");
+    check(
+      "P2l custo + venda calcula a margem ((30-20)/20 = 50%)",
+      margemCalculada === "50,00%",
+      margemCalculada
+    );
+
+    // limpa os financeiros pros testes seguintes nao herdarem margem
+    await page.fill("#ct-prod-custo", "");
+    await page.fill("#ct-prod-margem", "");
+    await page.fill("#ct-prod-venda", "");
+
     // GTIN master DUN-14 com DV errado -> bloqueado no servidor
     await page.fill("#ct-prod-descricao", "Produto E2E Bloco 2");
     await page.fill("#ct-prod-sku", SKU_PROD);
@@ -148,6 +190,7 @@ async function main() {
     );
 
     // preenche tudo (campos novos que agora gravam) e salva
+    await page.fill("#ct-prod-custo", "R$ 12,50");
     await page.fill("#ct-prod-gtin-master", DUN14_OK);
     await page.fill("#ct-prod-gtin-inner", GTIN_INNER_OK);
     await page.fill("#ct-prod-fabricante", "Tilibra");
@@ -229,6 +272,19 @@ async function main() {
       JSON.stringify(forn)
     );
 
+    // 0033: preco digitado vai para preco_custo; cost_price so e semeado
+    // quando nao existe (custo medio mantido pelo Compras).
+    const { data: fin } = await admin
+      .from("item_commercial_data")
+      .select("preco_custo, cost_price, margin_percent")
+      .eq("item_id", item?.id)
+      .maybeSingle();
+    check(
+      "P7b preco digitado gravou em preco_custo e cost_price semeado",
+      Number(fin?.preco_custo) === 12.5 && Number(fin?.cost_price) === 12.5,
+      JSON.stringify(fin)
+    );
+
     // reload: tudo volta preenchido (persistiu de verdade)
     await page.reload({ waitUntil: "domcontentloaded" });
     await page.getByRole("heading", { name: "Cadastro de produto" }).waitFor({ timeout: 15000 });
@@ -247,6 +303,101 @@ async function main() {
         embPesoReload.replace(",", ".").replace(/0+$/, "").startsWith("1.39"),
       `dun=${dunReload} fornSku=${fornSkuReload} cstpis=${cstpisReload} embPeso=${embPesoReload}`
     );
+
+    // 0033 - produto que JA passou por nota de entrada: `cost_price` e a media
+    // ponderada do Compras (0017), entao o preco digitado NAO pode sobrescrever.
+    // Monta o fixture minimo fornecedor > PO > item > nota > item da nota.
+    const ts = Date.now();
+    const { data: fornFix, error: eForn } = await admin
+      .from("suppliers")
+      .insert({ tenant_id: TENANT, name: `FORN E2E 0033 ${ts}` })
+      .select("id")
+      .single();
+    let fixtureOk = !!fornFix && !eForn;
+    let ids = { po: null, poi: null, rec: null };
+    if (fixtureOk) {
+      const { data: po, error: ePo } = await admin
+        .from("purchase_orders")
+        .insert({
+          tenant_id: TENANT,
+          supplier_id: fornFix.id,
+          code: `E2E-0033-${ts}`,
+          idempotency_key: `e2e-0033-${ts}`,
+          status: "recebido",
+          total: 999.9,
+        })
+        .select("id")
+        .single();
+      const { data: poi, error: ePoi } = await admin
+        .from("purchase_order_items")
+        .insert({
+          tenant_id: TENANT,
+          purchase_order_id: po?.id,
+          item_id: item?.id,
+          sku_snapshot: SKU_PROD,
+          name_snapshot: "Produto E2E Bloco 2",
+          quantity: 10,
+          unit_cost: 99.99,
+          line_total: 999.9,
+        })
+        .select("id")
+        .single();
+      const { data: rec, error: eRec } = await admin
+        .from("purchase_receipts")
+        .insert({
+          tenant_id: TENANT,
+          purchase_order_id: po?.id,
+          code: `REC-E2E-0033-${ts}`,
+          idempotency_key: `rec-e2e-0033-${ts}`,
+          status: "postado",
+          total: 999.9,
+        })
+        .select("id")
+        .single();
+      const { error: eRi } = await admin.from("purchase_receipt_items").insert({
+        tenant_id: TENANT,
+        receipt_id: rec?.id,
+        purchase_order_item_id: poi?.id,
+        quantity: 10,
+      });
+      ids = { po: po?.id, poi: poi?.id, rec: rec?.id };
+      fixtureOk = !ePo && !ePoi && !eRec && !eRi && !!poi && !!rec;
+    }
+    check("P9a fixture de nota de entrada montado", fixtureOk);
+
+    if (fixtureOk) {
+      // sentinela: o custo medio que o modulo de Compras manteria
+      await admin.from("item_commercial_data").update({ cost_price: 99.99 }).eq("item_id", item.id);
+      await page.reload({ waitUntil: "domcontentloaded" });
+      await page.getByRole("heading", { name: "Cadastro de produto" }).waitFor({ timeout: 15000 });
+      await page.fill("#ct-prod-sku", SKU_PROD);
+      await page.locator(".ct-ac-list li", { hasText: SKU_PROD }).first().click({ timeout: 10000 });
+      const medioNoForm = await page.inputValue("#ct-prod-custo-medio");
+      check("P9b Custo Medio mostra a media vinda do banco (99,99)", medioNoForm === "R$ 99,99", medioNoForm);
+
+      await page.fill("#ct-prod-custo", "R$ 50,00");
+      await page.getByRole("button", { name: "Salvar" }).click();
+      await esperarFeed(page, "Produto salvo");
+
+      const { data: fin9 } = await admin
+        .from("item_commercial_data")
+        .select("preco_custo, cost_price")
+        .eq("item_id", item.id)
+        .maybeSingle();
+      check(
+        "P9c preco digitado gravou e o custo medio NAO foi sobrescrito",
+        Number(fin9?.preco_custo) === 50 && Number(fin9?.cost_price) === 99.99,
+        JSON.stringify(fin9)
+      );
+    }
+
+    // limpeza do fixture (na ordem das FKs) - antes de apagar o catalog_items,
+    // porque purchase_order_items referencia o item sem cascade
+    if (ids.rec) await admin.from("purchase_receipt_items").delete().eq("receipt_id", ids.rec);
+    if (ids.rec) await admin.from("purchase_receipts").delete().eq("id", ids.rec);
+    if (ids.poi) await admin.from("purchase_order_items").delete().eq("id", ids.poi);
+    if (ids.po) await admin.from("purchase_orders").delete().eq("id", ids.po);
+    if (fornFix?.id) await admin.from("suppliers").delete().eq("id", fornFix.id);
   } finally {
     await browser.close();
   }

@@ -73,7 +73,7 @@ export default async function CadastroPage() {
     admin
       .from("catalog_items")
       .select(
-        "id, sku, name, category, active, fabricante, notes, hide_price_table, last_adjusted_at, foto_url, item_fiscal_data(gtin, ncm, cst_csosn, cest, origem, unit, icms_rate, ipi_rate, weight_kg, weight_gross_kg, cst_pis, cst_cofins, icms_base_pct, cst_ibscbs, cclass_trib, gtin_tributavel), item_commercial_data(cost_price, margin_percent, min_stock), item_prices(price, min_quantity, channel), item_supplier_data(supplier_sku, manufacturer_ref, supplier_name, manufacturer, source_type, source_url, pack_qty, master_qty, gtin_inner, gtin_master, emb_comprimento_cm, emb_altura_cm, emb_largura_cm, emb_peso_kg, master_comprimento_cm, master_altura_cm, master_largura_cm, master_peso_kg)"
+        "id, sku, name, category, active, fabricante, notes, hide_price_table, last_adjusted_at, foto_url, item_fiscal_data(gtin, ncm, cst_csosn, cest, origem, unit, icms_rate, ipi_rate, weight_kg, weight_gross_kg, cst_pis, cst_cofins, icms_base_pct, cst_ibscbs, cclass_trib, gtin_tributavel), item_commercial_data(preco_custo, cost_price, margin_percent, min_stock), item_prices(price, min_quantity, channel), item_supplier_data(supplier_sku, manufacturer_ref, supplier_name, manufacturer, source_type, source_url, pack_qty, master_qty, gtin_inner, gtin_master, emb_comprimento_cm, emb_altura_cm, emb_largura_cm, emb_peso_kg, master_comprimento_cm, master_altura_cm, master_largura_cm, master_peso_kg)"
       )
       .order("name", { ascending: true }),
     // Bloco 5 passo 3: clientes reais (antes os contadores e a ficha eram fixos)
@@ -160,6 +160,9 @@ export default async function CadastroPage() {
     } | null;
     const embC = p.item_commercial_data as unknown;
     const c = (Array.isArray(embC) ? embC[0] : embC) as {
+      // 0033: preco_custo = o que o operador digita; cost_price = custo medio
+      // ponderado (mantido pelo modulo de Compras, 0017).
+      preco_custo: number | null;
       cost_price: number | null;
       margin_percent: number | null;
       min_stock: number | null;
@@ -210,7 +213,8 @@ export default async function CadastroPage() {
       ipiPct: Number(f?.ipi_rate ?? 0),
       pesoLiquido: Number(f?.weight_kg ?? 0),
       pesoBruto: Number(f?.weight_gross_kg ?? 0),
-      precoCusto: Number(c?.cost_price ?? 0),
+      precoCusto: Number(c?.preco_custo ?? c?.cost_price ?? 0),
+      custoMedio: Number(c?.cost_price ?? 0),
       precoVenda: Number(preco),
       minStock: Number(c?.min_stock ?? 0),
       margemPct: Number(c?.margin_percent ?? 0),

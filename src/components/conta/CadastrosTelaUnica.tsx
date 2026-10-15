@@ -15,6 +15,7 @@ import {
   type ProdutoInput,
 } from "@/app/configuracoes/cadastro/actions";
 import { gerarRelatorioProduto, type RelatorioProduto } from "@/app/configuracoes/importar/actions";
+import { gerarRelatorioPdf } from "@/lib/relatorio-pdf";
 
 const UFS = [
   "AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG","PA","PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO",
@@ -306,6 +307,9 @@ export type ProdutoCad = {
   pesoLiquido: number;
   pesoBruto: number;
   precoCusto: number;
+  // 0033: custo medio ponderado (cost_price) - so leitura na tela, mantido
+  // pelo modulo de Compras.
+  custoMedio: number;
   precoVenda: number;
   minStock: number;
   margemPct: number;
@@ -558,9 +562,43 @@ export function CadastrosTelaUnica({
   // ---- helpers de leitura/escrita dos formulários (F8.1) -------------------
   const g = <T extends HTMLElement>(id: string) => document.getElementById(id) as T | null;
   const val = (id: string) => g<HTMLInputElement>(id)?.value ?? "";
+  // escrita direta num input nao-controlado (mesmo mecanismo do carregarProduto)
+  const setVal = (id: string, v: string) => {
+    const el = g<HTMLInputElement>(id);
+    if (el) el.value = v;
+  };
   const brl = (n: number) => `R$ ${n.toFixed(2).replace(".", ",")}`;
   const pct = (n: number) => `${n.toFixed(2).replace(".", ",")}%`;
   const kg = (n: number) => n.toFixed(3).replace(".", ",");
+
+  // ---- linha financeira (0033): custo + margem <-> preco de venda ----------
+  // "R$ 1.234,56" / "60,00%" / "12.50" viram numero. Aceita tanto o formato
+  // pt-BR (virgula decimal) quanto o en-US (ponto decimal), porque o operador
+  // pode digitar de qualquer jeito - e o campo ainda nao esta mascarado.
+  const lerNum = (v: string): number | null => {
+    const t = (v ?? "").trim().replace(/[^\d,.,-]/g, "");
+    if (!t) return null;
+    const n = Number(t.replace(/\./g, "").replace(",", "."));
+    return Number.isFinite(n) ? n : null;
+  };
+
+  // venda = custo x (1 + margem/100) - margem sobre o CUSTO (decisao 15/10).
+  function recalcVenda() {
+    const c = lerNum(val("ct-prod-custo"));
+    const m = lerNum(val("ct-prod-margem"));
+    if (c === null || m === null) return;
+    const v = c * (1 + m / 100);
+    if (v < 0) return;
+    setVal("ct-prod-venda", brl(v));
+  }
+
+  // margem = (venda - custo) / custo x 100. Exige custo > 0 (divisao).
+  function recalcMargem() {
+    const c = lerNum(val("ct-prod-custo"));
+    const v = lerNum(val("ct-prod-venda"));
+    if (c === null || v === null || c <= 0) return;
+    setVal("ct-prod-margem", pct(((v - c) / c) * 100));
+  }
 
   // navegação por lista (◀◀ ◀ ▶ ▶▶): anda pela ordem alfabética da lista,
   // a mesma que o select do page.tsx devolve (.order("name")).
@@ -633,29 +671,21 @@ export function CadastrosTelaUnica({
     setRelAberto(false);
     setFeedback({ tipo: "ok", texto: "Gerando relatório…" });
     const r = await gerarRelatorioProduto(tipo);
-    if (!r.ok || !r.csv) {
+    if (!r.ok) {
       setFeedback({ tipo: "err", texto: r.erro ?? "Falha ao gerar o relatório." });
       return;
     }
-    const blob = new Blob([r.csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = r.arquivo ?? `relatorio-${tipo}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-    setFeedback({ tipo: "ok", texto: `Relatório ${tipo} baixado.` });
+    const pdf = await gerarRelatorioPdf(r, tipo);
+    if (!pdf.ok) {
+      setFeedback({ tipo: "err", texto: pdf.erro ?? "Falha ao montar o PDF." });
+      return;
+    }
+    setFeedback({ tipo: "ok", texto: `Relatório ${tipo} baixado em PDF.` });
   }
 
   function carregarProduto(p: ProdutoCad | null) {
     setProdId(p?.id ?? null);
     setSkuQ(p?.sku ?? "");
-    const setVal = (id: string, v: string) => {
-      const el = g<HTMLInputElement>(id);
-      if (el) el.value = v;
-    };
     const setSel = (id: string, v: string) => {
       const el = g<HTMLSelectElement>(id);
       if (el) el.value = v;
@@ -673,6 +703,7 @@ export function CadastrosTelaUnica({
     setVal("ct-prod-pesobruto", p ? kg(p.pesoBruto) : "");
     setVal("ct-prod-pesoliquido", p ? kg(p.pesoLiquido) : "");
     setVal("ct-prod-custo", p ? brl(p.precoCusto) : "");
+    setVal("ct-prod-custo-medio", p ? brl(p.custoMedio) : "");
     setVal("ct-prod-margem", p ? pct(p.margemPct) : "");
     setVal("ct-prod-venda", p ? brl(p.precoVenda) : "");
     setVal("ct-prod-min", p ? String(p.minStock) : "");
@@ -1536,10 +1567,11 @@ export function CadastrosTelaUnica({
 
             <div className="ct-grp">
               <p className="ct-grp-label">Financeiro e estoque</p>
-              <div className="ct-row ct-r3">
-                <div className="ct-field"><label>Preço de custo</label><input id="ct-prod-custo" placeholder="R$ 0,00" /></div>
-                <div className="ct-field"><label>Margem de lucro</label><input id="ct-prod-margem" placeholder="0,00%" /></div>
-                <div className="ct-field"><label>Preço de venda<span className="ct-req">*</span></label><input id="ct-prod-venda" placeholder="R$ 0,00" /></div>
+              <div className="ct-row ct-r4">
+                <div className="ct-field"><label>Preço de custo</label><input id="ct-prod-custo" placeholder="R$ 0,00" onInput={recalcVenda} onBlur={recalcVenda} /></div>
+                <div className="ct-field"><label>Margem de lucro</label><input id="ct-prod-margem" placeholder="0,00%" onInput={recalcVenda} onBlur={recalcVenda} /></div>
+                <div className="ct-field"><label>Custo Médio <span className="ct-hint">compras</span></label><input id="ct-prod-custo-medio" readOnly disabled placeholder="R$ 0,00" style={{ opacity: 0.7 }} /></div>
+                <div className="ct-field"><label>Preço de venda<span className="ct-req">*</span></label><input id="ct-prod-venda" placeholder="R$ 0,00" onInput={recalcMargem} onBlur={recalcMargem} /></div>
               </div>
               <div className="ct-row ct-r3">
                 <div className="ct-field"><label>Qtd. mínima</label><input id="ct-prod-min" defaultValue="0" /></div>
