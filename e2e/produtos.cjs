@@ -104,6 +104,35 @@ async function main() {
     await page.getByRole("button", { name: "Incluir" }).click();
     await page.waitForTimeout(200);
 
+    // header novo: menu morto fora, busca presente, relatorio com 5 itens
+    check(
+      "P2e menu morto (Atualizacao/Relatorios/Listagem/Configuracao) removido",
+      (await page.getByRole("button", { name: "Atualização" }).count()) === 0 &&
+        (await page.getByRole("button", { name: "Listagem" }).count()) === 0
+    );
+    check("P2f campo de busca no header", (await page.locator("#ct-prod-busca").count()) === 1);
+    await page.fill("#ct-prod-busca", "pastel");
+    await page.waitForTimeout(300);
+    const achados = await page.locator(".ct-drop button").count();
+    check("P2g busca por nome (qualquer parte) acha produto", achados > 0, `${achados} achados`);
+    await page.fill("#ct-prod-busca", "");
+    await page.keyboard.press("Escape");
+    await page.waitForTimeout(200);
+    check(
+      "P2h busca vazia nao deixa dropdown aberto",
+      (await page.locator(".ct-drop").count()) === 0
+    );
+    await page.locator("#ct-btn-relatorio").click();
+    await page.waitForTimeout(300);
+    const relItens = await page.locator(".ct-drop[role='menu'] button").allInnerTexts();
+    check(
+      "P2i Relatorio abre menu com 5 relatorios",
+      relItens.length === 5 && ["Entradas", "Saídas", "Estoque", "Patrimônio", "Inventário"].every((n) => relItens.some((t) => t.startsWith(n))),
+      relItens.join(" | ")
+    );
+    await page.keyboard.press("Escape");
+    await page.waitForTimeout(200);
+
     // GTIN master DUN-14 com DV errado -> bloqueado no servidor
     await page.fill("#ct-prod-descricao", "Produto E2E Bloco 2");
     await page.fill("#ct-prod-sku", SKU_PROD);

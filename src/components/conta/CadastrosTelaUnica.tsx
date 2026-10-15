@@ -14,6 +14,7 @@ import {
   type EmpresaInput,
   type ProdutoInput,
 } from "@/app/configuracoes/cadastro/actions";
+import { gerarRelatorioProduto, type RelatorioProduto } from "@/app/configuracoes/importar/actions";
 
 const UFS = [
   "AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG","PA","PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO",
@@ -119,9 +120,6 @@ const css = String.raw`
 .ct-h-title{display:flex;flex-direction:column;flex-shrink:0;padding-right:12px;border-right:1px solid var(--border);margin-right:2px}
 .ct-h-title .eyebrow{font-size:.62rem;text-transform:uppercase;letter-spacing:.06em;color:var(--pink-600);font-weight:700}
 .ct-h-title h1{font-size:.98rem;margin:0;white-space:nowrap;color:var(--ink)}
-.ct-menu{display:flex;gap:2px;flex-shrink:0;padding-right:10px;border-right:1px solid var(--border);margin-right:2px}
-.ct-menu-btn{padding:7px 10px;border-radius:6px;border:none;background:transparent;color:var(--ink-soft);font-size:.78rem;font-weight:600;cursor:pointer;white-space:nowrap}
-.ct-menu-btn:hover{background:var(--ink-faint)}
 .ct-act{display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border-radius:6px;border:1px solid var(--border);background:#fff;color:var(--ink);font-size:.78rem;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0}
 .ct-act:hover{border-color:var(--pink-600);color:var(--pink-600)}
 .ct-act svg{flex-shrink:0}
@@ -130,6 +128,16 @@ const css = String.raw`
 .ct-act.danger{color:#E01F27;border-color:transparent}
 .ct-act.danger:hover{background:rgba(224,31,39,.08);border-color:#E01F27;color:#E01F27}
 .ct-spacer{flex:1;min-width:12px}
+/* busca de produto no header: o dropdown sai do fluxo (position:fixed) porque
+   .ct-header tem overflow-x:auto e cortaria um absoluto normal */
+.ct-busca input{width:235px;padding:7px 10px;border-radius:6px;border:1px solid var(--border);background:#fff;font-size:.78rem;font-weight:600;color:var(--ink);font-family:inherit}
+.ct-busca input::placeholder{color:var(--ink-soft);font-weight:500}
+.ct-busca input:focus{outline:none;border-color:var(--pink-600)}
+.ct-drop{position:fixed;z-index:80;background:#fff;border:1px solid var(--border);border-radius:8px;box-shadow:var(--shadow-soft);max-height:320px;overflow-y:auto;min-width:240px;padding:4px}
+.ct-drop button{display:block;width:100%;text-align:left;padding:8px 10px;border:none;background:#fff;border-radius:6px;cursor:pointer;font-size:.8rem;font-weight:700;color:var(--ink);font-family:inherit}
+.ct-drop button:hover{background:var(--ink-faint)}
+.ct-drop .ct-drop-sub{display:block;font-size:.68rem;font-weight:500;color:var(--ink-soft);margin-top:1px}
+.ct-drop-vazio{padding:9px 10px;font-size:.78rem;color:var(--ink-soft)}
 .ct-nav-prod{display:inline-flex;gap:3px;flex-shrink:0}
 .ct-nav-prod .ct-act{padding:7px 8px}
 .ct-pill{font-size:.66rem;text-transform:uppercase;letter-spacing:.04em;font-weight:700;padding:3px 10px;border-radius:999px;background:#fff;color:var(--ink-soft);border:1px solid var(--border);white-space:nowrap;flex-shrink:0}
@@ -537,6 +545,13 @@ export function CadastrosTelaUnica({
   const [prodId, setProdId] = useState<string | null>(produtos[0]?.id ?? null);
   const [fornQ, setFornQ] = useState(FORNECEDORES_INICIAIS[0]);
   const [acAberto, setAcAberto] = useState<null | "setor" | "fornecedor" | "sku">(null);
+  // busca de produto no header (nome/gtin/sku, qualquer parte do valor)
+  const [buscaQ, setBuscaQ] = useState("");
+  const [buscaAberta, setBuscaAberta] = useState(false);
+  const [buscaPos, setBuscaPos] = useState<{ top: number; left: number; width: number } | null>(null);
+  // menu de relatórios do cadastro (botão Relatório)
+  const [relAberto, setRelAberto] = useState(false);
+  const [relPos, setRelPos] = useState<{ top: number; left: number } | null>(null);
 
   const mostrarExtra = (tela_: string, chave: string) => setExtra((e) => ({ ...e, [tela_]: chave }));
 
@@ -555,6 +570,83 @@ export function CadastrosTelaUnica({
     const base = idx < 0 ? 0 : idx;
     const novo = Math.min(Math.max(base + passo, 0), produtos.length - 1);
     carregarProduto(produtos[novo] ?? null);
+  }
+
+  // busca no header: nome (qualquer parte), código de barras (GTIN) e código
+  // interno (SKU) — todos por "contém", então "pastel" ou "1040" acham.
+  const achadosBusca = useMemo(() => {
+    const q = buscaQ.trim().toLowerCase();
+    if (!q) return [];
+    return produtos
+      .filter(
+        (p) =>
+          p.nome.toLowerCase().includes(q) ||
+          p.gtin.toLowerCase().includes(q) ||
+          p.sku.toLowerCase().includes(q)
+      )
+      .slice(0, 12);
+  }, [buscaQ, produtos]);
+
+  function abrirBusca(el: HTMLElement) {
+    const r = el.getBoundingClientRect();
+    setBuscaPos({ top: r.bottom + 4, left: r.left, width: r.width });
+    setBuscaAberta(true);
+  }
+
+  function escolherDaBusca(p: ProdutoCad) {
+    carregarProduto(p);
+    setBuscaQ("");
+    setBuscaAberta(false);
+  }
+
+  // fecha os dropdowns se o clique cair fora deles (o header tem overflow-x:auto,
+  // então os menus usam position:fixed e precisam deste fechamento externo)
+  useEffect(() => {
+    if (!buscaAberta && !relAberto) return;
+    const fora = (e: MouseEvent) => {
+      const alvo = e.target as HTMLElement | null;
+      if (!alvo?.closest(".ct-drop") && !alvo?.closest("#ct-prod-busca") && !alvo?.closest("#ct-btn-relatorio")) {
+        setBuscaAberta(false);
+        setRelAberto(false);
+      }
+    };
+    window.addEventListener("mousedown", fora);
+    return () => window.removeEventListener("mousedown", fora);
+  }, [buscaAberta, relAberto]);
+
+  // relatórios do cadastro de produtos (botão Relatório) — CSV direto do banco
+  const RELATORIOS: { id: RelatorioProduto; nome: string; desc: string }[] = [
+    { id: "entradas", nome: "Entradas", desc: "Movimentos que entraram no estoque" },
+    { id: "saidas", nome: "Saídas", desc: "Movimentos que saíram do estoque" },
+    { id: "estoque", nome: "Estoque", desc: "Saldo disponível e físico por produto" },
+    { id: "patrimonio", nome: "Patrimônio", desc: "Valor do estoque pelo custo" },
+    { id: "inventario", nome: "Inventário", desc: "Folha de contagem física" },
+  ];
+
+  function abrirRelatorio(el: HTMLElement) {
+    const r = el.getBoundingClientRect();
+    setRelPos({ top: r.bottom + 4, left: r.left });
+    setRelAberto((v) => !v);
+  }
+
+  async function gerarRelatorio(tipo: RelatorioProduto) {
+    setRelAberto(false);
+    setFeedback({ tipo: "ok", texto: "Gerando relatório…" });
+    const r = await gerarRelatorioProduto(tipo);
+    if (!r.ok || !r.csv) {
+      setFeedback({ tipo: "err", texto: r.erro ?? "Falha ao gerar o relatório." });
+      return;
+    }
+    const blob = new Blob([r.csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = r.arquivo ?? `relatorio-${tipo}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    setFeedback({ tipo: "ok", texto: `Relatório ${tipo} baixado.` });
   }
 
   function carregarProduto(p: ProdutoCad | null) {
@@ -1251,17 +1343,40 @@ export function CadastrosTelaUnica({
       <div className="ct-window">
         <div className="ct-header">
           <div className="ct-h-title"><span className="eyebrow">Nuvem de Papel · Catálogo</span><h1>Cadastro de produto</h1></div>
-          <div className="ct-menu">
-            <button className="ct-menu-btn">Atualização</button>
-            <button className="ct-menu-btn">Relatórios</button>
-            <button className="ct-menu-btn">Listagem</button>
-            <button className="ct-menu-btn">Configuração</button>
-          </div>
-          <button className="ct-act primary" onClick={salvarProdutoUI} disabled={salvando}>
-            {iconeCheck}{salvando ? "Salvando..." : "Salvar"}
-          </button>
-          <button className="ct-act" onClick={() => carregarProduto(null)}>{iconePlus}Incluir</button>
-          <span className="ct-spacer" />
+          {/* busca: nome (qualquer parte), código de barras ou código interno */}
+          <span className="ct-busca">
+            <input
+              id="ct-prod-busca"
+              type="search"
+              placeholder="Buscar por nome, código de barras ou interno"
+              autoComplete="off"
+              value={buscaQ}
+              onChange={(e) => {
+                setBuscaQ(e.target.value);
+                abrirBusca(e.currentTarget);
+              }}
+              onFocus={(e) => { if (buscaQ.trim()) abrirBusca(e.currentTarget); }}
+              onBlur={() => setTimeout(() => setBuscaAberta(false), 150)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && achadosBusca[0]) {
+                  e.preventDefault();
+                  escolherDaBusca(achadosBusca[0]);
+                }
+                if (e.key === "Escape") { setBuscaQ(""); setBuscaAberta(false); }
+              }}
+            />
+            {buscaAberta && buscaQ.trim() && buscaPos && (
+              <span className="ct-drop" style={{ top: buscaPos.top, left: buscaPos.left, width: Math.max(buscaPos.width, 300) }}>
+                {achadosBusca.length === 0 && <span className="ct-drop-vazio">Nenhum produto com esse nome, código de barras ou interno.</span>}
+                {achadosBusca.map((p) => (
+                  <button key={p.id} type="button" onMouseDown={(e) => { e.preventDefault(); escolherDaBusca(p); }}>
+                    {p.nome}
+                    <span className="ct-drop-sub">{p.sku}{p.gtin ? ` · ${p.gtin}` : ""}</span>
+                  </button>
+                ))}
+              </span>
+            )}
+          </span>
           {/* navegação da lista: ◀◀ ◀ ▶ ▶▶ (anda pela ordem alfabética) */}
           <span className="ct-nav-prod">
             <button className="ct-act" title="Primeiro produto" aria-label="Primeiro produto" onClick={() => navegarProduto(-produtos.length)} disabled={produtos.length === 0}>{iconePrimeiro}</button>
@@ -1269,6 +1384,30 @@ export function CadastrosTelaUnica({
             <button className="ct-act" title="Próximo produto" aria-label="Próximo produto" onClick={() => navegarProduto(1)} disabled={produtos.length === 0}>{iconeProximo}</button>
             <button className="ct-act" title="Último produto" aria-label="Último produto" onClick={() => navegarProduto(produtos.length)} disabled={produtos.length === 0}>{iconeUltimo}</button>
           </span>
+          <button className="ct-act primary" onClick={salvarProdutoUI} disabled={salvando}>
+            {iconeCheck}{salvando ? "Salvando..." : "Salvar"}
+          </button>
+          <button className="ct-act" onClick={() => carregarProduto(null)}>{iconePlus}Incluir</button>
+          <button
+            id="ct-btn-relatorio"
+            className="ct-act"
+            aria-haspopup="menu"
+            aria-expanded={relAberto}
+            onClick={(e) => abrirRelatorio(e.currentTarget)}
+          >
+            {iconeImpressora}Relatório
+          </button>
+          {relAberto && relPos && (
+            <span className="ct-drop" role="menu" style={{ top: relPos.top, left: relPos.left }}>
+              {RELATORIOS.map((r) => (
+                <button key={r.id} role="menuitem" type="button" onMouseDown={(e) => { e.preventDefault(); void gerarRelatorio(r.id); }}>
+                  {r.nome}
+                  <span className="ct-drop-sub">{r.desc}</span>
+                </button>
+              ))}
+            </span>
+          )}
+          <span className="ct-spacer" />
           <span className="ct-pill strong">{produtos.length} produtos</span>
         </div>
 
