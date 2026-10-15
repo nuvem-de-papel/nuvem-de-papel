@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { criarFornecedor } from "@/app/compras/actions";
 import { alternarStatus } from "@/app/configuracoes/usuarios/actions";
 import {
+  importarProdutoFornecedor,
   removerCliente,
   salvarCliente,
   salvarEmpresa,
@@ -296,6 +297,34 @@ export type ProdutoCad = {
   precoVenda: number;
   minStock: number;
   margemPct: number;
+  // Bloco 2 (0031): campos que antes eram "fantasma" no form - agora gravam.
+  fabricante: string;
+  observacoes: string;
+  cstPis: string;
+  cstCofins: string;
+  icmsBasePct: number;
+  cstIbsCbs: string;
+  cclassTrib: string;
+  gtinTributavel: string;
+  // Bloco 2 (0031): ficha do fornecedor + embalagem (item_supplier_data).
+  fornecedorNome: string;
+  supplierSku: string;
+  refFabricante: string;
+  packQty: number;
+  masterQty: number;
+  gtinInner: string;
+  gtinMaster: string;
+  embComprimento: number;
+  embAltura: number;
+  embLargura: number;
+  embPeso: number;
+  masterComprimento: number;
+  masterAltura: number;
+  masterLargura: number;
+  masterPeso: number;
+  sourceUrl: string;
+  hidePriceTable: boolean;
+  lastAdjustedAt: string;
 };
 
 // Bloco 5 passo 3: cliente vem do banco (customers) em vez de ficha fixa.
@@ -507,6 +536,35 @@ export function CadastrosTelaUnica({
     setVal("ct-prod-min", p ? String(p.minStock) : "");
     const inativo = g<HTMLInputElement>("ct-prod-inativo");
     if (inativo) inativo.checked = p ? !p.ativo : false;
+    // Bloco 2 (0031): campos novos que agora gravam de verdade.
+    setVal("ct-prod-fabricante", p?.fabricante ?? "");
+    setVal("ct-prod-observacoes", p?.observacoes ?? "");
+    setVal("ct-prod-cstpis", p?.cstPis ?? "");
+    setVal("ct-prod-cstcofins", p?.cstCofins ?? "");
+    setVal("ct-prod-icmsbase", p ? pct(p.icmsBasePct) : "100,00%");
+    setVal("ct-prod-cstibscbs", p?.cstIbsCbs ?? "");
+    setVal("ct-prod-cclasstrib", p?.cclassTrib ?? "");
+    setVal("ct-prod-gtintrib", p?.gtinTributavel ?? "");
+    // ficha do fornecedor + embalagem
+    setVal("ct-prod-forn-nome", p?.fornecedorNome ?? "");
+    setVal("ct-prod-forn-sku", p?.supplierSku ?? "");
+    setVal("ct-prod-forn-ref", p?.refFabricante ?? "");
+    setVal("ct-prod-pack-qty", p && p.packQty ? String(p.packQty) : "");
+    setVal("ct-prod-master-qty", p && p.masterQty ? String(p.masterQty) : "");
+    setVal("ct-prod-gtin-inner", p?.gtinInner ?? "");
+    setVal("ct-prod-gtin-master", p?.gtinMaster ?? "");
+    setVal("ct-prod-emb-comp", p && p.embComprimento ? String(p.embComprimento).replace(".", ",") : "");
+    setVal("ct-prod-emb-alt", p && p.embAltura ? String(p.embAltura).replace(".", ",") : "");
+    setVal("ct-prod-emb-larg", p && p.embLargura ? String(p.embLargura).replace(".", ",") : "");
+    setVal("ct-prod-emb-peso", p && p.embPeso ? kg(p.embPeso) : "");
+    setVal("ct-prod-mst-comp", p && p.masterComprimento ? String(p.masterComprimento).replace(".", ",") : "");
+    setVal("ct-prod-mst-alt", p && p.masterAltura ? String(p.masterAltura).replace(".", ",") : "");
+    setVal("ct-prod-mst-larg", p && p.masterLargura ? String(p.masterLargura).replace(".", ",") : "");
+    setVal("ct-prod-mst-peso", p && p.masterPeso ? kg(p.masterPeso) : "");
+    setVal("ct-prod-link", p?.sourceUrl ?? "");
+    const chkOculta = g<HTMLInputElement>("ct-prod-oculta-preco");
+    if (chkOculta) chkOculta.checked = p?.hidePriceTable ?? false;
+    setVal("ct-prod-reajuste", p?.lastAdjustedAt ?? "");
   }
 
   function salvarProdutoUI() {
@@ -530,6 +588,33 @@ export function CadastrosTelaUnica({
       precoVenda: val("ct-prod-venda"),
       minStock: val("ct-prod-min"),
       margemPct: val("ct-prod-margem"),
+      // Bloco 2 (0031)
+      fabricante: val("ct-prod-fabricante"),
+      observacoes: val("ct-prod-observacoes"),
+      cstPis: val("ct-prod-cstpis"),
+      cstCofins: val("ct-prod-cstcofins"),
+      icmsBasePct: val("ct-prod-icmsbase"),
+      cstIbsCbs: val("ct-prod-cstibscbs"),
+      cclassTrib: val("ct-prod-cclasstrib"),
+      gtinTributavel: val("ct-prod-gtintrib"),
+      fornecedorNome: val("ct-prod-forn-nome"),
+      supplierSku: val("ct-prod-forn-sku"),
+      refFabricante: val("ct-prod-forn-ref"),
+      packQty: val("ct-prod-pack-qty"),
+      masterQty: val("ct-prod-master-qty"),
+      gtinInner: val("ct-prod-gtin-inner"),
+      gtinMaster: val("ct-prod-gtin-master"),
+      embComprimento: val("ct-prod-emb-comp"),
+      embAltura: val("ct-prod-emb-alt"),
+      embLargura: val("ct-prod-emb-larg"),
+      embPeso: val("ct-prod-emb-peso"),
+      masterComprimento: val("ct-prod-mst-comp"),
+      masterAltura: val("ct-prod-mst-alt"),
+      masterLargura: val("ct-prod-mst-larg"),
+      masterPeso: val("ct-prod-mst-peso"),
+      sourceUrl: val("ct-prod-link"),
+      hidePriceTable: g<HTMLInputElement>("ct-prod-oculta-preco")?.checked ?? false,
+      lastAdjustedAt: val("ct-prod-reajuste"),
     };
     startTransition(async () => {
       const r = await salvarProduto(payload);
@@ -540,6 +625,57 @@ export function CadastrosTelaUnica({
       } else {
         setFeedback({ tipo: "err", texto: r.erro });
       }
+    });
+  }
+
+  // Bloco 2 (0031): importar cadastro por link do fornecedor (Reval). Busca
+  // no servidor, parseia e PREENCHE o form - nao grava nada (usuario revisa
+  // e clica Salvar). Peso unitario ja vem calculado (peso emb / qtd emb).
+  function importarProdutoUI() {
+    const url = val("ct-prod-link").trim();
+    if (!url) {
+      setFeedback({ tipo: "err", texto: "Cole o link do produto no Reval para importar." });
+      return;
+    }
+    startTransition(async () => {
+      setFeedback({ tipo: "ok", texto: "Buscando dados no site do Reval..." });
+      const r = await importarProdutoFornecedor(url);
+      if (!r.ok || !r.produto) {
+        setFeedback({ tipo: "err", texto: r.ok ? "Importação vazia." : r.erro });
+        return;
+      }
+      const pr = r.produto;
+      const setVal = (id: string, v: string) => {
+        const el = g<HTMLInputElement>(id) ?? g<HTMLTextAreaElement>(id);
+        if (el) (el as HTMLInputElement).value = v;
+      };
+      if (pr.sku) setSkuQ(pr.sku);
+      setVal("ct-prod-descricao", pr.nome);
+      setSetorQ(pr.categoria);
+      setVal("ct-prod-gtin", pr.gtin);
+      setVal("ct-prod-ncm", pr.ncm);
+      setVal("ct-prod-cest", pr.cest);
+      const origemSel = g<HTMLSelectElement>("ct-prod-origem");
+      if (origemSel) origemSel.value = pr.origem;
+      setVal("ct-prod-pesobruto", pr.pesoBruto ? pr.pesoBruto : "");
+      setVal("ct-prod-fabricante", pr.fabricante);
+      setVal("ct-prod-observacoes", pr.observacoes);
+      setVal("ct-prod-forn-nome", pr.fornecedorNome);
+      setVal("ct-prod-forn-sku", pr.supplierSku);
+      setVal("ct-prod-forn-ref", pr.refFabricante);
+      setVal("ct-prod-pack-qty", pr.packQty);
+      setVal("ct-prod-master-qty", pr.masterQty);
+      setVal("ct-prod-gtin-inner", pr.gtinInner);
+      setVal("ct-prod-gtin-master", pr.gtinMaster);
+      setVal("ct-prod-emb-comp", pr.embComprimento);
+      setVal("ct-prod-emb-alt", pr.embAltura);
+      setVal("ct-prod-emb-larg", pr.embLargura);
+      setVal("ct-prod-emb-peso", pr.embPeso);
+      setVal("ct-prod-mst-comp", pr.masterComprimento);
+      setVal("ct-prod-mst-alt", pr.masterAltura);
+      setVal("ct-prod-mst-larg", pr.masterLargura);
+      setVal("ct-prod-mst-peso", pr.masterPeso);
+      setFeedback({ tipo: "ok", texto: r.aviso ?? "Importado. Revise e clique Salvar." });
     });
   }
 
@@ -1053,8 +1189,16 @@ export function CadastrosTelaUnica({
           <div className="ct-main">
             <div className="ct-grp">
               <div className="ct-row ct-r4">
-                <div className="ct-field"><label>Código</label><input defaultValue="000148" /></div>
                 <div className="ct-field" style={{ gridColumn: "span 2" }}><label>Descrição do produto<span className="ct-req">*</span></label><input id="ct-prod-descricao" placeholder="Nome do produto" /></div>
+                <div className="ct-field" style={{ gridColumn: "span 2" }}>
+                  <label>Importar do fornecedor <span className="ct-hint">cola o link e preenche tudo</span></label>
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <input id="ct-prod-link" placeholder="https://...reval.net/produto/..." style={{ flex: 1 }} />
+                    <button className="ct-act" onClick={importarProdutoUI} disabled={salvando} style={{ whiteSpace: "nowrap" }}>{iconeFoto}Importar</button>
+                  </div>
+                </div>
+              </div>
+              <div className="ct-row ct-r3">
                 <div className="ct-field ct-ac">
                   <label>Código interno <span className="ct-hint">busca ou cria</span></label>
                   <input
@@ -1120,7 +1264,7 @@ export function CadastrosTelaUnica({
                 </div>
               </div>
               <div className="ct-row ct-r2">
-                <div className="ct-field"><label>Fabricante</label><input defaultValue="Gráfica São José" /></div>
+                <div className="ct-field"><label>Fabricante</label><input id="ct-prod-fabricante" placeholder="Ex.: Tilibra" /></div>
                 <div className="ct-field">
                   <label>Unidade</label>
                   <select id="ct-prod-unit" defaultValue="UN">
@@ -1129,6 +1273,35 @@ export function CadastrosTelaUnica({
                     ))}
                   </select>
                 </div>
+              </div>
+            </div>
+
+            <div className="ct-grp">
+              <p className="ct-grp-label">Fornecedor e embalagem <span className="ct-hint">vem do importador / digitado à mão</span></p>
+              <div className="ct-row ct-r3">
+                <div className="ct-field"><label>Fornecedor (nome na fonte)</label><input id="ct-prod-forn-nome" placeholder="TILIBRA" /></div>
+                <div className="ct-field"><label>Código do fornecedor</label><input id="ct-prod-forn-sku" placeholder="114148" /></div>
+                <div className="ct-field"><label>Ref. fabricante</label><input id="ct-prod-forn-ref" placeholder="354945" /></div>
+              </div>
+              <div className="ct-row ct-r3">
+                <div className="ct-field"><label>Qtd. por embalagem</label><input id="ct-prod-pack-qty" placeholder="4" /></div>
+                <div className="ct-field"><label>Qtd. por master</label><input id="ct-prod-master-qty" placeholder="5" /></div>
+                <div className="ct-field"><label>GTIN da embalagem (inner)</label><input id="ct-prod-gtin-inner" placeholder="7891027019150" maxLength={14} /></div>
+              </div>
+              <div className="ct-row ct-r3">
+                <div className="ct-field"><label>GTIN master (DUN-14)</label><input id="ct-prod-gtin-master" placeholder="17891027354944" maxLength={14} /></div>
+                <div className="ct-field"><label>Peso embalagem (kg)</label><input id="ct-prod-emb-peso" placeholder="1,390" /></div>
+                <div className="ct-field"><label>Peso master (kg)</label><input id="ct-prod-mst-peso" placeholder="7,220" /></div>
+              </div>
+              <div className="ct-row ct-r3">
+                <div className="ct-field"><label>Comp. emb. (cm)</label><input id="ct-prod-emb-comp" placeholder="21,5" /></div>
+                <div className="ct-field"><label>Alt. emb. (cm)</label><input id="ct-prod-emb-alt" placeholder="6,5" /></div>
+                <div className="ct-field"><label>Larg. emb. (cm)</label><input id="ct-prod-emb-larg" placeholder="15,5" /></div>
+              </div>
+              <div className="ct-row ct-r3">
+                <div className="ct-field"><label>Comp. master (cm)</label><input id="ct-prod-mst-comp" placeholder="36" /></div>
+                <div className="ct-field"><label>Alt. master (cm)</label><input id="ct-prod-mst-alt" placeholder="22,5" /></div>
+                <div className="ct-field"><label>Larg. master (cm)</label><input id="ct-prod-mst-larg" placeholder="16,5" /></div>
               </div>
             </div>
 
@@ -1142,12 +1315,12 @@ export function CadastrosTelaUnica({
               <div className="ct-row ct-r3">
                 <div className="ct-field"><label>Qtd. mínima</label><input id="ct-prod-min" defaultValue="0" /></div>
                 <div className="ct-field"><label>Qtd. atual em estoque</label><input disabled placeholder="controlada em Logística" style={{ opacity: 0.7 }} /></div>
-                <div className="ct-field"><label>Data último reajuste</label><input type="date" /></div>
+                <div className="ct-field"><label>Data último reajuste</label><input id="ct-prod-reajuste" type="date" /></div>
               </div>
             </div>
 
             <div className="ct-row ct-r2">
-              <label className="ct-checkline"><input type="checkbox" />Não imprimir na tabela de preços</label>
+              <label className="ct-checkline"><input type="checkbox" id="ct-prod-oculta-preco" />Não imprimir na tabela de preços</label>
               <label className="ct-checkline"><input type="checkbox" id="ct-prod-inativo" />Inativo</label>
             </div>
           </div>
@@ -1177,12 +1350,16 @@ export function CadastrosTelaUnica({
               </div>
               <div className="ct-row ct-r2">
                 <div className="ct-field"><label>ICMS interno</label><input id="ct-prod-icms" defaultValue="18,00%" /></div>
-                <div className="ct-field"><label>Base de cálculo</label><input id="ct-prod-base" defaultValue="100,00%" /></div>
+                <div className="ct-field"><label>Base de cálculo</label><input id="ct-prod-icmsbase" defaultValue="100,00%" /></div>
               </div>
               <div className="ct-row ct-r3">
                 <div className="ct-field"><label>IPI</label><input id="ct-prod-ipi" defaultValue="0,00%" /></div>
-                <div className="ct-field"><label>CST PIS</label><input id="ct-prod-cstpis" defaultValue="49" /></div>
-                <div className="ct-field"><label>CST Cofins</label><input id="ct-prod-cstcofins" defaultValue="49" /></div>
+                <div className="ct-field"><label>CST PIS</label><input id="ct-prod-cstpis" placeholder="49" maxLength={2} /></div>
+                <div className="ct-field"><label>CST Cofins</label><input id="ct-prod-cstcofins" placeholder="49" maxLength={2} /></div>
+              </div>
+              <div className="ct-row ct-r2">
+                <div className="ct-field"><label>CST IBS/CBS <span className="ct-hint">reforma 2026</span></label><input id="ct-prod-cstibscbs" placeholder="000" maxLength={3} /></div>
+                <div className="ct-field"><label>cClassTrib <span className="ct-hint">reforma 2026</span></label><input id="ct-prod-cclasstrib" placeholder="000000" maxLength={6} /></div>
               </div>
               <div className="ct-row ct-r2">
                 <div className="ct-field"><label>Peso bruto</label><input id="ct-prod-pesobruto" defaultValue="0,320" /></div>
@@ -1193,23 +1370,13 @@ export function CadastrosTelaUnica({
             <div className="ct-side-tabs" style={{ marginTop: 14 }}>
               <div className="ct-extra-tabs">
                 <button className={`ct-extra-tab${extra.produto === "obs" ? " on" : ""}`} onClick={() => mostrarExtra("produto", "obs")}>1. Observações</button>
-                <button className={`ct-extra-tab${extra.produto === "foto" ? " on" : ""}`} onClick={() => mostrarExtra("produto", "foto")}>2. Foto</button>
-                <button className={`ct-extra-tab${extra.produto === "outros" ? " on" : ""}`} onClick={() => mostrarExtra("produto", "outros")}>3. Outros</button>
+                <button className={`ct-extra-tab${extra.produto === "outros" ? " on" : ""}`} onClick={() => mostrarExtra("produto", "outros")}>2. Outros</button>
               </div>
               <div className={`ct-extra-panel${extra.produto === "obs" ? " on" : ""}`}>
-                <div className="ct-field"><textarea placeholder="Observações internas..." defaultValue="Coleção escolar — reforçar giro em jan/fev." /></div>
-              </div>
-              <div className={`ct-extra-panel${extra.produto === "foto" ? " on" : ""}`}>
-                <div className="ct-photo">{iconeFoto}Sem foto</div>
-                <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-                  <button className="ct-act" style={{ flex: 1, justifyContent: "center" }}>Alterar</button>
-                  <button className="ct-act" style={{ flex: 1, justifyContent: "center" }}>Apagar</button>
-                </div>
+                <div className="ct-field"><textarea id="ct-prod-observacoes" placeholder="Detalhes do produto / observações internas..." /></div>
               </div>
               <div className={`ct-extra-panel${extra.produto === "outros" ? " on" : ""}`}>
-                <div className="ct-row ct-r1"><div className="ct-field"><label>GTIN tributável</label><input defaultValue="7898943477996" /></div></div>
-                <div className="ct-row ct-r1"><div className="ct-field"><label>Previsão de chegada</label><input type="date" /></div></div>
-                <div className="ct-row ct-r1"><div className="ct-field"><label>Origem do produto</label><select><option>Fabricação própria</option><option>Revenda</option></select></div></div>
+                <div className="ct-row ct-r1"><div className="ct-field"><label>GTIN tributável</label><input id="ct-prod-gtintrib" placeholder="7898943477996" maxLength={14} /></div></div>
               </div>
             </div>
           </div>

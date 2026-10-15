@@ -73,7 +73,7 @@ export default async function CadastroPage() {
     admin
       .from("catalog_items")
       .select(
-        "id, sku, name, category, active, item_fiscal_data(gtin, ncm, cst_csosn, cest, origem, unit, icms_rate, ipi_rate, weight_kg, weight_gross_kg), item_commercial_data(cost_price, margin_percent, min_stock), item_prices(price, min_quantity, channel)"
+        "id, sku, name, category, active, fabricante, notes, hide_price_table, last_adjusted_at, item_fiscal_data(gtin, ncm, cst_csosn, cest, origem, unit, icms_rate, ipi_rate, weight_kg, weight_gross_kg, cst_pis, cst_cofins, icms_base_pct, cst_ibscbs, cclass_trib, gtin_tributavel), item_commercial_data(cost_price, margin_percent, min_stock), item_prices(price, min_quantity, channel), item_supplier_data(supplier_sku, manufacturer_ref, supplier_name, manufacturer, source_type, source_url, pack_qty, master_qty, gtin_inner, gtin_master, emb_comprimento_cm, emb_altura_cm, emb_largura_cm, emb_peso_kg, master_comprimento_cm, master_altura_cm, master_largura_cm, master_peso_kg)"
       )
       .order("name", { ascending: true }),
     // Bloco 5 passo 3: clientes reais (antes os contadores e a ficha eram fixos)
@@ -151,12 +151,39 @@ export default async function CadastroPage() {
       ipi_rate: number | null;
       weight_kg: number | null;
       weight_gross_kg: number | null;
+      cst_pis: string | null;
+      cst_cofins: string | null;
+      icms_base_pct: number | null;
+      cst_ibscbs: string | null;
+      cclass_trib: string | null;
+      gtin_tributavel: string | null;
     } | null;
     const embC = p.item_commercial_data as unknown;
     const c = (Array.isArray(embC) ? embC[0] : embC) as {
       cost_price: number | null;
       margin_percent: number | null;
       min_stock: number | null;
+    } | null;
+    const embS = p.item_supplier_data as unknown;
+    const sf = (Array.isArray(embS) ? embS[0] : embS) as {
+      supplier_sku: string | null;
+      manufacturer_ref: string | null;
+      supplier_name: string | null;
+      manufacturer: string | null;
+      source_type: string | null;
+      source_url: string | null;
+      pack_qty: number | null;
+      master_qty: number | null;
+      gtin_inner: string | null;
+      gtin_master: string | null;
+      emb_comprimento_cm: number | null;
+      emb_altura_cm: number | null;
+      emb_largura_cm: number | null;
+      emb_peso_kg: number | null;
+      master_comprimento_cm: number | null;
+      master_altura_cm: number | null;
+      master_largura_cm: number | null;
+      master_peso_kg: number | null;
     } | null;
     const precos = (Array.isArray(p.item_prices) ? p.item_prices : []) as {
       price: number;
@@ -187,6 +214,35 @@ export default async function CadastroPage() {
       precoVenda: Number(preco),
       minStock: Number(c?.min_stock ?? 0),
       margemPct: Number(c?.margin_percent ?? 0),
+      // Bloco 2 (0031)
+      fabricante: p.fabricante ?? "",
+      observacoes: p.notes ?? "",
+      cstPis: f?.cst_pis ?? "",
+      cstCofins: f?.cst_cofins ?? "",
+      icmsBasePct: Number(f?.icms_base_pct ?? 100),
+      cstIbsCbs: f?.cst_ibscbs ?? "",
+      cclassTrib: f?.cclass_trib ?? "",
+      gtinTributavel: f?.gtin_tributavel ?? "",
+      fornecedorNome: sf?.supplier_name ?? "",
+      supplierSku: sf?.supplier_sku ?? "",
+      refFabricante: sf?.manufacturer_ref ?? "",
+      packQty: sf?.pack_qty ?? 0,
+      masterQty: sf?.master_qty ?? 0,
+      gtinInner: sf?.gtin_inner ?? "",
+      gtinMaster: sf?.gtin_master ?? "",
+      embComprimento: Number(sf?.emb_comprimento_cm ?? 0),
+      embAltura: Number(sf?.emb_altura_cm ?? 0),
+      embLargura: Number(sf?.emb_largura_cm ?? 0),
+      embPeso: Number(sf?.emb_peso_kg ?? 0),
+      masterComprimento: Number(sf?.master_comprimento_cm ?? 0),
+      masterAltura: Number(sf?.master_altura_cm ?? 0),
+      masterLargura: Number(sf?.master_largura_cm ?? 0),
+      masterPeso: Number(sf?.master_peso_kg ?? 0),
+      sourceUrl: sf?.source_url ?? "",
+      hidePriceTable: p.hide_price_table ?? false,
+      lastAdjustedAt: p.last_adjusted_at
+        ? String(p.last_adjusted_at).slice(0, 10)
+        : "",
     };
   });
 

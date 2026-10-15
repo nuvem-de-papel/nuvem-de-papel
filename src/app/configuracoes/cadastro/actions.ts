@@ -64,6 +64,23 @@ function eanValido(valor: string): boolean {
   return dv === Number(d[d.length - 1]);
 }
 
+// DUN-14 (ITF-14) tem DV proprio calculado sobre 14 digitos - NAO e o mesmo
+// do GTIN-13 embutido (tirar o 1 da esquerda nao bate). Ex.: master
+// 17891027354944 e DUN-14 valido; a raiz 7891027354944 NAO e GTIN-13 valido.
+// Mesma regra da funcao dun14_dv_valido do banco (0031).
+function dun14Valido(valor: string): boolean {
+  const d = digitos(valor);
+  if (!/^[0-9]{14}$/.test(d)) return false;
+  let soma = 0;
+  let peso = 3;
+  for (let i = d.length - 2; i >= 0; i--) {
+    soma += Number(d[i]) * peso;
+    peso = peso === 3 ? 1 : 3;
+  }
+  const dv = (10 - (soma % 10)) % 10;
+  return dv === Number(d[d.length - 1]);
+}
+
 function cnpjValido(valor: string): boolean {
   const c = digitos(valor);
   if (c.length !== 14 || /^(\d)\1{13}$/.test(c)) return false;
@@ -202,6 +219,34 @@ export type ProdutoInput = {
   precoVenda: string;
   minStock: string;
   margemPct: string;
+  // Bloco 2 (0031): campos que antes eram "fantasma" no form - agora gravam.
+  fabricante: string;
+  observacoes: string;
+  cstPis: string;
+  cstCofins: string;
+  icmsBasePct: string;
+  cstIbsCbs: string;
+  cclassTrib: string;
+  gtinTributavel: string;
+  // Bloco 2 (0031): ficha do fornecedor + embalagem (item_supplier_data).
+  fornecedorNome: string;
+  supplierSku: string;
+  refFabricante: string;
+  packQty: string;
+  masterQty: string;
+  gtinInner: string;
+  gtinMaster: string;
+  embComprimento: string;
+  embAltura: string;
+  embLargura: string;
+  embPeso: string;
+  masterComprimento: string;
+  masterAltura: string;
+  masterLargura: string;
+  masterPeso: string;
+  sourceUrl: string;
+  hidePriceTable: boolean;
+  lastAdjustedAt: string;
 };
 
 export async function salvarProduto(input: ProdutoInput): Promise<ResultadoAcao & { id?: string }> {
@@ -218,6 +263,48 @@ export async function salvarProduto(input: ProdutoInput): Promise<ResultadoAcao 
   const origem = digitos(input.origem ?? "") || "0";
   const unit = (input.unit ?? "UN").trim().toUpperCase();
   const cf = (v: string, min: number, max: number) => num(v, min, max);
+
+  // Bloco 2 (0031): campos novos - texto solto, dígitos e números opcionais.
+  const fabricante = (input.fabricante ?? "").trim().slice(0, 80);
+  const observacoes = (input.observacoes ?? "").trim().slice(0, 4000);
+  const cstPis = digitos(input.cstPis ?? "");
+  const cstCofins = digitos(input.cstCofins ?? "");
+  const cstIbsCbs = digitos(input.cstIbsCbs ?? "");
+  const cclassTrib = digitos(input.cclassTrib ?? "");
+  const gtinTrib = digitos(input.gtinTributavel ?? "");
+  const icmsBase = cf(input.icmsBasePct, 0, 100);
+  const hidePriceTable = input.hidePriceTable === true;
+  const lastAdj = (input.lastAdjustedAt ?? "").trim();
+  if (lastAdj && !/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(lastAdj)) {
+    return { ok: false, erro: "Data do último reajuste inválida." };
+  }
+
+  const fornecedorNome = (input.fornecedorNome ?? "").trim().slice(0, 120);
+  const supplierSku = (input.supplierSku ?? "").trim().slice(0, 40);
+  const refFabricante = (input.refFabricante ?? "").trim().slice(0, 40);
+  const gtinInner = digitos(input.gtinInner ?? "");
+  const gtinMaster = digitos(input.gtinMaster ?? "");
+  const sourceUrl = (input.sourceUrl ?? "").trim().slice(0, 500);
+  const packQty = cf(input.packQty, 1, 99999);
+  const masterQty = cf(input.masterQty, 1, 99999);
+  const embComp = cf(input.embComprimento, 0, 9999);
+  const embAlt = cf(input.embAltura, 0, 9999);
+  const embLarg = cf(input.embLargura, 0, 9999);
+  const embPeso = cf(input.embPeso, 0, 99999);
+  const mstComp = cf(input.masterComprimento, 0, 9999);
+  const mstAlt = cf(input.masterAltura, 0, 9999);
+  const mstLarg = cf(input.masterLargura, 0, 9999);
+  const mstPeso = cf(input.masterPeso, 0, 99999);
+
+  if (cstPis && !/^[0-9]{2}$/.test(cstPis)) return { ok: false, erro: "CST PIS precisa de 2 dígitos (ex.: 01, 49)." };
+  if (cstCofins && !/^[0-9]{2}$/.test(cstCofins)) return { ok: false, erro: "CST Cofins precisa de 2 dígitos (ex.: 01, 49)." };
+  if (cstIbsCbs && !/^[0-9]{3}$/.test(cstIbsCbs)) return { ok: false, erro: "CST IBS/CBS precisa de 3 dígitos." };
+  if (cclassTrib && !/^[0-9]{6}$/.test(cclassTrib)) return { ok: false, erro: "cClassTrib precisa de 6 dígitos." };
+  if (gtinTrib && !eanValido(gtinTrib)) return { ok: false, erro: "GTIN tributável inválido: DV não confere (8 ou 13 dígitos)." };
+  if (gtinInner && !eanValido(gtinInner)) return { ok: false, erro: "GTIN da embalagem (inner) inválido: DV não confere." };
+  if (gtinMaster && !dun14Valido(gtinMaster) && !eanValido(gtinMaster)) {
+    return { ok: false, erro: "GTIN master inválido: confira o DUN-14 (14 dígitos) ou GTIN-13 (13)." };
+  }
 
   if (!/^[A-Za-z0-9._-]{2,40}$/.test(sku)) {
     return { ok: false, erro: "Código interno (SKU) inválido: use 2-40 letras/números, . _ -" };
@@ -242,7 +329,8 @@ export async function salvarProduto(input: ProdutoInput): Promise<ResultadoAcao 
   const margem = cf(input.margemPct, 0, 9999);
   if (
     icms === null || ipi === null || pesoLiq === null || pesoBru === null ||
-    custo === null || venda === null || minStock === null || margem === null
+    custo === null || venda === null || minStock === null || margem === null ||
+    icmsBase === null
   ) {
     return { ok: false, erro: "Confira preço, estoque, tributos e pesos (valores fora do intervalo)." };
   }
@@ -255,7 +343,12 @@ export async function salvarProduto(input: ProdutoInput): Promise<ResultadoAcao 
   if (itemId) {
     const { error } = await admin
       .from("catalog_items")
-      .update({ sku, name: nome, category: categoria || null, active: input.ativo })
+      .update({
+        sku, name: nome, category: categoria || null, active: input.ativo,
+        fabricante: fabricante || null, notes: observacoes || null,
+        hide_price_table: hidePriceTable,
+        last_adjusted_at: lastAdj || null,
+      })
       .eq("id", itemId);
     if (error) {
       if (/duplicate/i.test(error.message)) return { ok: false, erro: "Já existe produto com este código interno." };
@@ -270,6 +363,10 @@ export async function salvarProduto(input: ProdutoInput): Promise<ResultadoAcao 
         name: nome,
         category: categoria || null,
         active: input.ativo,
+        fabricante: fabricante || null,
+        notes: observacoes || null,
+        hide_price_table: hidePriceTable,
+        last_adjusted_at: lastAdj || null,
       })
       .select("id")
       .single();
@@ -292,12 +389,66 @@ export async function salvarProduto(input: ProdutoInput): Promise<ResultadoAcao 
     ipi_rate: ipi,
     weight_kg: pesoLiq,
     weight_gross_kg: pesoBru,
+    // Bloco 2 (0031)
+    cst_pis: cstPis || null,
+    cst_cofins: cstCofins || null,
+    icms_base_pct: icmsBase,
+    cst_ibscbs: cstIbsCbs || null,
+    cclass_trib: cclassTrib || null,
+    gtin_tributavel: gtinTrib || null,
   });
   if (errFiscal) {
     if (/duplicate/i.test(errFiscal.message)) {
       return { ok: false, erro: "Este GTIN já está cadastrado em outro produto." };
     }
     return { ok: false, erro: `Falha nos dados fiscais: ${errFiscal.message}` };
+  }
+
+  // Bloco 2 (0031): ficha do fornecedor + embalagem. So grava se veio alguma
+  // coisa (fornecedor nome, sku do fornecedor ou embalagem) - senao nao cria
+  // linha vazia. supplier_id fica null por enquanto (o fornecedor ainda e
+  // cadastrado em /compras); o nome do site fica em supplier_name p/ rastrear.
+  const temFichaForn =
+    !!fornecedorNome || !!supplierSku || !!refFabricante ||
+    packQty !== null || masterQty !== null || !!gtinInner || !!gtinMaster ||
+    embComp !== null || embAlt !== null || embLarg !== null || embPeso !== null ||
+    mstComp !== null || mstAlt !== null || mstLarg !== null || mstPeso !== null;
+
+  if (temFichaForn) {
+    // upsert por (item_id): a ficha do fornecedor e 1 por produto por ora.
+    const { data: fornExistente } = await admin
+      .from("item_supplier_data")
+      .select("id")
+      .eq("item_id", itemId)
+      .maybeSingle();
+
+    const fichaForn = {
+      tenant_id: NUVEM_DE_PAPEL_TENANT_ID,
+      item_id: itemId,
+      supplier_name: fornecedorNome || null,
+      supplier_sku: supplierSku || null,
+      manufacturer_ref: refFabricante || null,
+      manufacturer: fabricante || null,
+      source_type: sourceUrl ? "reval" : "manual",
+      source_url: sourceUrl || null,
+      pack_qty: packQty !== null ? Math.floor(packQty) : null,
+      master_qty: masterQty !== null ? Math.floor(masterQty) : null,
+      gtin_inner: gtinInner || null,
+      gtin_master: gtinMaster || null,
+      emb_comprimento_cm: embComp,
+      emb_altura_cm: embAlt,
+      emb_largura_cm: embLarg,
+      emb_peso_kg: embPeso,
+      master_comprimento_cm: mstComp,
+      master_altura_cm: mstAlt,
+      master_largura_cm: mstLarg,
+      master_peso_kg: mstPeso,
+    };
+
+    const errFich = fornExistente
+      ? (await admin.from("item_supplier_data").update(fichaForn).eq("id", fornExistente.id)).error
+      : (await admin.from("item_supplier_data").insert(fichaForn)).error;
+    if (errFich) return { ok: false, erro: `Falha na ficha do fornecedor: ${errFich.message}` };
   }
 
   const { error: errCom } = await admin.from("item_commercial_data").upsert({
@@ -360,6 +511,100 @@ export async function salvarProduto(input: ProdutoInput): Promise<ResultadoAcao 
   revalidatePath("/configuracoes/cadastro");
   revalidatePath("/produtos");
   return { ok: true, id: itemId ?? undefined };
+}
+
+// ---------------------------------------------------------------------------
+// Bloco 2 (0031): importar cadastro de produto por link do fornecedor (Reval).
+// Roda no SERVIDOR (Node faz fetch livre de CORS; o browser bloquearia). O
+// form cola o link -> esta action busca a pagina -> parseia (lib defensiva,
+// sem cheerio) -> devolve JSON ja preenchido pro form. NAO grava nada: o
+// usuario revisa e clica Salvar (salvarProduto persiste).
+//
+// O unico campo que o Reval nao da e o PRECO (restrito a login de CNPJ).
+// Peso e dimensoes vem por EMBALAGEM e por MASTER; o peso unitario e calculado
+// aqui (peso emb / qtd emb).
+// ---------------------------------------------------------------------------
+export type ProdutoImportado = {
+  sku: string;
+  nome: string;
+  categoria: string;
+  ncm: string;
+  cest: string;
+  origem: string;
+  gtin: string;
+  pesoBruto: string;
+  fornecedorNome: string;
+  fabricante: string;
+  observacoes: string;
+  supplierSku: string;
+  refFabricante: string;
+  packQty: string;
+  masterQty: string;
+  gtinInner: string;
+  gtinMaster: string;
+  embComprimento: string;
+  embAltura: string;
+  embLargura: string;
+  embPeso: string;
+  masterComprimento: string;
+  masterAltura: string;
+  masterLargura: string;
+  masterPeso: string;
+  sourceUrl: string;
+};
+
+export async function importarProdutoFornecedor(
+  url: string
+): Promise<ResultadoAcao & { produto?: ProdutoImportado }> {
+  const gestor = await gestaoAtual();
+  if (!gestor) return { ok: false, erro: "Sem permissão para esta ação." };
+
+  const { importarProdutoReval } = await import("@/lib/fornecedor-import");
+  const r = await importarProdutoReval(url);
+  if (!r.ok) return { ok: false, erro: r.erro };
+
+  const p = r.produto;
+  const s = (v: string | null) => (v ?? "").trim();
+  const n = (v: number | null) => (v === null || v === undefined ? "" : String(v).replace(".", ","));
+
+  // SKU interno: sugere "REV-<codigo>" pra nao colidir com o codigo do
+  // fornecedor; usuario pode editar antes de salvar.
+  const sku = p.codigo ? `REV-${p.codigo}` : "";
+
+  return {
+    ok: true,
+    aviso: p.pesoUnitarioKg
+      ? `Importado. Peso unitário calculado: ${n(p.pesoUnitarioKg)} kg (${n(p.pesoEmbalagemKg)} ÷ ${p.qtdEmbalagem}). Preço não vem do site (restrito a CNPJ) — preencha à mão.`
+      : "Importado. Preço não vem do site (restrito a CNPJ) — preencha à mão.",
+    produto: {
+      sku,
+      nome: s(p.nome),
+      categoria: s(p.categoria),
+      ncm: s(p.ncm),
+      cest: s(p.cest),
+      origem: p.origem ?? "0",
+      gtin: s(p.gtinUnitario),
+      pesoBruto: n(p.pesoUnitarioKg ?? p.pesoEmbalagemKg),
+      fornecedorNome: s(p.fornecedor),
+      fabricante: s(p.fabricante),
+      observacoes: s(p.descricao),
+      supplierSku: s(p.codigo),
+      refFabricante: s(p.refFabricante),
+      packQty: p.qtdEmbalagem ? String(p.qtdEmbalagem) : "",
+      masterQty: p.qtdMaster ? String(p.qtdMaster) : "",
+      gtinInner: s(p.gtinEmbalagem),
+      gtinMaster: s(p.gtinMaster),
+      embComprimento: n(p.embComprimentoCm),
+      embAltura: n(p.embAlturaCm),
+      embLargura: n(p.embLarguraCm),
+      embPeso: n(p.pesoEmbalagemKg),
+      masterComprimento: n(p.masterComprimentoCm),
+      masterAltura: n(p.masterAlturaCm),
+      masterLargura: n(p.masterLarguraCm),
+      masterPeso: n(p.pesoMasterKg),
+      sourceUrl: url.trim(),
+    },
+  };
 }
 
 // ---------------------------------------------------------------------------
