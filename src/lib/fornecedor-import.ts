@@ -204,9 +204,12 @@ function extrairDetalhes(html: string): string | null {
 }
 
 // imagem principal do produto: o Reval serve ela em /imagem/produtos/{g|m|pp}/
-// {codigo}[sufixo].jpg - "g" = 1200px (a galeria, a melhor pro cadastro), "m" =
-// media, "pp" = miniatura de 54px (NAO serve). Ordem verificada na pagina real
-// do 080000 (15/10/2026): so existem "g" e "pp" - por isso "g" vem primeiro.
+// {codigo}[sufixo].jpg - "m" = media (a do cadastro), "pp" = miniatura de 54px
+// (NAO serve), "g" = 1200px (aparece so no HTML renderizado por JS, nao vem no
+// fetch cru do servidor). Por isso a ordem e g -> m -> pp: no HTML cru achamos
+// "m" (080000, 15/10/2026) e "g" fica pronto pro caso de o site passar a
+// servi-la direto. O fallback monta /m/{codigo}.jpg - as 3 URLs (g/m/pp) do
+// codigo sem sufixo retornam 200, entao o fallback nao gera link quebrado.
 function extrairFoto(html: string, codigo: string | null): string | null {
   const acharImg = (dir: string) => {
     const re = new RegExp(
