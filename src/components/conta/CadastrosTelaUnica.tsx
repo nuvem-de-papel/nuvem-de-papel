@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { criarFornecedor } from "@/app/compras/actions";
 import { alternarStatus } from "@/app/configuracoes/usuarios/actions";
@@ -19,7 +19,6 @@ const UFS = [
   "AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG","PA","PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO",
 ];
 
-const SETORES_INICIAIS = ["Cadernos", "Canetas", "Adesivos", "Papelaria", "Escrita"];
 const FORNECEDORES_INICIAIS = ["Papelaria Central Ltda", "Distribuidora Papel & Arte", "Gráfica São José"];
 
 const GTIN_DB: Record<string, Record<string, string>> = {
@@ -520,9 +519,20 @@ export function CadastrosTelaUnica({
     produto: "obs",
     empresa: "danfe",
   });
-  const [setores, setSetores] = useState(SETORES_INICIAIS);
+  // Setores: a lista DERIVA dos produtos cadastrados (catalog_items.category,
+  // page.tsx select) — não existe cadastro separado de setor. O que você digitar
+  // aqui novo vai para category no Salvar e o router.refresh() pós-salvamento
+  // já devolve a lista com ele.
+  const setores = useMemo(() => {
+    const vistos = new Set<string>();
+    for (const p of produtos) {
+      const c = p.categoria.trim();
+      if (c) vistos.add(c);
+    }
+    return [...vistos].sort((a, b) => a.localeCompare(b, "pt-BR"));
+  }, [produtos]);
   const [fornecedores, setFornecedores] = useState(FORNECEDORES_INICIAIS);
-  const [setorQ, setSetorQ] = useState(SETORES_INICIAIS[0]);
+  const [setorQ, setSetorQ] = useState(setores[0] ?? "");
   const [skuQ, setSkuQ] = useState(produtos[0]?.sku ?? "");
   const [prodId, setProdId] = useState<string | null>(produtos[0]?.id ?? null);
   const [fornQ, setFornQ] = useState(FORNECEDORES_INICIAIS[0]);
@@ -1303,7 +1313,7 @@ export function CadastrosTelaUnica({
               </div>
               <div className="ct-row ct-r4-forn">
                 <div className="ct-field ct-ac">
-                  <label>Setor/Cadastrar</label>
+                  <label>Setor</label>
                   <input
                     autoComplete="off"
                     value={setorQ}
@@ -1318,7 +1328,7 @@ export function CadastrosTelaUnica({
                     ))}
                     {setorQ.trim() && !setores.some((v) => v.toLowerCase() === setorQ.trim().toLowerCase()) && (
                       <li className="ct-ac-new">
-                        <button className="ct-ac-new-btn" onMouseDown={(e) => { e.preventDefault(); const v = setorQ.trim(); setSetores((s) => [...s, v]); setSetorQ(v); setAcAberto(null); }}>Cadastrar</button>
+                        <span className="ct-ac-empty">Setor novo — grave o produto e ele entra na lista</span>
                       </li>
                     )}
                   </ul>
