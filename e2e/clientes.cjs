@@ -91,7 +91,7 @@ async function temTexto(page, texto, timeout = 15000) {
 async function statusCom(page, texto, timeout = 15000) {
   try {
     await page
-      .locator('p[role="status"]')
+      .locator('p[role="status"], p[role="alert"]')
       .filter({ hasText: texto })
       .first()
       .waitFor({ state: "attached", timeout });
@@ -103,7 +103,7 @@ async function statusCom(page, texto, timeout = 15000) {
 
 function feedbackAtual(page) {
   return page
-    .$$eval('p[role="status"]', (els) => els.map((e) => e.innerText).join(" | "))
+    .$$eval('p[role="status"], p[role="alert"]', (els) => els.map((e) => e.innerText).join(" | "))
     .catch(() => "");
 }
 

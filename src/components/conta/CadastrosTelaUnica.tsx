@@ -230,6 +230,7 @@ const css = String.raw`
 .ct-feed{font-size:.8rem;margin:12px 0 0;padding:8px 12px;border-radius:8px}
 .ct-feed.ok{background:rgba(44,156,72,.1);color:#2C9C48}
 .ct-feed.err{background:rgba(224,31,39,.08);color:#E01F27}
+.ct-feed-topo{margin:12px 22px 0}
 .ct-pill.bad{background:rgba(224,31,39,.1);color:#E01F27;border-color:transparent}
 .ct-pill.wait{background:rgba(246,133,31,.12);color:#a85d13;border-color:transparent}
 `;
@@ -468,6 +469,22 @@ export function CadastrosTelaUnica({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tela]);
+
+  // Importador por link: atalho interno Ctrl+Shift+[ mostra/esconde o bloco.
+  // Nada na tela menciona o recurso — é ferramenta de quem faz o cadastro.
+  const [mostrarImport, setMostrarImport] = useState(false);
+  useEffect(() => {
+    const atalhoImport = (e: KeyboardEvent) => {
+      // e.code cobre "[" e "{" (com Shift a tecla vira "{")
+      if (e.ctrlKey && e.shiftKey && e.code === "BracketLeft") {
+        e.preventDefault();
+        setMostrarImport((v) => !v);
+      }
+    };
+    window.addEventListener("keydown", atalhoImport);
+    return () => window.removeEventListener("keydown", atalhoImport);
+  }, []);
+
   const [modal, setModal] = useState<null | "cliente" | "fornecedor">(null);
   const [tipoForn, setTipoForn] = useState<"pj" | "pf">("pj");
   const [fornAddr, setFornAddr] = useState(false);
@@ -963,6 +980,14 @@ export function CadastrosTelaUnica({
     });
   }
 
+  // Aviso da tela (erro ou ok): sempre no TOPO da janela, como banner avulso.
+  // A barra de status do rodapé fica só com a dica estática.
+  const avisoTopo = feedback ? (
+    <p className={`ct-feed ct-feed-topo ${feedback.tipo}`} role="alert">
+      {feedback.texto}
+    </p>
+  ) : null;
+
   const telaCliente = (
     <div className="ct-screen">
       <div className="ct-window">
@@ -976,6 +1001,8 @@ export function CadastrosTelaUnica({
           <button className="ct-act primary" aria-label="Salvar cliente" disabled={salvando} onClick={salvarClienteUI}>{iconeCheck}{salvando ? "Salvando..." : "Salvar"}</button>
           <span className="ct-pill">{cliId ? `Cód. ${cliId.slice(0, 6).toUpperCase()}` : "novo"}</span>
         </div>
+
+        {avisoTopo}
 
         <div className="ct-grid">
           <div className="ct-main">
@@ -1155,10 +1182,6 @@ export function CadastrosTelaUnica({
           </div>
         </div>
 
-        {feedback && (
-          <p className={`ct-feed ${feedback.tipo}`} role="status">{feedback.texto}</p>
-        )}
-
         <div className="ct-status">
           <span>Obrigatórios: nome e e-mail (o e-mail identifica o cliente e não se repete). Telefone, endereço e observações gravam a partir da migration 0029 — o CEP preenche o endereço sozinho.</span>
         </div>
@@ -1185,22 +1208,28 @@ export function CadastrosTelaUnica({
           <span className="ct-pill strong">{produtos.length} produtos</span>
         </div>
 
+        {avisoTopo}
+
         <div className="ct-grid">
           <div className="ct-main">
             <div className="ct-grp">
-              <div className="ct-row ct-r4">
-                <div className="ct-field" style={{ gridColumn: "span 2" }}><label>Descrição do produto<span className="ct-req">*</span></label><input id="ct-prod-descricao" placeholder="Nome do produto" /></div>
-                <div className="ct-field" style={{ gridColumn: "span 2" }}>
-                  <label>Importar do fornecedor <span className="ct-hint">cola o link e preenche tudo</span></label>
-                  <div style={{ display: "flex", gap: 6 }}>
-                    <input id="ct-prod-link" placeholder="https://...reval.net/produto/..." style={{ flex: 1 }} />
-                    <button className="ct-act" onClick={importarProdutoUI} disabled={salvando} style={{ whiteSpace: "nowrap" }}>{iconeFoto}Importar</button>
+              {/* importador: só aparece com o atalho Ctrl+Shift+[ */}
+              {mostrarImport && (
+                <div className="ct-row ct-r2">
+                  <div className="ct-field" style={{ gridColumn: "span 2" }}>
+                    <label>Importar do fornecedor <span className="ct-hint">cola o link e preenche tudo</span></label>
+                    <div style={{ display: "flex", gap: 6 }}>
+                      <input id="ct-prod-link" placeholder="https://...reval.net/produto/..." style={{ flex: 1 }} />
+                      <button className="ct-act" onClick={importarProdutoUI} disabled={salvando} style={{ whiteSpace: "nowrap" }}>{iconeFoto}Importar</button>
+                    </div>
                   </div>
                 </div>
-              </div>
-              <div className="ct-row ct-r3">
+              )}
+              <div className="ct-row" style={{ gridTemplateColumns: "1.1fr 2fr 1.1fr" }}>
+                <div className="ct-field"><label>Código de barras (GTIN)</label><input id="ct-prod-gtin" defaultValue="7898943477996" maxLength={14} onChange={(e) => (e.target.value = somenteDigitos(e.target.value, 14))} onBlur={onGtin} /><div className="ct-doc-msg" /></div>
+                <div className="ct-field"><label>Descrição do produto<span className="ct-req">*</span></label><input id="ct-prod-descricao" placeholder="Nome do produto" /></div>
                 <div className="ct-field ct-ac">
-                  <label>Código interno <span className="ct-hint">busca ou cria</span></label>
+                  <label>Código interno</label>
                   <input
                     id="ct-prod-sku"
                     autoComplete="off"
@@ -1218,10 +1247,9 @@ export function CadastrosTelaUnica({
                   </ul>
                 </div>
               </div>
-              <div className="ct-row ct-r3">
-                <div className="ct-field"><label>Código de barras (GTIN) <span className="ct-hint">busca automática</span></label><input id="ct-prod-gtin" defaultValue="7898943477996" maxLength={14} onChange={(e) => (e.target.value = somenteDigitos(e.target.value, 14))} onBlur={onGtin} /><div className="ct-doc-msg" /></div>
+              <div className="ct-row ct-r4">
                 <div className="ct-field ct-ac">
-                  <label>Setor <span className="ct-hint">busca ou cadastra na hora</span></label>
+                  <label>Setor/Cadastrar</label>
                   <input
                     autoComplete="off"
                     value={setorQ}
@@ -1242,7 +1270,7 @@ export function CadastrosTelaUnica({
                   </ul>
                 </div>
                 <div className="ct-field ct-ac">
-                  <label>Fornecedor <span className="ct-hint">busca ou cadastra na hora</span></label>
+                  <label>Fornecedor/Cadastra</label>
                   <input
                     autoComplete="off"
                     value={fornQ}
@@ -1262,8 +1290,6 @@ export function CadastrosTelaUnica({
                     )}
                   </ul>
                 </div>
-              </div>
-              <div className="ct-row ct-r2">
                 <div className="ct-field"><label>Fabricante</label><input id="ct-prod-fabricante" placeholder="Ex.: Tilibra" /></div>
                 <div className="ct-field">
                   <label>Unidade</label>
@@ -1383,11 +1409,7 @@ export function CadastrosTelaUnica({
         </div>
 
         <div className="ct-status">
-          {feedback ? (
-            <span className={`ct-feed ${feedback.tipo}`} role="status">{feedback.texto}</span>
-          ) : (
-            <span>GTIN, NCM e tributos são validados no servidor e no banco antes de gravar.</span>
-          )}
+          <span>GTIN, NCM e tributos são validados no servidor e no banco antes de gravar.</span>
         </div>
       </div>
     </div>
@@ -1405,6 +1427,8 @@ export function CadastrosTelaUnica({
           <span className="ct-spacer" />
           <span className="ct-pill ok">Homologação ok</span>
         </div>
+
+        {avisoTopo}
 
         <div className="ct-grid ct-eq">
           <div className="ct-main">
@@ -1544,11 +1568,7 @@ export function CadastrosTelaUnica({
         </div>
 
         <div className="ct-status">
-          {feedback ? (
-            <span className={`ct-feed ${feedback.tipo}`} role="status">{feedback.texto}</span>
-          ) : (
-            <span>Dados salvos no servidor — nenhum certificado ou CSC real aparece aqui.</span>
-          )}
+          <span>Dados salvos no servidor — nenhum certificado ou CSC real aparece aqui.</span>
         </div>
       </div>
     </div>
@@ -1611,6 +1631,8 @@ export function CadastrosTelaUnica({
             {fornecedoresReais.length} cadastrado{fornecedoresReais.length === 1 ? "" : "s"}
           </span>
         </div>
+
+        {avisoTopo}
 
         <div className="ct-sec">
           <div className="ct-sec-title">
@@ -1696,11 +1718,6 @@ export function CadastrosTelaUnica({
                 {salvando ? "Salvando..." : "Cadastrar fornecedor"}
               </button>
             </div>
-            {feedback && (
-              <p className={`ct-feed ${feedback.tipo}`} role="status">
-                {feedback.texto}
-              </p>
-            )}
           </form>
         </div>
       </div>
@@ -1720,6 +1737,8 @@ export function CadastrosTelaUnica({
             {revendas.length} revenda{revendas.length === 1 ? "" : "s"}
           </span>
         </div>
+
+        {avisoTopo}
 
         <div className="ct-sec">
           <div className="ct-sec-title">
@@ -1791,11 +1810,6 @@ export function CadastrosTelaUnica({
                 ))}
               </tbody>
             </table>
-          )}
-          {feedback && (
-            <p className={`ct-feed ${feedback.tipo}`} role="status">
-              {feedback.texto}
-            </p>
           )}
         </div>
       </div>

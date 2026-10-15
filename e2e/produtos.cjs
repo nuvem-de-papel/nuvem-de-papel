@@ -6,8 +6,10 @@
  * GTIN tributavel, observacoes, nao-imprimir-preco, data reajuste) e a
  * ficha do fornecedor/embalagem (item_supplier_data: codigo fornecedor, ref
  * fabricante, qtd emb/master, GTIN inner/master, dimensoes e pesos emb e
- * master). GTIN master DUN-14 com DV errado e bloqueado no servidor. O botao
- * Importar sem link avisa. Cleanup/restaura o catalogo anterior. */
+ * master). GTIN master DUN-14 com DV errado e bloqueado no servidor. O
+ * importador por link fica OCULTO na tela e so abre com Ctrl+Shift+[ (o
+ * botao Importar sem link avisa) e o aviso sai no TOPO (ct-feed-topo).
+ * Cleanup/restaura o catalogo anterior. */
 const { chromium } = require("playwright-core");
 const { createClient } = require("@supabase/supabase-js");
 const fs = require("fs");
@@ -78,11 +80,18 @@ async function main() {
     await page.getByRole("heading", { name: "Cadastro de produto" }).waitFor({ timeout: 15000 });
     check("P1 abre a tela de produto", true);
 
-    // Importar sem link -> avisa (nao chama rede)
+    // importador oculto: some da tela e so abre com o atalho Ctrl+Shift+[
     await page.getByRole("button", { name: "Incluir" }).click();
-    await page.getByRole("button", { name: "Importar" }).click();
+    check("P2a Importar oculto por padrao", (await page.getByRole("button", { name: "Importar" }).count()) === 0);
+    await page.keyboard.press("Control+Shift+[");
+    // Importar sem link -> avisa (nao chama rede) e o aviso sai no TOPO
+    await page.getByRole("button", { name: "Importar" }).click({ timeout: 10000 });
     const feedSemLink = await esperarFeed(page, "Cole o link");
     check("P2 Importar sem link avisa", feedSemLink.includes("Cole o link"), feedSemLink.trim());
+    check(
+      "P2b aviso no topo da tela (fora da barra de status)",
+      (await page.locator(".ct-feed.ct-feed-topo").count()) === 1 && (await page.locator(".ct-status .ct-feed").count()) === 0
+    );
 
     // GTIN master DUN-14 com DV errado -> bloqueado no servidor
     await page.fill("#ct-prod-descricao", "Produto E2E Bloco 2");
