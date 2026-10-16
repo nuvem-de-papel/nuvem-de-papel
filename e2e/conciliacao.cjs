@@ -335,6 +335,27 @@ async function main() {
       JSON.stringify(posConc2)
     );
 
+    // O agir() do ConsoleConciliacao mostra o toast e SO DEPOIS chama
+    // router.refresh(), sem aguarda-lo (ConsoleConciliacao.tsx:245-253). Ou
+    // seja: quando o toast aparece a lista do servidor ainda esta VELHA. Os
+    // 300ms fixos do F1 nao davam tempo do RSC aterrissar (a pagina faz 5
+    // queries em paralelo) e o filtro media estado antigo - falhava 2x seguidas
+    // com 5 pendentes no banco ja conciliada. Espera a UI refletir a acao.
+    const uiConciliou = await page
+      .waitForFunction(
+        (rotulo) => {
+          const alvo = [...document.querySelectorAll('section[aria-label="Linhas do extrato"] tbody tr')].find((tr) =>
+            (tr.textContent || "").includes(rotulo)
+          );
+          return !!alvo && !!alvo.querySelector('button[aria-label^="Desconciliar linha"]');
+        },
+        `Pagamento fornecedor E2E ${TS}`,
+        { timeout: 15000 }
+      )
+      .then(() => true)
+      .catch(() => false);
+    check("E8b UI aterrissou o refresh (linha ja aparece como conciliada)", uiConciliou);
+
     // ==================================================== F. filtros
     await page.selectOption('select[aria-label="Status das linhas"]', "pendentes");
     await page.waitForTimeout(300);

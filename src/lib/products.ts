@@ -8,6 +8,8 @@ export type VarejoProduct = {
   price: number;
   /** null = item sem controle de estoque (ilimitado); 0 = esgotado. */
   estoque: number | null;
+  /** Foto real do produto (0032, catalog_items.foto_url). null = sem foto. */
+  fotoUrl: string | null;
 };
 
 type ItemPriceWithCatalogItem = {
@@ -19,6 +21,7 @@ type ItemPriceWithCatalogItem = {
     name: string;
     category: string | null;
     active: boolean;
+    foto_url: string | null;
     item_stock_public: { stock_available: number } | null;
   };
 };
@@ -48,7 +51,7 @@ export async function getStoreProducts(): Promise<VarejoProduct[]> {
   const { data, error } = await supabase
     .from("item_prices")
     .select(
-      "price, min_quantity, valid_from, valid_until, catalog_items!inner(id, sku, name, category, active, item_stock_public(stock_available))"
+      "price, min_quantity, valid_from, valid_until, catalog_items!inner(id, sku, name, category, active, foto_url, item_stock_public(stock_available))"
     )
     .eq("channel", channel)
     .eq("catalog_items.active", true)
@@ -76,6 +79,7 @@ export async function getStoreProducts(): Promise<VarejoProduct[]> {
       estoque: item.item_stock_public
         ? Number(item.item_stock_public.stock_available)
         : null,
+      fotoUrl: item.foto_url,
     });
   }
   return [...porItem.values()];

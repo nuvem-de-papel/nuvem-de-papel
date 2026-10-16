@@ -70,6 +70,23 @@ async function main() {
     .eq("sku", SKU_PROD)
     .maybeSingle();
 
+  // se uma rodada anterior morreu no meio (crash), o lixo dela faz o P3/P4
+  // falharem por SKU duplicado e o P9a por fornecedor ja existente - limpa
+  // aqui para a suíte comecar sempre do zero, igual a limpeza final.
+  if (antes) {
+    const { data: recsLixo } = await admin.from("purchase_receipts").select("id").like("code", "REC-E2E-0033-%");
+    const idsRec = (recsLixo ?? []).map((r) => r.id);
+    if (idsRec.length) {
+      await admin.from("purchase_receipt_items").delete().in("receipt_id", idsRec);
+      await admin.from("purchase_receipts").delete().in("id", idsRec);
+    }
+    const { data: poisLixo } = await admin.from("purchase_order_items").select("id").eq("sku_snapshot", SKU_PROD);
+    if (poisLixo?.length) await admin.from("purchase_order_items").delete().in("id", poisLixo.map((p) => p.id));
+    await admin.from("purchase_orders").delete().like("code", "E2E-0033-%");
+    await admin.from("suppliers").delete().like("name", "FORN E2E 0033 %");
+    await admin.from("catalog_items").delete().eq("id", antes.id);
+  }
+
   const browser = await chromium.launch({ channel: "msedge", headless: true });
   try {
     const page = await browser.newPage();
@@ -390,6 +407,78 @@ async function main() {
         JSON.stringify(fin9)
       );
     }
+
+    // 0032: a foto cadastrada chega na VITRINE. ProductImage usa a URL real
+    // quando existe e volta pra ilustrativa da categoria quando nao existe.
+    // A rota intercepta o host do fornecedor e devolve um PNG: o teste nao
+    // depende da rede nem do Reval estar no ar (e sem o intercept o onError
+    // trocaria o src na hora, tornando a assercao uma corrida).
+    const FOTO_REVAL = "https://www.reval.net/imagem/produtos/g/114148.jpg";
+    const PNG_1PX = Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+      "base64"
+    );
+
+    await page.getByRole("button", { name: /Outros/ }).click();
+    await page.fill("#ct-prod-foto", FOTO_REVAL);
+    const fotoPreenchida = await page.inputValue("#ct-prod-foto");
+    await page.getByRole("button", { name: "Salvar" }).click();
+    // o feed do salvamento anterior ainda esta na tela (texto identico), entao
+    // espera a acao de servidor terminar de vez em vez de so o texto aparecer
+    await page.waitForLoadState("networkidle", { timeout: 20000 }).catch(() => {});
+    const feedDepois = ((await page.locator(".ct-feed").textContent()) || "").trim();
+
+    const { data: fotoBd } = await admin
+      .from("catalog_items")
+      .select("foto_url")
+      .eq("id", item?.id)
+      .maybeSingle();
+    check(
+      "P10a campo Foto (URL) gravou em catalog_items.foto_url",
+      fotoBd?.foto_url === FOTO_REVAL,
+      `campo="${fotoPreenchida}" bd=${JSON.stringify(fotoBd?.foto_url)} feed="${feedDepois}"`
+    );
+
+    await page.route("https://www.reval.net/**", (route) =>
+      route.fulfill({ status: 200, contentType: "image/png", body: PNG_1PX })
+    );
+    // roda DESLOGADO de proposito: o visitante da vitrine nao tem sessao, e o
+    // caminho do dado (storefront -> RLS do anon) e diferente do do admin.
+    await page.context().clearCookies();
+    await page.goto(BASE + "/produtos", { waitUntil: "domcontentloaded" });
+    let srcRemoto = null;
+    try {
+      srcRemoto = await page
+        .locator(`img[src="${FOTO_REVAL}"]`)
+        .first()
+        .getAttribute("src", { timeout: 15000 });
+    } catch {
+      srcRemoto = null; // nao apareceu - o check abaixo reporta em vez de abortar
+    }
+    check("P10b vitrine renderiza a foto REAL do produto", srcRemoto === FOTO_REVAL, String(srcRemoto));
+
+    // sem foto cadastrada -> ilustrativa da categoria ("bloco" casa caderno.jpg)
+    await admin.from("catalog_items").update({ foto_url: null }).eq("id", item?.id);
+    await page.reload({ waitUntil: "domcontentloaded" });
+    const srcIlustrativa = await page.evaluate((nome) => {
+      const folhas = [...document.querySelectorAll("div")].filter(
+        (d) => d.children.length === 0 && d.textContent.trim() === nome
+      );
+      for (const folha of folhas) {
+        let no = folha;
+        while (no && no !== document.body) {
+          const img = no.querySelector?.("img");
+          if (img) return img.getAttribute("src") || "";
+          no = no.parentElement;
+        }
+      }
+      return "card nao encontrado";
+    }, "Produto E2E Bloco 2");
+    check(
+      "P10c sem foto cadastrada a vitrine volta pra ilustrativa",
+      /^\/produtos\/.+\.(jpe?g|png|svg)$/i.test(srcIlustrativa),
+      srcIlustrativa
+    );
 
     // limpeza do fixture (na ordem das FKs) - antes de apagar o catalog_items,
     // porque purchase_order_items referencia o item sem cascade

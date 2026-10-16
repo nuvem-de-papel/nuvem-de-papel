@@ -78,20 +78,34 @@ const DEFAULT_ICON: ReactNode = (
   </>
 );
 
+/* Mesma regra do servidor (cadastro/actions.ts:287): so https + extensao de
+ * imagem. Aqui e defesa em profundidade - o banco ja tem o check da 0032. */
+const FOTO_REMOTA_OK = /^https:\/\/\S+\.(jpg|jpeg|png|webp)(\?\S*)?$/i;
+
 export function ProductImage({
   category,
   name,
+  fotoUrl,
   style,
   iconSize = 64,
 }: {
   category?: string | null;
   name?: string | null;
+  /** Foto real do produto (0032). Invalida ou quebrada => ilustrativa. */
+  fotoUrl?: string | null;
   style?: CSSProperties;
   iconSize?: number;
 }) {
   const [falhou, setFalhou] = useState(false);
+  // foto remota que nao carrega cai na ilustrativa da categoria (e nao no
+  // placeholder SVG): o visitante pelo menos ve uma imagem de papelaria.
+  const [falhouRemota, setFalhouRemota] = useState(false);
   const key = `${category ?? ""} ${name ?? ""}`.toLowerCase();
-  const foto = FOTOS.find((f) => f.match.test(key)) ?? FOTO_PADRAO;
+  const urlRemota = (fotoUrl ?? "").trim();
+  const usaRemota = !falhouRemota && FOTO_REMOTA_OK.test(urlRemota);
+  const foto = usaRemota
+    ? { src: urlRemota, alt: name || category || "Foto do produto" }
+    : (FOTOS.find((f) => f.match.test(key)) ?? FOTO_PADRAO);
   const icon = ICONS.find((i) => i.match.test(key));
 
   return (
@@ -126,7 +140,7 @@ export function ProductImage({
           src={foto.src}
           alt={foto.alt}
           loading="lazy"
-          onError={() => setFalhou(true)}
+          onError={() => (usaRemota ? setFalhouRemota(true) : setFalhou(true))}
           style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
         />
       )}
