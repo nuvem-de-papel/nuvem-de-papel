@@ -218,6 +218,73 @@ export function templatePedidoPago(
   };
 }
 
+// avisos de status do pedido (F4 logística / entrega 2 "Notificação automática
+// de clientes"): um template por transição de orders.status. Best-effort e
+// mensagens de serviço — só o fato do pedido, sem propaganda (CDC).
+export function templatePedidoSeparado(
+  nome: string,
+  codigo: string
+): { assunto: string; html: string } {
+  const nomeSeguro = escaparHtml(nome || "cliente");
+  return {
+    assunto: `Pedido ${codigo} em separação`,
+    html: [
+      `<p>Olá ${nomeSeguro},</p>`,
+      `<p>O pedido <strong>${codigo}</strong> entrou em separação — já estamos preparando tudo.</p>`,
+      "<p>Assim que sair para entrega, você recebe um novo aviso. Acompanhe em Minha conta → Meus pedidos.</p>",
+      rodape(),
+    ].join(""),
+  };
+}
+
+export function templatePedidoEnviado(
+  nome: string,
+  codigo: string
+): { assunto: string; html: string } {
+  const nomeSeguro = escaparHtml(nome || "cliente");
+  return {
+    assunto: `Pedido ${codigo} saiu para entrega`,
+    html: [
+      `<p>Olá ${nomeSeguro},</p>`,
+      `<p>Boa notícia: o pedido <strong>${codigo}</strong> saiu para entrega.</p>`,
+      "<p>Acompanhe o status em Minha conta → Meus pedidos.</p>",
+      rodape(),
+    ].join(""),
+  };
+}
+
+export function templatePedidoEntregue(
+  nome: string,
+  codigo: string
+): { assunto: string; html: string } {
+  const nomeSeguro = escaparHtml(nome || "cliente");
+  return {
+    assunto: `Pedido ${codigo} entregue`,
+    html: [
+      `<p>Olá ${nomeSeguro},</p>`,
+      `<p>O pedido <strong>${codigo}</strong> foi entregue. Obrigado pela preferência!</p>`,
+      "<p>Se algo não saiu como esperado, responda este e-mail e a gente resolve.</p>",
+      rodape(),
+    ].join(""),
+  };
+}
+
+export function templatePedidoCancelado(
+  nome: string,
+  codigo: string
+): { assunto: string; html: string } {
+  const nomeSeguro = escaparHtml(nome || "cliente");
+  return {
+    assunto: `Pedido ${codigo} cancelado`,
+    html: [
+      `<p>Olá ${nomeSeguro},</p>`,
+      `<p>O pedido <strong>${codigo}</strong> foi cancelado.</p>`,
+      "<p>Se isso não foi o que você esperou, ou se quiser refazer o pedido, é só responder este e-mail.</p>",
+      rodape(),
+    ].join(""),
+  };
+}
+
 export function templateRevendaSolicitada(
   nome: string,
   email: string

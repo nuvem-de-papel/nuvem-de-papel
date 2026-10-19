@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { NUVEM_DE_PAPEL_TENANT_ID } from "@/lib/tenant";
 import { PAPEIS_OPERACIONAIS } from "@/lib/rbac";
+import { notificarStatusPedido, type EventoPedido } from "@/lib/pedido-notificar";
 
 // Server Actions da logística (F4): avanço da fila de expedição, cancelamento
 // de pedido que nunca pagou (devolve a reserva) e movimentos manuais de
@@ -90,6 +91,9 @@ export async function avancarExpedicao(
     de,
     para,
   });
+  // aviso ao cliente (entrega 2): best-effort, o guard de transição acima
+  // garante que só dispara quando o status mudou de verdade (1x)
+  await notificarStatusPedido(admin, pedidoId, para as EventoPedido, userId);
   revalidatePath("/logistica");
   return { ok: true, msg: `Pedido marcado como ${para.replace("_", " ")}.` };
 }
@@ -120,6 +124,9 @@ export async function cancelarPedidoNaoPago(pedidoId: string): Promise<Resultado
   }
 
   await auditar(admin, userId, "logistica.cancelado", "orders", pedidoId, { de: "aguardando_pagamento" });
+  // aviso de cancelamento (entrega 2): antes não havia nenhum e-mail em caso
+  // de cancelamento em fluxo algum — best-effort, só quando o status mudou
+  await notificarStatusPedido(admin, pedidoId, "cancelado", userId);
   revalidatePath("/logistica");
   revalidatePath("/produtos");
   return { ok: true, msg: "Pedido cancelado e estoque reservado devolvido." };

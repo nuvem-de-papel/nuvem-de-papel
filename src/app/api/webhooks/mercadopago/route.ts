@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { NUVEM_DE_PAPEL_TENANT_ID } from "@/lib/tenant";
 import { buscarPagamento, buscarPreapproval, validarAssinaturaWebhook } from "@/lib/mercadopago";
 import { enviarEmail, templatePedidoPago, codigoPedido } from "@/lib/email";
+import { notificarStatusPedido } from "@/lib/pedido-notificar";
 
 // Webhook Mercado Pago (F3) + estoque (F4). Fail-closed: sem MP_WEBHOOK_SECRET
 // → 503. Idempotência: webhook_events (provider, external_id, event_type) único.
@@ -188,15 +189,21 @@ export async function POST(req: NextRequest) {
       }
     }
   } else if (pagamento.status === "cancelled" || pagamento.status === "rejected") {
-    const { error } = await admin
+    const { data: cancelado, error } = await admin
       .from("orders")
       .update({ status: "cancelado", mp_payment_id: externalId })
       .eq("id", ref)
       .eq("tenant_id", NUVEM_DE_PAPEL_TENANT_ID)
-      .in("status", ["aguardando_pagamento", "pago"]);
+      .in("status", ["aguardando_pagamento", "pago"])
+      .select("id");
     if (error) {
       await admin.from("webhook_events").delete().eq("id", eventoId);
       return NextResponse.json({ erro: error.message }, { status: 500 });
+    }
+    // aviso de cancelamento (entrega 2): só na transição real, 1x — uma
+    // reentrega do MP não repete (best-effort: nunca derruba o webhook)
+    if (cancelado && cancelado.length === 1) {
+      await notificarStatusPedido(admin, ref, "cancelado");
     }
     const { data: pedido } = await admin
       .from("orders")
