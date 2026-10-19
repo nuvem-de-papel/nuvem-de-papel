@@ -473,7 +473,12 @@ export async function finalizarCheckout(input: {
     });
     if (pref.ok) {
       initPoint = pref.initPoint;
-      await admin.from("orders").update({ mp_preference_id: pref.preferenceId }).eq("id", pedido.id);
+      // mp_init_point persistido (0036): a régua de recuperação de carrinho
+      // abandonado usa este link no e-mail — antes só ficava em memoria aqui.
+      await admin
+        .from("orders")
+        .update({ mp_preference_id: pref.preferenceId, mp_init_point: pref.initPoint })
+        .eq("id", pedido.id);
     } else {
       aviso = "Pagamento online indisponível no momento — pedido registrado.";
     }

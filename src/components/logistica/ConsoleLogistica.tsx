@@ -94,6 +94,25 @@ export function ConsoleLogistica({ fila, estoque }: { fila: PedidoFila[]; estoqu
         voltarPara="/crm"
       />
 
+      <div style={{ marginBottom: 16 }}>
+        <a
+          href="/vendas/recuperacao"
+          aria-label="Recuperação de carrinho"
+          style={{
+            fontSize: 12.5,
+            fontWeight: 700,
+            color: "var(--navy)",
+            textDecoration: "none",
+            border: "1px solid var(--ink-faint)",
+            borderRadius: 999,
+            padding: "5px 14px",
+            background: "#FFFFFF",
+          }}
+        >
+          Recuperar carrinhos abandonados
+        </a>
+      </div>
+
       {aviso && (
         <div
           role="status"
