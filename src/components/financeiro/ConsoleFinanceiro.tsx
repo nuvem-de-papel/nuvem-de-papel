@@ -325,6 +325,22 @@ export function ConsoleFinanceiro({
             >
               Conciliar extrato
             </a>
+            <a
+              href="/financeiro/cobranca"
+              aria-label="Cobrança automática"
+              style={{
+                fontSize: 12.5,
+                fontWeight: 700,
+                color: "var(--navy)",
+                textDecoration: "none",
+                border: "1px solid var(--ink-faint)",
+                borderRadius: 999,
+                padding: "5px 14px",
+                background: "#FFFFFF",
+              }}
+            >
+              Cobrança automática
+            </a>
           </div>
           {mesesDRE.length > 0 && (
             <label
