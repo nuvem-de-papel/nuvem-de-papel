@@ -99,6 +99,16 @@ const GRUPOS: { label?: string; links: Link[] }[] = [
         ),
       },
       {
+        href: "/crm/marketing",
+        label: "Marketing",
+        icon: (
+          <>
+            <path d="M3 11v2a1 1 0 0 0 1 1h2l5 4V6L6 10H4a1 1 0 0 0-1 1z" />
+            <path d="M16 8a5 5 0 0 1 0 8" />
+          </>
+        ),
+      },
+      {
         href: "/configuracoes/cadastro",
         label: "Cadastros",
         sub: SUB_CADASTROS,

@@ -285,6 +285,52 @@ export function templatePedidoCancelado(
   };
 }
 
+// avisos de reativação e avaliação (entrega 4): sem IA, sem propaganda, só
+// mensagem de serviço. Regra do Google: o pedido de avaliação sai para TODOS
+// por igual (sem review gating) e nunca pede nota alta nem oferece vantagem.
+export function templateReativacao(
+  nome: string,
+  primeiroItem: string,
+  linkSair: string
+): { assunto: string; html: string } {
+  const nomeSeguro = escaparHtml(nome || "cliente");
+  const itemSeguro = escaparHtml(primeiroItem || "");
+  return {
+    assunto: "Tudo bem por aí? Novidades na Nuvem de Papel",
+    html: [
+      `<p>Olá ${nomeSeguro},</p>`,
+      "<p>Faz tempo que você passa por aqui e a gente queria saber como está tudo.</p>",
+      itemSeguro
+        ? `<p>Da última vez você levou <strong>${itemSeguro}</strong>. Se precisar de mais — ou de algo novo — é só falar.</p>`
+        : "<p>Se precisar de alguma coisa — papelaria, presentes, material de escritório — é só falar.</p>",
+      "<p>Se não quiser mais receber mensagens nossas, <a href=\"" +
+        escaparHtml(linkSair) +
+        "\">clique aqui para sair da lista</a>.</p>",
+      rodape(),
+    ].join(""),
+  };
+}
+
+export function templatePedidoAvaliado(
+  nome: string,
+  codigo: string,
+  linkAvaliacao: string
+): { assunto: string; html: string } {
+  const nomeSeguro = escaparHtml(nome || "cliente");
+  const linkSeguro = escaparHtml(linkAvaliacao);
+  return {
+    assunto: `Obrigado pelo pedido ${codigo}! Avalie a Nuvem de Papel`,
+    html: [
+      `<p>Olá ${nomeSeguro},</p>`,
+      `<p>Obrigado por comprar com a gente no pedido <strong>${codigo}</strong>.</p>`,
+      "<p>Se puder, leva 30 segundos para avaliar a Nuvem de Papel no Google. Sua opinião ajuda bastante quem está procurando papelaria:</p>",
+      `<p><a href="${linkSeguro}">Avaliar a Nuvem de Papel no Google</a></p>`,
+      "<p>Se algo não saiu como esperado, responda este e-mail e a gente resolve antes.</p>",
+      rodape(),
+    ].join(""),
+  };
+}
+
 export function templateRevendaSolicitada(
   nome: string,
   email: string
