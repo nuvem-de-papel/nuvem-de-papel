@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { criarFornecedor } from "@/app/compras/actions";
 import { alternarStatus } from "@/app/configuracoes/usuarios/actions";
 import {
+  gerarDescricaoProduto,
   importarProdutoFornecedor,
   removerCliente,
   salvarCliente,
@@ -343,6 +344,9 @@ export type ProdutoCad = {
   lastAdjustedAt: string;
   // 0032: foto do produto (URL servida pelo fornecedor, ex. Reval /imagem/...)
   fotoUrl: string;
+  // 0038 (entrega 5 — Catálogo com IA): descrição pública da vitrine.
+  // Gerada pela IA mas gravada só após aprovação do dono (salvarProduto).
+  descricao: string;
 };
 
 // Bloco 5 passo 3: cliente vem do banco (customers) em vez de ficha fixa.
@@ -714,6 +718,8 @@ export function CadastrosTelaUnica({
     setVal("ct-prod-observacoes", p?.observacoes ?? "");
     // 0032: foto do produto (URL do fornecedor)
     setVal("ct-prod-foto", p?.fotoUrl ?? "");
+    // 0038 (entrega 5): descrição pública da vitrine (IA gera, dono aprova)
+    setVal("ct-prod-descricao-vitrine", p?.descricao ?? "");
     setVal("ct-prod-cstpis", p?.cstPis ?? "");
     setVal("ct-prod-cstcofins", p?.cstCofins ?? "");
     setVal("ct-prod-icmsbase", p ? pct(p.icmsBasePct) : "100,00%");
@@ -791,6 +797,7 @@ export function CadastrosTelaUnica({
       hidePriceTable: g<HTMLInputElement>("ct-prod-oculta-preco")?.checked ?? false,
       lastAdjustedAt: val("ct-prod-reajuste"),
       fotoUrl: val("ct-prod-foto"),
+      descricaoVitrine: val("ct-prod-descricao-vitrine"),
     };
     startTransition(async () => {
       const r = await salvarProduto(payload);
@@ -861,6 +868,26 @@ export function CadastrosTelaUnica({
         gtinEl.select();
       }
       setFeedback({ tipo: "ok", texto: r.aviso ?? "Importado. Revise e clique Salvar." });
+    });
+  }
+
+  // Entrega 5 (0038) — Catálogo com IA: gera um RASCUNHO de descrição com o
+  // Gemini a partir do produto já cadastrado e preenche o textarea. NÃO grava:
+  // o dono edita/apaga e clica Salvar (salvarProduto persiste + audita).
+  function gerarDescricaoIAUI() {
+    if (!prodId) {
+      setFeedback({ tipo: "err", texto: "Salve o produto antes de gerar a descrição com IA (ela usa o cadastro)." });
+      return;
+    }
+    startTransition(async () => {
+      setFeedback({ tipo: "ok", texto: "Gerando descrição com IA..." });
+      const r = await gerarDescricaoProduto(prodId);
+      if (!r.ok) {
+        setFeedback({ tipo: "err", texto: r.erro });
+        return;
+      }
+      setVal("ct-prod-descricao-vitrine", r.texto);
+      setFeedback({ tipo: "ok", texto: "Descrição sugerida pela IA. Revise, edite se quiser, e clique Salvar." });
     });
   }
 
@@ -1632,9 +1659,22 @@ export function CadastrosTelaUnica({
               <div className="ct-extra-tabs">
                 <button className={`ct-extra-tab${extra.produto === "obs" ? " on" : ""}`} onClick={() => mostrarExtra("produto", "obs")}>1. Observações</button>
                 <button className={`ct-extra-tab${extra.produto === "outros" ? " on" : ""}`} onClick={() => mostrarExtra("produto", "outros")}>2. Outros</button>
+                <button className={`ct-extra-tab${extra.produto === "desc" ? " on" : ""}`} onClick={() => mostrarExtra("produto", "desc")}>3. Descrição (IA)</button>
               </div>
               <div className={`ct-extra-panel${extra.produto === "obs" ? " on" : ""}`}>
                 <div className="ct-field"><textarea id="ct-prod-observacoes" placeholder="Detalhes do produto / observações internas..." /></div>
+              </div>
+              <div className={`ct-extra-panel${extra.produto === "desc" ? " on" : ""}`}>
+                <div className="ct-field">
+                  <label>Descrição pública da vitrine</label>
+                  <textarea id="ct-prod-descricao-vitrine" placeholder="Texto que o cliente vê na loja. Gere com IA ou escreva à mão; revise antes de salvar." style={{ minHeight: 96 }} />
+                </div>
+                <button className="ct-act" onClick={gerarDescricaoIAUI} disabled={salvando} style={{ marginTop: 8 }}>
+                  {salvando ? "Gerando..." : "✨ Gerar descrição com IA"}
+                </button>
+                <div className="ct-status" style={{ marginTop: 6 }}>
+                  <span>A IA só redige a partir do nome, categoria e fabricante já cadastrados — ela nunca inventa preço, marca ou característica. A descrição é gravada só quando você clica Salvar.</span>
+                </div>
               </div>
               <div className={`ct-extra-panel${extra.produto === "outros" ? " on" : ""}`}>
                 <div className="ct-row ct-r1"><div className="ct-field"><label>GTIN tributável</label><input id="ct-prod-gtintrib" placeholder="7898943477996" maxLength={14} /></div></div>

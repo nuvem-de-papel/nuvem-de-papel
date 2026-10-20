@@ -115,6 +115,22 @@ export function CategoryCarousel({ title, products }: { title: string; products:
                 >
                   {p.name}
                 </div>
+                {p.description && (
+                  <div
+                    style={{
+                      fontSize: 12,
+                      lineHeight: 1.4,
+                      color: "var(--ink-soft)",
+                      marginBottom: 8,
+                      display: "-webkit-box",
+                      WebkitLineClamp: 3,
+                      WebkitBoxOrient: "vertical",
+                      overflow: "hidden",
+                    }}
+                  >
+                    {p.description}
+                  </div>
+                )}
                 <span className="display" style={{ fontWeight: 700, fontSize: 17, color: "var(--navy)" }}>
                   {formatPrice(p.price)}
                 </span>

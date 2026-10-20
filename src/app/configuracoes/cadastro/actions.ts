@@ -5,6 +5,7 @@ import { PAPEIS_GESTAO } from "@/lib/rbac";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { NUVEM_DE_PAPEL_TENANT_ID } from "@/lib/tenant";
+import { gerarTexto } from "@/lib/ia";
 
 // Cadastros (F8.1): a empresa emitente e o produto passaram a persistir de
 // verdade (antes eram formularios de exemplo hardcoded). Escrita deny-all no
@@ -249,6 +250,9 @@ export type ProdutoInput = {
   lastAdjustedAt: string;
   // 0032: foto do produto (URL servida pelo fornecedor, ex. Reval /imagem/...)
   fotoUrl: string;
+  // 0038 (entrega 5 — Catálogo com IA): descrição PÚBLICA exibida na vitrine.
+  // Gerada pela IA (gerarDescricaoProduto) mas SALVA só após aprovação do dono.
+  descricaoVitrine: string;
 };
 
 export async function salvarProduto(input: ProdutoInput): Promise<ResultadoAcao & { id?: string }> {
@@ -287,6 +291,9 @@ export async function salvarProduto(input: ProdutoInput): Promise<ResultadoAcao 
   if (fotoUrl && !/^https:\/\/\S+\.(jpg|jpeg|png|webp)(\?\S*)?$/i.test(fotoUrl)) {
     return { ok: false, erro: "Foto inválida: use uma URL https terminada em .jpg, .png ou .webp." };
   }
+
+  // 0038 (entrega 5): descrição pública da vitrine. Texto solto, até 2000.
+  const descricao = (input.descricaoVitrine ?? "").trim().slice(0, 2000);
 
   const fornecedorNome = (input.fornecedorNome ?? "").trim().slice(0, 120);
   const supplierSku = (input.supplierSku ?? "").trim().slice(0, 40);
@@ -358,6 +365,7 @@ export async function salvarProduto(input: ProdutoInput): Promise<ResultadoAcao 
         hide_price_table: hidePriceTable,
         last_adjusted_at: lastAdj || null,
         foto_url: fotoUrl || null,
+        description: descricao || null,
       })
       .eq("id", itemId);
     if (error) {
@@ -378,6 +386,7 @@ export async function salvarProduto(input: ProdutoInput): Promise<ResultadoAcao 
         hide_price_table: hidePriceTable,
         last_adjusted_at: lastAdj || null,
         foto_url: fotoUrl || null,
+        description: descricao || null,
       })
       .select("id")
       .single();
@@ -547,6 +556,62 @@ export async function salvarProduto(input: ProdutoInput): Promise<ResultadoAcao 
   revalidatePath("/configuracoes/cadastro");
   revalidatePath("/produtos");
   return { ok: true, id: itemId ?? undefined };
+}
+
+// ---------------------------------------------------------------------------
+// Entrega 5 (0038) — Catálogo com IA: gerar descrição pública com Gemini.
+//
+// REGRA DE OURO (prompt de origem): a IA NUNCA inventa produto/preço — ela só
+// redige a partir do que já está cadastrado. Aqui ela recebe nome, categoria,
+// fabricante e o SKU já gravados e devolve um TEXTO SUGERIDO; NÃO grava nada.
+// O dono revisa/edita no textarea e salva pelo salvarProduto normal (audit).
+// Sem GEMINI_API_KEY (ou falha da API) devolve erro claro — nunca inventa.
+// ---------------------------------------------------------------------------
+export async function gerarDescricaoProduto(
+  itemId: string
+): Promise<{ ok: true; texto: string } | { ok: false; erro: string }> {
+  const gestor = await gestaoAtual();
+  if (!gestor) return { ok: false, erro: "Sem permissão para esta ação." };
+  if (!/^[0-9a-f-]{36}$/i.test(itemId)) return { ok: false, erro: "Produto inválido." };
+
+  const admin = createAdminClient();
+  const { data: item } = await admin
+    .from("catalog_items")
+    .select("sku, name, category, fabricante, active")
+    .eq("id", itemId)
+    .maybeSingle();
+  if (!item) return { ok: false, erro: "Produto não encontrado." };
+
+  const nome = (item.name ?? "").trim();
+  if (!nome) return { ok: false, erro: "Produto sem nome — cadastre o nome antes de gerar a descrição." };
+
+  const linhas = [
+    `Produto: ${nome}`,
+    item.category ? `Categoria: ${item.category}` : null,
+    item.fabricante ? `Fabricante: ${item.fabricante}` : null,
+    `Código interno (SKU): ${item.sku}`,
+  ].filter(Boolean);
+
+  const prompt = [
+    "Você escreve descrições de produtos para a vitrine online de uma papelaria chamada Nuvem de Papel.",
+    "Escreva em português do Brasil, tom acolhedor e profissional, 2 a 3 frases.",
+    "NÃO invente características, medidas, preços, promoções, marcas ou materiais que não estejam nos dados abaixo — se não souber um detalhe, não mencione.",
+    "NÃO inclua título, cabeçalho, emoji, bullets ou o nome do produto no início; devolva SÓ o texto da descrição.",
+    "Dados do produto (fonte da verdade):",
+    ...linhas,
+  ].join("\n");
+
+  const r = await gerarTexto(prompt);
+  if (!r.ok) {
+    return {
+      ok: false,
+      erro:
+        r.motivo === "gemini_sem_chave"
+          ? "IA não configurada: defina GEMINI_API_KEY no ambiente (Secrets)."
+          : `Falha na IA (${r.motivo}). Tente de novo ou escreva a descrição manualmente.`,
+    };
+  }
+  return { ok: true, texto: r.texto.slice(0, 2000) };
 }
 
 // ---------------------------------------------------------------------------
