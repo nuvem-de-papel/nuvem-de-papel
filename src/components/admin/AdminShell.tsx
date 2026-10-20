@@ -109,6 +109,18 @@ const GRUPOS: { label?: string; links: Link[] }[] = [
         ),
       },
       {
+        href: "/crm/carta",
+        label: "Carta com IA",
+        icon: (
+          <>
+            <path d="M5 3h11l3 3v15H5z" />
+            <line x1="8" y1="9" x2="16" y2="9" />
+            <line x1="8" y1="13" x2="16" y2="13" />
+            <line x1="8" y1="17" x2="13" y2="17" />
+          </>
+        ),
+      },
+      {
         href: "/configuracoes/cadastro",
         label: "Cadastros",
         sub: SUB_CADASTROS,

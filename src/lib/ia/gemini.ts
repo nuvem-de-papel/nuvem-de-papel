@@ -18,7 +18,8 @@ export async function gerarComGemini(prompt: string): Promise<ResultadoIA> {
       method: "POST",
       headers: { "content-type": "application/json", "x-goog-api-key": chave },
       body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
-      signal: AbortSignal.timeout(45000),
+      // carta/JSON longo demora mais que uma descrição simples — 60s de folga
+      signal: AbortSignal.timeout(60000),
     });
 
     if (!resp.ok) {
