@@ -92,7 +92,10 @@ async function main() {
   const browser = await chromium.launch({ channel: "msedge", headless: true });
 
   // ------------------------------------------------------------ fixtures --
-  // varredura: remove sobras de execucoes anteriores antes de semear
+  // varredura: remove sobras de execucoes anteriores antes de semear.
+  // A nota (serie 9 = marcador) e apagada ANTES do PO: nfe_emissoes.purchase_order_id
+  // e ON DELETE SET NULL, entao sem esse delete a nota fica orfa para sempre.
+  await admin.from("nfe_emissoes").delete().eq("tenant_id", TENANT).eq("serie", 9);
   await admin.from("purchase_orders").delete().eq("tenant_id", TENANT).like("code", "PC-DOC-%");
   await admin.from("suppliers").delete().eq("tenant_id", TENANT).like("name", "Forn E2E Documentos%");
   await admin.from("catalog_items").delete().eq("tenant_id", TENANT).like("sku", "SKU-E2E-DOC%");
@@ -158,6 +161,54 @@ async function main() {
     }))
   );
   if (eIt) throw new Error("seed purchase_order_items: " + eIt.message);
+
+  // D6..D8: a aba "Notas emitidas" precisa de UMA nota para abrir o DANFE e
+  // baixar o XML. Nenhuma suite da chain deixa uma para tras (vendas/sefaz/
+  // vendas-v5 emitem e apagam a propria; a 0034 zerou a tabela toda), entao o
+  // D6a passou a depender de sobra de run antigo - agora a propria suíte semeia
+  // a dela, ligada ao PO que acaba de criar (nfe_emissoes aceita pedido de
+  // compra). Serie 9 = marcador da varredura do topo; chave de 44 digitos e
+  // XML de verdade sao o que o D8 exige (nome do arquivo = chave).
+  // chave = cUF(2)+AAMM(4)+CNPJ(14)+mod(2)+serie(3)+nNF(9)+tpEmis(1)+cNF(8)+DV(1) = 44
+  const CHAVE_NOTA = `3526101122233300018155009${String(900000 + (EPOCH % 99999)).padStart(9, "0")}1000000001`;
+  const XML_NOTA =
+    `<?xml version="1.0" encoding="UTF-8"?>\n` +
+    `<nfeProc xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00">\n` +
+    `<NFe><infNFe Id="NFe${CHAVE_NOTA}">` +
+    `<ide><cUF>35</cUF><mod>55</mod><serie>9</serie><nNF>${CHAVE_NOTA.slice(25, 34)}</nNF></ide>` +
+    `<emit><CNPJ>11222333000181</CNPJ><xNome>NUVEM DE PAPEL LTDA</xNome></emit>` +
+    `<dest><CNPJ>11222333000181</CNPJ><xNome>E2E DOCUMENTOS</xNome></dest>` +
+    LINHAS.map(
+      (l, i) =>
+        `<det nItem="${i + 1}"><prod><xProd>${l.nome}</xProd><qtd>${l.qtd}</qtd>` +
+        `<vUn>${l.unit.toFixed(2)}</vUn><vProd>${(l.qtd * l.unit).toFixed(2)}</vProd></prod></det>`
+    ).join("") +
+    `<total><ICMSTot><vNF>${TOTAL.toFixed(2)}</vNF></ICMSTot></total>` +
+    `</infNFe></NFe>\n</nfeProc>\n`;
+  const { error: eNota } = await admin.from("nfe_emissoes").insert({
+    tenant_id: TENANT,
+    tipo: "entrada",
+    purchase_order_id: po.id,
+    numero: 900000 + (EPOCH % 99999),
+    serie: 9,
+    natureza_operacao: "Compra para comercialização",
+    cfop: "2102",
+    destinatario: { nome: "Nuvem de Papel LTDA", cnpj: "11222333000181", uf: "SP" },
+    itens: LINHAS.map((l) => ({
+      numero: l.sku,
+      descricao: l.nome,
+      quantidade: l.qtd,
+      valor_unitario: l.unit,
+      line_total: +(l.qtd * l.unit).toFixed(2),
+    })),
+    totais: { base: TOTAL, icms: 0, pis: 0, cofins: 0, total: TOTAL },
+    status: "autorizada",
+    chave: CHAVE_NOTA,
+    protocolo: `1352600000000${String(900000 + (EPOCH % 99999)).padStart(9, "0")}`.slice(0, 15),
+    autorizada_em: new Date().toISOString(),
+    xml: XML_NOTA,
+  });
+  if (eNota) throw new Error("seed nfe_emissoes: " + eNota.message);
 
   const page = await browser.newPage();
   try {
@@ -283,6 +334,9 @@ async function main() {
   } finally {
     await browser.close();
     // -------------------------------------------------------- limpeza -----
+    // nota ANTES do PO: purchase_order_id e ON DELETE SET NULL, sem isso a
+    // nota fica orfa (e a varredura do topo a pega na proxima execucao).
+    await admin.from("nfe_emissoes").delete().eq("tenant_id", TENANT).eq("serie", 9);
     await admin.from("purchase_orders").delete().eq("id", po.id);
     await admin.from("suppliers").delete().eq("id", forn.id);
     await admin.from("catalog_items").delete().eq("tenant_id", TENANT).like("sku", "SKU-E2E-DOC%");

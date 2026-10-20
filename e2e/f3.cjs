@@ -115,6 +115,23 @@ async function login(page, email, senha) {
   const { data: precoRow } = await admin.from("item_prices").select("price").eq("item_id", itemId).eq("channel", "varejo").limit(1).maybeSingle();
   const precoReal = Number(precoRow.price);
   const totalEsperado = precoReal * 2;
+  // o checkout reserva 2 e deletar o pedido nao devolve (ledger imutavel) - o
+  // f3 roda antes do pdv-v6 na entao garante saldo minimo e devolve na hora H
+  const SALDO_SEGURO = 5;
+  const { data: estAntes } = await admin.from("item_stock").select("stock_available").eq("item_id", itemId).maybeSingle();
+  let estoqueAntes = estAntes ? Number(estAntes.stock_available) : 0;
+  if (estoqueAntes < SALDO_SEGURO) {
+    await admin.rpc("register_stock_movement", {
+      p_item_id: itemId,
+      p_type: "ajuste",
+      p_quantity: SALDO_SEGURO - estoqueAntes,
+      p_reference_type: "manual",
+      p_reference_id: null,
+      p_notes: "seed E2E f3",
+      p_created_by: null,
+    });
+    estoqueAntes = SALDO_SEGURO;
+  }
 
   carrinho[0].price = 0.01;
   await page.evaluate((c) => window.localStorage.setItem("ndp_carrinho_v1", JSON.stringify(c)), carrinho);
@@ -181,6 +198,19 @@ async function login(page, email, senha) {
 
   // H) limpeza
   await limpar();
+  // devolve a reserva do checkout (2 unidades) - ledger imutavel nao volta so
+  const { data: estFim } = await admin.from("item_stock").select("stock_available").eq("item_id", itemId).maybeSingle();
+  if (estFim && Number(estFim.stock_available) !== estoqueAntes) {
+    await admin.rpc("register_stock_movement", {
+      p_item_id: itemId,
+      p_type: "ajuste",
+      p_quantity: estoqueAntes - Number(estFim.stock_available),
+      p_reference_type: "manual",
+      p_reference_id: null,
+      p_notes: "limpeza E2E f3",
+      p_created_by: null,
+    });
+  }
   const depois = await acharUser(EMAIL_COMP);
   const { data: pedidosRestantes } = await admin.from("orders").select("id").eq("customer_id", cliente?.id ?? "00000000-0000-0000-0000-000000000000");
   check("H1 dados de teste removidos", !depois && (pedidosRestantes ?? []).length === 0);

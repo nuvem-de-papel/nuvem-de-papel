@@ -114,19 +114,26 @@ async function main() {
     const temTextarea = (await page.locator("#ct-prod-descricao-vitrine").count()) === 1;
     check("C2 aba Descrição (IA) tem o textarea da vitrine", temTextarea);
 
-    // gera com IA (chamada real ao Gemini via server action)
-    await page.getByRole("button", { name: /Gerar descrição com IA/ }).click();
-    // espera o textarea encher (ou o feedback de erro aparecer)
+    // gera com IA (chamada real ao Gemini via server action).
+    // O Gemini free devolve "high demand" em pico de uso (2x na chain de 20/10,
+    // passando na hora standalone) - o erro e transitório, então tenta de novo.
     let textoIA = "";
     let erroIA = "";
-    try {
-      await page.waitForFunction(
-        () => (document.getElementById("ct-prod-descricao-vitrine")?.value || "").length > 20,
-        { timeout: 60000 }
-      );
-      textoIA = await page.inputValue("#ct-prod-descricao-vitrine");
-    } catch {
-      erroIA = (await page.locator(".ct-feed").textContent()) || "";
+    for (let tentativa = 1; tentativa <= 3 && !textoIA; tentativa++) {
+      await page.getByRole("button", { name: /Gerar descrição com IA/ }).click();
+      try {
+        await page.waitForFunction(
+          () => (document.getElementById("ct-prod-descricao-vitrine")?.value || "").length > 20,
+          { timeout: 60000 }
+        );
+        textoIA = await page.inputValue("#ct-prod-descricao-vitrine");
+      } catch {
+        erroIA = (await page.locator(".ct-feed").textContent()) || "";
+        if (tentativa < 3) {
+          console.log(`  (C3 tentativa ${tentativa} sem texto, retry em 20s: ${erroIA.trim().slice(0, 60)})`);
+          await page.waitForTimeout(20000);
+        }
+      }
     }
     if (textoIA) {
       check("C3 IA gerou descrição real (textarea preenchido)", textoIA.length > 20, textoIA.slice(0, 60) + "...");

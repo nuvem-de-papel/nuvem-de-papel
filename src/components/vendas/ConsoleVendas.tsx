@@ -951,7 +951,21 @@ export function ConsoleVendas({
         </div>
       )}
 
-      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
+      <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginBottom: 12 }}>
+        <a
+          href="/vendas/nova"
+          aria-label="Nova venda"
+          style={{
+            ...BTN,
+            background: "var(--pink-600)",
+            color: "#FFF",
+            textDecoration: "none",
+            display: "inline-flex",
+            alignItems: "center",
+          }}
+        >
+          Nova venda
+        </a>
         <button
           type="button"
           aria-label="Importar da loja"
@@ -977,7 +991,6 @@ export function ConsoleVendas({
             </span>
           )}
         </button>
-        {/* TODO §7.3: "Nova venda ou pedido" quando o editor da venda existir */}
       </div>
 
       <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap" }}>
@@ -1157,7 +1170,11 @@ export function ConsoleVendas({
                           )}
                         </td>
                         <td style={{ ...td, textTransform: "capitalize" }}>
-                          {p.origem === "loja" ? "Loja online" : p.canal}
+                          {p.origem === "loja"
+                            ? "Loja online"
+                            : p.origem === "manual"
+                              ? `Manual · ${p.canal}`
+                              : p.canal}
                         </td>
                         <td style={td}>
                           <EtapaPontos

@@ -20,6 +20,10 @@ const EMAIL_MASTER = "admin@nuvemdepapel.com.br";
 const SENHA_MASTER = "@@748596Jmsc##";
 const TENANT = "00000000-0000-0000-0000-000000000001";
 const SKU_PROD = "SKU-E2E-PROD-0031";
+// O P2g busca "pastel" no header: a zeragem 0034 apagou o produto ficticio que
+// a suíte usava (mesma classe de dependencia da nota orfa do documentos.cjs),
+// entao a propria suíte semeia o dela.
+const SKU_PASTEL = `SKU-E2E-PASTEL-${Date.now()}`;
 
 // dados do produto 114148 do Reval (mesmo do teste offline do parser)
 const DUN14_OK = "17891027354944"; // DV do DUN-14 confere
@@ -86,6 +90,17 @@ async function main() {
     await admin.from("suppliers").delete().like("name", "FORN E2E 0033 %");
     await admin.from("catalog_items").delete().eq("id", antes.id);
   }
+
+  // seed do "pastel": apaga sobras de crash e semeia sempre (varredura por SKU
+  // prefixo, a mesma logica do `antes` la em cima)
+  await admin.from("catalog_items").delete().like("sku", "SKU-E2E-PASTEL-%");
+  const { error: ePastel } = await admin.from("catalog_items").insert({
+    tenant_id: TENANT,
+    sku: SKU_PASTEL,
+    name: "Pastel de feira E2E (busca por nome)",
+    active: true,
+  });
+  if (ePastel) throw new Error("seed pastel: " + ePastel.message);
 
   const browser = await chromium.launch({ channel: "msedge", headless: true });
   try {
@@ -491,7 +506,8 @@ async function main() {
     await browser.close();
   }
 
-  // limpeza: remove o produto do teste (cascade apaga as filhas)
+  // limpeza: remove o produto do teste (cascade apaga as filhas) + o pastel
+  await admin.from("catalog_items").delete().like("sku", "SKU-E2E-PASTEL-%");
   if (antes) {
     await admin.from("catalog_items").delete().eq("id", antes.id);
   } else {

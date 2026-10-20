@@ -1245,3 +1245,214 @@ export async function definirVendedorPedido(
   revalidatePath("/vendas");
   return { ok: true, msg: vendedorId ? "Vendedor do pedido gravado." : "Pedido ficou sem vendedor." };
 }
+
+// ------------------------------------------------------ venda manual -------
+// Venda de telefone/balcao (0040): registra venda COMPLETA sem caixa aberto,
+// com PF/PJ (criacao rapida), todas as formas de pagamento (dinheiro/pix/
+// debito liquidam na hora; cartao/boleto/fiado geram titulo + parcelas que
+// entram na regua de cobranca) e entrega OU retirada. So gestao (master|
+// gerente - /vendas ja e modulo de gestao), mesmo criterio das NF-e.
+
+export type ClienteNovoManual = {
+  tipo: "fisica" | "juridica";
+  nome: string;
+  documento: string;
+  telefone: string;
+  whatsapp?: string;
+  cep?: string;
+  logradouro?: string;
+  numero?: string;
+  complemento?: string;
+  bairro?: string;
+  cidade?: string;
+  uf?: string;
+};
+
+export type EntregaManual = {
+  cep?: string;
+  logradouro: string;
+  numero?: string;
+  complemento?: string;
+  bairro?: string;
+  cidade?: string;
+  uf?: string;
+  transportadora?: string;
+  prazo?: string; // YYYY-MM-DD
+  observacao?: string;
+};
+
+export type EntradaVendaManual = {
+  canal: "varejo" | "atacado";
+  metodo: string;
+  parcelas: number;
+  desconto: number;
+  itens: { item_id: string; quantity: number }[];
+  clienteExistenteId: string | null;
+  clienteNovo: ClienteNovoManual | null;
+  entrega: EntregaManual | null; // null = retira no balcao
+};
+
+export type ResultadoVendaManual =
+  | { ok: true; msg: string; orderId: string; total: number; entrega: boolean }
+  | { ok: false; erro: string };
+
+const METODOS_MANUAL = ["dinheiro", "pix", "debito", "cartao", "boleto", "fiado"];
+const CANAIS_MANUAL = ["varejo", "atacado"];
+
+function somenteDigitos(v: string): string {
+  return (v ?? "").replace(/\D/g, "");
+}
+
+export async function registrarVendaManual(
+  entrada: EntradaVendaManual
+): Promise<ResultadoVendaManual> {
+  const acesso = await exigirGestao();
+  if ("erro" in acesso) return { ok: false, erro: acesso.erro };
+  const { userId, admin } = acesso;
+
+  if (!CANAIS_MANUAL.includes(entrada?.canal)) {
+    return { ok: false, erro: "Canal inválido." };
+  }
+  if (!METODOS_MANUAL.includes(entrada?.metodo)) {
+    return { ok: false, erro: "Forma de pagamento inválida." };
+  }
+  const n = Number(entrada?.parcelas);
+  if (!Number.isInteger(n) || n < 1 || n > 12) {
+    return { ok: false, erro: "Parcelas inválidas (1 a 12)." };
+  }
+  if (["dinheiro", "pix", "debito"].includes(entrada.metodo) && n !== 1) {
+    return { ok: false, erro: "Dinheiro, pix e débito são à vista (1x)." };
+  }
+  const desc = Number(entrada?.desconto);
+  if (!Number.isFinite(desc) || desc < 0) return { ok: false, erro: "Desconto inválido." };
+
+  const itens = Array.isArray(entrada?.itens) ? entrada.itens : [];
+  if (itens.length === 0 || itens.length > 100) {
+    return { ok: false, erro: "Carrinho inválido (1 a 100 itens)." };
+  }
+  for (const it of itens) {
+    if (!it || !UUID.test(it.item_id)) return { ok: false, erro: "Item inválido no carrinho." };
+    const q = Number(it.quantity);
+    if (!Number.isInteger(q) || q < 1 || q > 99999) {
+      return { ok: false, erro: "Quantidade inválida (1 a 99.999)." };
+    }
+  }
+
+  // cliente: existente OU criacao rapida (os dois nao, e pelo menos um)
+  const temExistente = UUID.test(entrada?.clienteExistenteId ?? "");
+  const novo = entrada?.clienteNovo ?? null;
+  if (!temExistente && !novo) {
+    return { ok: false, erro: "Escolha um cliente ou cadastre um novo." };
+  }
+  let clienteNovo: ClienteNovoManual | null = null;
+  if (novo) {
+    const nome = String(novo.nome ?? "").trim();
+    const doc = somenteDigitos(novo.documento);
+    const fone = somenteDigitos(novo.telefone);
+    if (!nome) return { ok: false, erro: "Nome do cliente é obrigatório." };
+    if (novo.tipo === "fisica" && !/^\d{11}$/.test(doc)) {
+      return { ok: false, erro: "CPF deve ter 11 dígitos." };
+    }
+    if (novo.tipo === "juridica" && !/^\d{14}$/.test(doc)) {
+      return { ok: false, erro: "CNPJ deve ter 14 dígitos." };
+    }
+    if (!/^\d{10,11}$/.test(fone)) {
+      return { ok: false, erro: "Telefone deve ter 10 ou 11 dígitos." };
+    }
+    const uf = String(novo.uf ?? "").trim().toUpperCase();
+    if (uf && !/^[A-Z]{2}$/.test(uf)) return { ok: false, erro: "UF inválida." };
+    clienteNovo = { ...novo, nome, documento: doc, telefone: fone, uf: uf || undefined };
+  }
+
+  // entrega: retira (null) ou endereco completo
+  let entrega: EntregaManual | null = null;
+  if (entrada?.entrega) {
+    const e = entrada.entrega;
+    const logradouro = String(e.logradouro ?? "").trim();
+    if (!logradouro) return { ok: false, erro: "Endereço de entrega é obrigatório." };
+    const uf = String(e.uf ?? "").trim().toUpperCase();
+    if (uf && !/^[A-Z]{2}$/.test(uf)) return { ok: false, erro: "UF da entrega inválida." };
+    const prazo = String(e.prazo ?? "").trim();
+    if (prazo && !/^\d{4}-\d{2}-\d{2}$/.test(prazo)) {
+      return { ok: false, erro: "Prazo da entrega inválido." };
+    }
+    entrega = { ...e, logradouro, uf: uf || undefined, prazo: prazo || undefined };
+  }
+
+  const { data, error } = await admin.rpc("manual_register_sale", {
+    p_items: itens.map((i) => ({ item_id: i.item_id, quantity: Number(i.quantity) })),
+    p_payment_method: entrada.metodo,
+    p_channel: entrada.canal,
+    p_installments: n,
+    p_discount: desc,
+    p_customer_id: temExistente ? entrada.clienteExistenteId : null,
+    p_customer: clienteNovo
+      ? {
+          tipo: clienteNovo.tipo,
+          nome: clienteNovo.nome,
+          documento: clienteNovo.documento,
+          telefone: clienteNovo.telefone,
+          whatsapp: somenteDigitos(clienteNovo.whatsapp ?? ""),
+          cep: somenteDigitos(clienteNovo.cep ?? ""),
+          logradouro: clienteNovo.logradouro ?? "",
+          numero: clienteNovo.numero ?? "",
+          complemento: clienteNovo.complemento ?? "",
+          bairro: clienteNovo.bairro ?? "",
+          cidade: clienteNovo.cidade ?? "",
+          uf: clienteNovo.uf ?? "",
+        }
+      : null,
+    p_entrega: entrega
+      ? {
+          cep: somenteDigitos(entrega.cep ?? ""),
+          logradouro: entrega.logradouro,
+          numero: entrega.numero ?? "",
+          complemento: entrega.complemento ?? "",
+          bairro: entrega.bairro ?? "",
+          cidade: entrega.cidade ?? "",
+          uf: entrega.uf ?? "",
+          transportadora: entrega.transportadora ?? "",
+          prazo: entrega.prazo ?? "",
+          observacao: entrega.observacao ?? "",
+        }
+      : null,
+    p_idempotency_key: crypto.randomUUID(),
+  });
+  if (error) return { ok: false, erro: `Falha ao registrar a venda: ${error.message}` };
+
+  const res = data as {
+    order_id?: string;
+    total?: number;
+    entrega_id?: string | null;
+    duplicate?: boolean;
+  };
+  const orderId = String(res?.order_id ?? "");
+  const total = Number(res?.total ?? 0);
+
+  await admin.from("audit_log").insert({
+    tenant_id: NUVEM_DE_PAPEL_TENANT_ID,
+    actor_user_id: userId,
+    action: "venda.manual",
+    entity: "orders",
+    entity_id: orderId,
+    after: {
+      canal: entrada.canal,
+      metodo: entrada.metodo,
+      parcelas: n,
+      desconto: desc,
+      itens: itens.length,
+      entrega: !!res?.entrega_id,
+      duplicate: !!res?.duplicate,
+    },
+  });
+
+  revalidatePath("/vendas");
+  const rotulo = res?.entrega_id ? "com entrega agendada" : "para retirada no balcão";
+  return {
+    ok: true,
+    msg: `Venda registrada ${rotulo} — total ${r2(total).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}.`,
+    orderId,
+    total,
+    entrega: !!res?.entrega_id,
+  };
+}

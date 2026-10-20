@@ -165,8 +165,18 @@ async function lerEstoque(itemId) {
 async function ajustarEstoque(itemId, alvo, nota) {
   const atual = await lerEstoque(itemId);
   const diff = alvo - Number(atual?.stock_available ?? 0);
-  // sem linha em item_stock o item e "ilimitado": o registro de um ajuste de 0
-  // e o que cria a linha (e o recebimento so passa a contar estoque depois)
+  // sem linha em item_stock o item e "ilimitado" - cria a linha zerada direto
+  // (o RPC nao aceita ajuste de 0: QUANTIDADE_INVALIDA)
+  if (!atual) {
+    const { error: eL } = await admin.from("item_stock").insert({
+      item_id: itemId,
+      tenant_id: TENANT,
+      stock_available: 0,
+      stock_on_hand: 0,
+    });
+    if (eL && !/duplicate/i.test(eL.message)) throw new Error(nota + ": " + eL.message);
+    if (alvo === 0) return;
+  }
   if (atual && diff === 0) return;
   const { error } = await admin.rpc("register_stock_movement", {
     p_item_id: itemId,

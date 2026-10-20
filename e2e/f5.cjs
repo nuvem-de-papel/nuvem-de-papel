@@ -150,9 +150,10 @@ async function main() {
   } else if (!item.active) {
     await admin.from("catalog_items").update({ active: true }).eq("id", item.id);
   }
+  // item_prices tem PK de 4 colunas desde a 0009 - onConflict precisa da PK
   await admin.from("item_prices").upsert(
-    { item_id: item.id, channel: "varejo", price: PRECO },
-    { onConflict: "item_id,channel" }
+    { item_id: item.id, channel: "varejo", price: PRECO, min_quantity: 1, valid_from: "1970-01-01T00:00:00Z" },
+    { onConflict: "item_id,channel,min_quantity,valid_from" }
   );
   const { data: est0 } = await admin
     .from("item_stock")
