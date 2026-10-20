@@ -11,7 +11,9 @@ export async function gerarComGemini(prompt: string): Promise<ResultadoIA> {
   const chave = process.env.GEMINI_API_KEY;
   if (!chave) return { ok: false, motivo: "gemini_sem_chave" };
 
-  const modelo = process.env.GEMINI_MODEL || "gemini-3.8-flash";
+  // Default = modelo de produção decidido em 20/10 (cota padrão); o 3.8-flash free
+  // tem só 20 req/dia por projeto e estoura em uso real. Troca = env GEMINI_MODEL.
+  const modelo = process.env.GEMINI_MODEL || "gemini-3.5-flash";
 
   try {
     const resp = await fetch(`${ENDPOINT}/${modelo}:generateContent`, {
