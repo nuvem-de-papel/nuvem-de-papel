@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { NUVEM_DE_PAPEL_TENANT_ID } from "@/lib/tenant";
 import { PAPEIS_GESTAO } from "@/lib/rbac";
+import { documentoValido } from "@/lib/documento";
 import {
   montarChave44,
   montarXmlNfe,
@@ -1355,6 +1356,10 @@ export async function registrarVendaManual(
     }
     if (novo.tipo === "juridica" && !/^\d{14}$/.test(doc)) {
       return { ok: false, erro: "CNPJ deve ter 14 dígitos." };
+    }
+    // digito verificador: o console ja avisa antes, aqui nao passa documente errado.
+    if (!documentoValido(novo.tipo, doc)) {
+      return { ok: false, erro: `CPF/CNPJ inválido: confira os dígitos (${doc}).` };
     }
     if (!/^\d{10,11}$/.test(fone)) {
       return { ok: false, erro: "Telefone deve ter 10 ou 11 dígitos." };

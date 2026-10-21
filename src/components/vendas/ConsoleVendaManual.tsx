@@ -1,18 +1,21 @@
 "use client";
 
 // Venda manual de telefone/balcao (0040): venda COMPLETA sem caixa aberto.
-// Fluxo em 4 blocos na mesma tela: cliente (existente ou cadastro rapido
-// PF/PJ), itens (busca + carrinho, preco por canal varejo/atacado),
-// pagamento (dinheiro/pix/debito/cartao/boleto/fiado com parcelas) e
-// entrega OU retirada. Grava pela server action `registrarVendaManual`,
-// que chama a RPC `manual_register_sale` (baixa estoque, gera titulo +
-// parcelas - que entram na regua de cobranca - e abre a linha de Expedicao
-// quando ha entrega). Mesmo idioma visual do PDV/Vendas.
+// Layout "console de balcao" em tela unica — grade de itens e o heroi, o
+// resumo/TOTAL fica fixo a direita, cadastro de cliente abre no miolo e a
+// entrega e uma faixa no rodape. Logica IDENTICA a versao original: mesma
+// server action `registrarVendaManual` (chama a RPC `manual_register_sale`,
+// que baixa estoque, gera titulo + parcelas e abre a linha de Expedicao quando
+// ha entrega). Mesmo idioma visual do PDV/Vendas.
+// Extras: verificador de CPF/CNPJ (DV) no cadastro, com aviso imediato e
+// trava no botao; CEP busca automatica (ViaCEP) ao sair do campo.
+// Contrato E2E preservado: todos os aria-label e a section "Resumo da venda".
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { PageHeader } from "@/components/admin/PageHeader";
 import { registrarVendaManual } from "@/app/vendas/actions";
+import { documentoValido } from "@/lib/documento";
 
 export type ItemLista = {
   id: string;
@@ -48,6 +51,7 @@ const INPUT: React.CSSProperties = {
   borderRadius: 8,
   border: "1px solid var(--border)",
   fontSize: 13,
+  background: "#FFF",
 };
 
 const CARD: React.CSSProperties = {
@@ -55,7 +59,6 @@ const CARD: React.CSSProperties = {
   border: "1.5px solid var(--border)",
   borderRadius: 14,
   padding: 16,
-  marginBottom: 16,
 };
 
 const LEGENDA: React.CSSProperties = {
@@ -77,6 +80,8 @@ const BTN_PRIMARIO = {
   background: "var(--pink-600)",
   color: "#FFF",
 };
+
+const COLUNAS = "repeat(auto-fit, minmax(200px, 1fr))";
 
 function brl(v: number) {
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
@@ -140,6 +145,7 @@ export function ConsoleVendaManual({
   const [bairro, setBairro] = useState("");
   const [cidade, setCidade] = useState("");
   const [uf, setUf] = useState("");
+  const [cepBuscando, setCepBuscando] = useState(false);
 
   // itens
   const [buscaItem, setBuscaItem] = useState("");
@@ -166,6 +172,10 @@ export function ConsoleVendaManual({
 
   const [enviando, setEnviando] = useState(false);
   const [aviso, setAviso] = useState<{ tipo: "ok" | "erro"; texto: string } | null>(null);
+
+  const refBuscaItem = useRef<HTMLInputElement>(null);
+  const refBuscaCliente = useRef<HTMLInputElement>(null);
+  const refNome = useRef<HTMLInputElement>(null);
 
   const clientesFiltrados = useMemo(() => {
     const t = buscaCliente.trim().toLowerCase();
@@ -199,6 +209,12 @@ export function ConsoleVendaManual({
   const descValor = Math.max(0, Number(somenteDigitos(desconto) ? desconto.replace(",", ".") : "0") || 0);
   const total = Math.max(0, subtotal - descValor);
   const aceitaParcela = METODOS.find((m) => m.valor === metodo)?.parcela ?? false;
+  const totalUnidades = carrinho.reduce((a, l) => a + l.qty, 0);
+
+  // verificador de CPF/CNPJ: avisa na hora e trava o envio
+  const docDigitos = somenteDigitos(documento);
+  const docDvOk =
+    docDigitos.length === 0 || documentoValido(tipoDoc, documento);
 
   function addItem(i: ItemLista) {
     setCarrinho((c) => {
@@ -225,6 +241,27 @@ export function ConsoleVendaManual({
     setECidade(c.cidade ?? "");
     setEUf(c.uf ?? "");
     setAviso(null);
+  }
+
+  // CEP automatico (ViaCEP) do cadastro de cliente — ao sair do campo.
+  async function buscarCepCliente() {
+    const d = somenteDigitos(cep);
+    if (d.length !== 8) return;
+    setCepBuscando(true);
+    try {
+      const r = await fetch(`https://viacep.com.br/ws/${d}/json/`);
+      const j = await r.json();
+      if (!j.erro) {
+        setLogradouro(j.logradouro || "");
+        setBairro(j.bairro || "");
+        setCidade(j.cidade || "");
+        setUf((j.uf || "").toUpperCase());
+      }
+    } catch {
+      // offline ou CEP ruim: operador digita na mao — nao trava nada.
+    } finally {
+      setCepBuscando(false);
+    }
   }
 
   async function enviar() {
@@ -272,12 +309,45 @@ export function ConsoleVendaManual({
     carrinho.length > 0 &&
     !enviando &&
     (modoNovo
-      ? nome.trim() && somenteDigitos(documento).length === (tipoDoc === "fisica" ? 11 : 14) && somenteDigitos(telefone).length >= 10
+      ? nome.trim() && docDvOk && somenteDigitos(telefone).length >= 10
       : !!clienteId) &&
     (modoEntrega === "retira" || eLogradouro.trim());
 
+  // atalhos de teclado do balcao (mesmo espirito das teclas de funcao)
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "F4") {
+        e.preventDefault();
+        refBuscaItem.current?.focus();
+      } else if (e.key === "F2") {
+        e.preventDefault();
+        setModoNovo(false);
+        refBuscaCliente.current?.focus();
+      } else if (e.key === "F8") {
+        e.preventDefault();
+        setCarrinho((c) => (c.length ? c.slice(0, -1) : c));
+      } else if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+        e.preventDefault();
+        if (prontoParaEnviar) void enviar();
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prontoParaEnviar, carrinho, metodo, parcelas, desconto, canal, modoNovo, nome, documento, telefone, whatsapp, cep, logradouro, numero, complemento, bairro, cidade, uf, modoEntrega, eCep, eLogradouro, eNumero, eComplemento, eBairro, eCidade, eUf, eTransportadora, ePrazo, eObservacao]);
+
   return (
-    <div style={{ maxWidth: 980, margin: "0 auto", padding: "26px 24px 60px" }}>
+    <div style={{ maxWidth: 1240, margin: "0 auto", padding: "24px 24px 40px" }}>
+      {/* console em 2 colunas no balcao; abaixo de 1000px colapsa em pilha
+          unica (mesma ordem logica) — sem rolagem horizontal no celular. */}
+      <style>{`
+        .vman-grid { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 16px; align-items: start; }
+        .vman-lado { position: sticky; top: 16px; display: grid; gap: 16px; }
+        @media (max-width: 1000px) {
+          .vman-grid { grid-template-columns: minmax(0, 1fr); }
+          .vman-lado { position: static; }
+        }
+      `}</style>
       <PageHeader
         titulo="Nova venda"
         subtitulo="Telefone ou balcão — sem caixa aberto. Entrega ou retirada, todas as formas de pagamento."
@@ -302,544 +372,634 @@ export function ConsoleVendaManual({
         </div>
       )}
 
-      {/* ---------------------------------------------------- 1. cliente -- */}
-      <section style={CARD}>
-        <div style={LEGENDA}>1. Cliente</div>
-        <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
-          <button
-            type="button"
-            aria-label="Cliente já cadastrado"
-            onClick={() => setModoNovo(false)}
-            style={{
-              ...BTN_PRIMARIO,
-              background: modoNovo ? "#FFF" : "var(--pink-600)",
-              color: modoNovo ? "var(--ink-soft)" : "#FFF",
-              border: modoNovo ? "1.5px solid var(--border)" : "none",
-            }}
-          >
-            Já é cliente
-          </button>
-          <button
-            type="button"
-            aria-label="Novo cliente na hora"
-            onClick={() => setModoNovo(true)}
-            style={{
-              ...BTN_PRIMARIO,
-              background: modoNovo ? "var(--pink-600)" : "#FFF",
-              color: modoNovo ? "#FFF" : "var(--ink-soft)",
-              border: modoNovo ? "none" : "1.5px solid var(--border)",
-            }}
-          >
-            Novo cadastro (na hora)
-          </button>
-        </div>
+      {/* ================================================= esquerda ======== */}
+      <div className="vman-grid">
+        <div style={{ display: "grid", gap: 16, minWidth: 0 }}>
+          {/* ------------------------------------------------ 1. itens ---- */}
+          <section style={CARD}>
+            <div style={{ ...LEGENDA, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span>Itens da venda</span>
+              <span style={{ display: "flex", gap: 6 }}>
+                {(["varejo", "atacado"] as const).map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    aria-label={`Canal ${c}`}
+                    onClick={() => setCanal(c)}
+                    style={{
+                      ...BTN_PRIMARIO,
+                      padding: "4px 12px",
+                      fontSize: 12,
+                      background: canal === c ? "var(--navy)" : "#FFF",
+                      color: canal === c ? "#FFF" : "var(--ink-soft)",
+                      border: canal === c ? "none" : "1.5px solid var(--border)",
+                    }}
+                  >
+                    {c === "varejo" ? "Varejo" : "Atacado"}
+                  </button>
+                ))}
+              </span>
+            </div>
 
-        {!modoNovo ? (
-          <div>
             <input
-              aria-label="Buscar cliente"
-              placeholder="Nome, CPF/CNPJ ou telefone…"
-              value={buscaCliente}
-              onChange={(e) => setBuscaCliente(e.target.value)}
+              ref={refBuscaItem}
+              aria-label="Buscar produto"
+              placeholder="SKU ou nome do produto…  (F4 volta o foco pra cá)"
+              value={buscaItem}
+              onChange={(e) => setBuscaItem(e.target.value)}
               style={{ ...INPUT, width: "100%", marginBottom: 10 }}
             />
-            <div style={{ display: "grid", gap: 6 }}>
-              {clientesFiltrados.map((c) => (
-                <button
-                  key={c.id}
-                  type="button"
-                  aria-label={`Selecionar cliente ${c.nome}`}
-                  onClick={() => setClienteId(c.id)}
-                  style={{
-                    textAlign: "left",
-                    padding: "8px 12px",
-                    borderRadius: 10,
-                    border: `1.5px solid ${clienteId === c.id ? "var(--pink-600)" : "var(--border)"}`,
-                    background: clienteId === c.id ? "#FCE7F3" : "#FFF",
-                    cursor: "pointer",
-                    fontSize: 13,
-                  }}
-                >
-                  <strong>{c.nome}</strong>
-                  {c.documento && (
-                    <span style={{ color: "var(--ink-soft)", marginLeft: 8 }}>
-                      {c.documento.length === 14 ? "CNPJ " : "CPF "}
-                      {c.documento}
-                    </span>
-                  )}
-                  {c.telefone && <span style={{ color: "var(--ink-soft)", marginLeft: 8 }}>☎ {c.telefone}</span>}
-                </button>
-              ))}
-              {clientesFiltrados.length === 0 && (
-                <div style={{ fontSize: 13, color: "var(--ink-soft)" }}>
-                  Nenhum cliente encontrado — use “Novo cadastro (na hora)”.
-                </div>
-              )}
-            </div>
-          </div>
-        ) : (
-          <div style={{ display: "grid", gap: 10 }}>
-            <div style={{ display: "flex", gap: 8 }}>
-              <button
-                type="button"
-                aria-label="Pessoa física"
-                onClick={() => setTipoDoc("fisica")}
-                style={{
-                  ...BTN_PRIMARIO,
-                  background: tipoDoc === "fisica" ? "var(--pink-600)" : "#FFF",
-                  color: tipoDoc === "fisica" ? "#FFF" : "var(--ink-soft)",
-                  border: tipoDoc === "fisica" ? "none" : "1.5px solid var(--border)",
-                }}
-              >
-                Pessoa física
-              </button>
-              <button
-                type="button"
-                aria-label="Pessoa jurídica"
-                onClick={() => setTipoDoc("juridica")}
-                style={{
-                  ...BTN_PRIMARIO,
-                  background: tipoDoc === "juridica" ? "var(--pink-600)" : "#FFF",
-                  color: tipoDoc === "juridica" ? "#FFF" : "var(--ink-soft)",
-                  border: tipoDoc === "juridica" ? "none" : "1.5px solid var(--border)",
-                }}
-              >
-                Pessoa jurídica
-              </button>
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10 }}>
-              <input
-                aria-label={tipoDoc === "fisica" ? "Nome completo" : "Razão social"}
-                placeholder={tipoDoc === "fisica" ? "Nome completo*" : "Razão social*"}
-                value={nome}
-                onChange={(e) => setNome(e.target.value)}
-                style={INPUT}
-              />
-              <input
-                aria-label={tipoDoc === "fisica" ? "CPF" : "CNPJ"}
-                placeholder={tipoDoc === "fisica" ? "CPF*" : "CNPJ*"}
-                value={documento}
-                onChange={(e) => setDocumento(mascaraDocumento(e.target.value, tipoDoc === "juridica"))}
-                style={INPUT}
-              />
-              <input
-                aria-label="Telefone"
-                placeholder="Telefone* (com DDD)"
-                value={telefone}
-                onChange={(e) => setTelefone(mascaraTelefone(e.target.value))}
-                style={INPUT}
-              />
-              <input
-                aria-label="WhatsApp"
-                placeholder="WhatsApp (opcional)"
-                value={whatsapp}
-                onChange={(e) => setWhatsapp(mascaraTelefone(e.target.value))}
-                style={INPUT}
-              />
-              <input
-                aria-label="CEP do cliente"
-                placeholder="CEP (opcional)"
-                value={cep}
-                onChange={(e) => setCep(mascaraCep(e.target.value))}
-                style={INPUT}
-              />
-              <input
-                aria-label="Logradouro do cliente"
-                placeholder="Rua, avenida… (opcional)"
-                value={logradouro}
-                onChange={(e) => setLogradouro(e.target.value)}
-                style={INPUT}
-              />
-              <input
-                aria-label="Número do cliente"
-                placeholder="Número (opcional)"
-                value={numero}
-                onChange={(e) => setNumero(e.target.value)}
-                style={INPUT}
-              />
-              <input
-                aria-label="Complemento do cliente"
-                placeholder="Complemento (opcional)"
-                value={complemento}
-                onChange={(e) => setComplemento(e.target.value)}
-                style={INPUT}
-              />
-              <input
-                aria-label="Bairro do cliente"
-                placeholder="Bairro (opcional)"
-                value={bairro}
-                onChange={(e) => setBairro(e.target.value)}
-                style={INPUT}
-              />
-              <input
-                aria-label="Cidade do cliente"
-                placeholder="Cidade (opcional)"
-                value={cidade}
-                onChange={(e) => setCidade(e.target.value)}
-                style={INPUT}
-              />
-              <input
-                aria-label="UF do cliente"
-                placeholder="UF (opcional)"
-                maxLength={2}
-                value={uf}
-                onChange={(e) => setUf(e.target.value.toUpperCase())}
-                style={INPUT}
-              />
-            </div>
-            <div style={{ fontSize: 12, color: "var(--ink-soft)" }}>
-              Mesmo CPF/CNPJ já cadastrado reutiliza o cadastro existente (não duplica cliente).
-            </div>
-          </div>
-        )}
-      </section>
 
-      {/* ------------------------------------------------------ 2. itens -- */}
-      <section style={CARD}>
-        <div style={{ ...LEGENDA, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <span>2. Itens</span>
-          <span style={{ display: "flex", gap: 6 }}>
-            {(["varejo", "atacado"] as const).map((c) => (
-              <button
-                key={c}
-                type="button"
-                aria-label={`Canal ${c}`}
-                onClick={() => setCanal(c)}
-                style={{
-                  ...BTN_PRIMARIO,
-                  padding: "4px 12px",
-                  fontSize: 12,
-                  background: canal === c ? "var(--navy)" : "#FFF",
-                  color: canal === c ? "#FFF" : "var(--ink-soft)",
-                  border: canal === c ? "none" : "1.5px solid var(--border)",
-                }}
-              >
-                {c === "varejo" ? "Varejo" : "Atacado"}
-              </button>
-            ))}
-          </span>
-        </div>
-        <input
-          aria-label="Buscar produto"
-          placeholder="SKU ou nome do produto…"
-          value={buscaItem}
-          onChange={(e) => setBuscaItem(e.target.value)}
-          style={{ ...INPUT, width: "100%", marginBottom: 10 }}
-        />
-        <div style={{ display: "grid", gap: 6, marginBottom: carrinho.length ? 12 : 0 }}>
-          {itensFiltrados.map((i) => (
-            <div
-              key={i.id}
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                gap: 10,
-                padding: "8px 12px",
-                borderRadius: 10,
-                background: "#FFF",
-                border: "1.5px solid var(--border)",
-              }}
-            >
-              <div style={{ fontSize: 13, minWidth: 0 }}>
-                <strong>{i.name}</strong>
-                <span style={{ color: "var(--ink-soft)", marginLeft: 8 }}>{i.sku}</span>
-                {i.estoque !== null && i.estoque <= 0 && (
-                  <span style={{ color: "#991B1B", marginLeft: 8, fontWeight: 700 }}>sem estoque</span>
-                )}
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 10, whiteSpace: "nowrap" }}>
-                <strong style={{ fontSize: 13 }}>{brl(precoDe(i))}</strong>
-                <button
-                  type="button"
-                  aria-label={`Adicionar ${i.name}`}
-                  disabled={(i.estoque ?? 1) <= 0}
-                  onClick={() => addItem(i)}
-                  style={{
-                    ...BTN_PRIMARIO,
-                    padding: "4px 12px",
-                    opacity: (i.estoque ?? 1) <= 0 ? 0.5 : 1,
-                  }}
-                >
-                  + Item
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {carrinho.length > 0 && (
-          <div
-            style={{
-              border: "1.5px dashed var(--border)",
-              borderRadius: 10,
-              padding: 10,
-              background: "#FFF",
-            }}
-            aria-label="Carrinho"
-          >
-            {carrinho.map((l) => {
-              const it = itens.find((i) => i.id === l.item_id);
-              return (
+            <div style={{ display: "grid", gap: 6, marginBottom: carrinho.length ? 14 : 0 }}>
+              {itensFiltrados.map((i) => (
                 <div
-                  key={l.item_id}
+                  key={i.id}
                   style={{
                     display: "flex",
                     justifyContent: "space-between",
                     alignItems: "center",
-                    gap: 8,
-                    padding: "4px 2px",
-                    fontSize: 13,
+                    gap: 10,
+                    padding: "8px 12px",
+                    borderRadius: 10,
+                    background: "#FFF",
+                    border: "1.5px solid var(--border)",
                   }}
                 >
-                  <span style={{ minWidth: 0 }}>
-                    {l.name}
-                    {it && (
-                      <span style={{ color: "var(--ink-soft)", marginLeft: 8 }}>
-                        {brl(precoDe(it))} un.
-                      </span>
+                  <div style={{ fontSize: 13, minWidth: 0 }}>
+                    <strong>{i.name}</strong>
+                    <span style={{ color: "var(--ink-soft)", marginLeft: 8 }}>{i.sku}</span>
+                    {i.estoque !== null && i.estoque <= 0 && (
+                      <span style={{ color: "#991B1B", marginLeft: 8, fontWeight: 700 }}>sem estoque</span>
                     )}
-                  </span>
-                  <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, whiteSpace: "nowrap" }}>
+                    <strong style={{ fontSize: 13 }}>{brl(precoDe(i))}</strong>
                     <button
                       type="button"
-                      aria-label={`Diminuir ${l.name}`}
-                      onClick={() => mudarQtd(l.item_id, -1)}
-                      style={{ ...BTN_PRIMARIO, background: "var(--navy)", padding: "2px 10px" }}
+                      aria-label={`Adicionar ${i.name}`}
+                      disabled={(i.estoque ?? 1) <= 0}
+                      onClick={() => addItem(i)}
+                      style={{
+                        ...BTN_PRIMARIO,
+                        padding: "4px 12px",
+                        opacity: (i.estoque ?? 1) <= 0 ? 0.5 : 1,
+                      }}
                     >
-                      −
+                      + Item
                     </button>
-                    <strong aria-label={`Quantidade ${l.name}`}>{l.qty}</strong>
-                    <button
-                      type="button"
-                      aria-label={`Aumentar ${l.name}`}
-                      onClick={() => mudarQtd(l.item_id, 1)}
-                      style={{ ...BTN_PRIMARIO, background: "var(--navy)", padding: "2px 10px" }}
-                    >
-                      +
-                    </button>
-                  </span>
+                  </div>
                 </div>
-              );
-            })}
-          </div>
-        )}
-      </section>
+              ))}
+              {itensFiltrados.length === 0 && (
+                <div style={{ fontSize: 13, color: "var(--ink-soft)" }}>
+                  Nenhum produto encontrado para “{buscaItem}”.
+                </div>
+              )}
+            </div>
 
-      {/* -------------------------------------------------- 3. pagamento -- */}
-      <section style={CARD}>
-        <div style={LEGENDA}>3. Pagamento</div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 8, marginBottom: 12 }}>
-          {METODOS.map((m) => (
-            <button
-              key={m.valor}
-              type="button"
-              aria-label={`Pagamento ${m.label}`}
-              onClick={() => {
-                setMetodo(m.valor);
-                if (!m.parcela) setParcelas(1);
-              }}
+            {/* grade de itens — o herói da tela */}
+            <div
               style={{
-                textAlign: "left",
-                padding: "8px 12px",
-                borderRadius: 10,
-                border: `1.5px solid ${metodo === m.valor ? "var(--pink-600)" : "var(--border)"}`,
-                background: metodo === m.valor ? "#FCE7F3" : "#FFF",
-                cursor: "pointer",
-                fontSize: 13,
-                fontWeight: metodo === m.valor ? 800 : 600,
+                border: "1.5px solid var(--border)",
+                borderRadius: 12,
+                background: "#FFF",
+                overflow: "hidden",
+              }}
+              aria-label="Carrinho"
+            >
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr auto auto",
+                  gap: 10,
+                  padding: "8px 12px",
+                  background: "var(--bg-cloud)",
+                  borderBottom: "1.5px solid var(--border)",
+                  fontSize: 11,
+                  fontWeight: 800,
+                  textTransform: "uppercase",
+                  letterSpacing: 0.5,
+                  color: "var(--ink-soft)",
+                }}
+              >
+                <span>Produto</span>
+                <span style={{ textAlign: "center" }}>Qtd</span>
+                <span style={{ textAlign: "right" }}>Total</span>
+              </div>
+              {carrinho.length === 0 ? (
+                <div style={{ padding: "18px 12px", fontSize: 13, color: "var(--ink-soft)" }}>
+                  Grade vazia — busque um produto acima e clique em “+ Item”.
+                </div>
+              ) : (
+                carrinho.map((l, idx) => {
+                  const it = itens.find((i) => i.id === l.item_id);
+                  return (
+                    <div
+                      key={l.item_id}
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "1fr auto auto",
+                        gap: 10,
+                        alignItems: "center",
+                        padding: "7px 12px",
+                        fontSize: 13,
+                        background: idx % 2 ? "var(--bg-cloud)" : "#FFF",
+                        borderBottom: idx === carrinho.length - 1 ? "none" : "1px solid var(--border)",
+                      }}
+                    >
+                      <span style={{ minWidth: 0 }}>
+                        <strong>{l.name}</strong>
+                        <span style={{ color: "var(--ink-soft)", marginLeft: 8 }}>{l.sku}</span>
+                        {it && (
+                          <span style={{ color: "var(--ink-soft)", marginLeft: 8 }}>
+                            {brl(precoDe(it))} un.
+                          </span>
+                        )}
+                      </span>
+                      <span style={{ display: "flex", alignItems: "center", gap: 8, justifySelf: "center" }}>
+                        <button
+                          type="button"
+                          aria-label={`Diminuir ${l.name}`}
+                          onClick={() => mudarQtd(l.item_id, -1)}
+                          style={{ ...BTN_PRIMARIO, background: "var(--navy)", padding: "2px 10px" }}
+                        >
+                          −
+                        </button>
+                        <strong aria-label={`Quantidade ${l.name}`}>{l.qty}</strong>
+                        <button
+                          type="button"
+                          aria-label={`Aumentar ${l.name}`}
+                          onClick={() => mudarQtd(l.item_id, 1)}
+                          style={{ ...BTN_PRIMARIO, background: "var(--navy)", padding: "2px 10px" }}
+                        >
+                          +
+                        </button>
+                      </span>
+                      <span style={{ justifySelf: "end", fontWeight: 800 }}>
+                        {brl((it ? precoDe(it) : 0) * l.qty)}
+                      </span>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </section>
+
+          {/* ------------------------------------------------ 2. cliente -- */}
+          <section style={CARD}>
+            <div style={LEGENDA}>Cliente</div>
+            <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
+              <button
+                type="button"
+                aria-label="Cliente já cadastrado"
+                onClick={() => setModoNovo(false)}
+                style={{
+                  ...BTN_PRIMARIO,
+                  background: modoNovo ? "#FFF" : "var(--pink-600)",
+                  color: modoNovo ? "var(--ink-soft)" : "#FFF",
+                  border: modoNovo ? "1.5px solid var(--border)" : "none",
+                }}
+              >
+                Já é cliente
+              </button>
+              <button
+                type="button"
+                aria-label="Novo cliente na hora"
+                onClick={() => {
+                  setModoNovo(true);
+                  setTimeout(() => refNome.current?.focus(), 0);
+                }}
+                style={{
+                  ...BTN_PRIMARIO,
+                  background: modoNovo ? "var(--pink-600)" : "#FFF",
+                  color: modoNovo ? "#FFF" : "var(--ink-soft)",
+                  border: modoNovo ? "none" : "1.5px solid var(--border)",
+                }}
+              >
+                Novo cadastro (na hora)
+              </button>
+            </div>
+
+            {!modoNovo ? (
+              <div>
+                <input
+                  ref={refBuscaCliente}
+                  aria-label="Buscar cliente"
+                  placeholder="Nome, CPF/CNPJ ou telefone…  (F2 volta o foco pra cá)"
+                  value={buscaCliente}
+                  onChange={(e) => setBuscaCliente(e.target.value)}
+                  style={{ ...INPUT, width: "100%", marginBottom: 10 }}
+                />
+                <div style={{ display: "grid", gap: 6 }}>
+                  {clientesFiltrados.map((c) => (
+                    <button
+                      key={c.id}
+                      type="button"
+                      aria-label={`Selecionar cliente ${c.nome}`}
+                      onClick={() => setClienteId(c.id)}
+                      style={{
+                        textAlign: "left",
+                        padding: "8px 12px",
+                        borderRadius: 10,
+                        border: `1.5px solid ${clienteId === c.id ? "var(--pink-600)" : "var(--border)"}`,
+                        background: clienteId === c.id ? "#FCE7F3" : "#FFF",
+                        cursor: "pointer",
+                        fontSize: 13,
+                      }}
+                    >
+                      <strong>{c.nome}</strong>
+                      {c.documento && (
+                        <span style={{ color: "var(--ink-soft)", marginLeft: 8 }}>
+                          {c.documento.length === 14 ? "CNPJ " : "CPF "}
+                          {c.documento}
+                        </span>
+                      )}
+                      {c.telefone && <span style={{ color: "var(--ink-soft)", marginLeft: 8 }}>☎ {c.telefone}</span>}
+                    </button>
+                  ))}
+                  {clientesFiltrados.length === 0 && (
+                    <div style={{ fontSize: 13, color: "var(--ink-soft)" }}>
+                      Nenhum cliente encontrado — use “Novo cadastro (na hora)”.
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div style={{ display: "grid", gap: 10 }}>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button
+                    type="button"
+                    aria-label="Pessoa física"
+                    onClick={() => setTipoDoc("fisica")}
+                    style={{
+                      ...BTN_PRIMARIO,
+                      background: tipoDoc === "fisica" ? "var(--pink-600)" : "#FFF",
+                      color: tipoDoc === "fisica" ? "#FFF" : "var(--ink-soft)",
+                      border: tipoDoc === "fisica" ? "none" : "1.5px solid var(--border)",
+                    }}
+                  >
+                    Pessoa física
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="Pessoa jurídica"
+                    onClick={() => setTipoDoc("juridica")}
+                    style={{
+                      ...BTN_PRIMARIO,
+                      background: tipoDoc === "juridica" ? "var(--pink-600)" : "#FFF",
+                      color: tipoDoc === "juridica" ? "#FFF" : "var(--ink-soft)",
+                      border: tipoDoc === "juridica" ? "none" : "1.5px solid var(--border)",
+                    }}
+                  >
+                    Pessoa jurídica
+                  </button>
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: COLUNAS, gap: 10 }}>
+                  <input
+                    ref={refNome}
+                    aria-label={tipoDoc === "fisica" ? "Nome completo" : "Razão social"}
+                    placeholder={tipoDoc === "fisica" ? "Nome completo*" : "Razão social*"}
+                    value={nome}
+                    onChange={(e) => setNome(e.target.value)}
+                    style={INPUT}
+                  />
+                  <input
+                    aria-label={tipoDoc === "fisica" ? "CPF" : "CNPJ"}
+                    placeholder={tipoDoc === "fisica" ? "CPF*" : "CNPJ*"}
+                    value={documento}
+                    onChange={(e) => setDocumento(mascaraDocumento(e.target.value, tipoDoc === "juridica"))}
+                    style={{
+                      ...INPUT,
+                      borderColor: docDigitos.length > 0 && !docDvOk ? "#DC2626" : "var(--border)",
+                    }}
+                  />
+                  <input
+                    aria-label="Telefone"
+                    placeholder="Telefone* (com DDD)"
+                    value={telefone}
+                    onChange={(e) => setTelefone(mascaraTelefone(e.target.value))}
+                    style={INPUT}
+                  />
+                  <input
+                    aria-label="WhatsApp"
+                    placeholder="WhatsApp (opcional)"
+                    value={whatsapp}
+                    onChange={(e) => setWhatsapp(mascaraTelefone(e.target.value))}
+                    style={INPUT}
+                  />
+                  <input
+                    aria-label="CEP do cliente"
+                    placeholder="CEP (opcional — busca o endereço)"
+                    value={cep}
+                    onChange={(e) => setCep(mascaraCep(e.target.value))}
+                    onBlur={buscarCepCliente}
+                    style={INPUT}
+                  />
+                  <input
+                    aria-label="Logradouro do cliente"
+                    placeholder="Rua, avenida… (preenchido pelo CEP)"
+                    value={logradouro}
+                    onChange={(e) => setLogradouro(e.target.value)}
+                    style={INPUT}
+                  />
+                  <input
+                    aria-label="Número do cliente"
+                    placeholder="Número (opcional)"
+                    value={numero}
+                    onChange={(e) => setNumero(e.target.value)}
+                    style={INPUT}
+                  />
+                  <input
+                    aria-label="Complemento do cliente"
+                    placeholder="Complemento (opcional)"
+                    value={complemento}
+                    onChange={(e) => setComplemento(e.target.value)}
+                    style={INPUT}
+                  />
+                  <input
+                    aria-label="Bairro do cliente"
+                    placeholder="Bairro (preenchido pelo CEP)"
+                    value={bairro}
+                    onChange={(e) => setBairro(e.target.value)}
+                    style={INPUT}
+                  />
+                  <input
+                    aria-label="Cidade do cliente"
+                    placeholder="Cidade (preenchido pelo CEP)"
+                    value={cidade}
+                    onChange={(e) => setCidade(e.target.value)}
+                    style={INPUT}
+                  />
+                  <input
+                    aria-label="UF do cliente"
+                    placeholder="UF (preenchido pelo CEP)"
+                    maxLength={2}
+                    value={uf}
+                    onChange={(e) => setUf(e.target.value.toUpperCase())}
+                    style={INPUT}
+                  />
+                </div>
+                {docDigitos.length > 0 && !docDvOk && (
+                  <div style={{ fontSize: 12.5, fontWeight: 700, color: "#DC2626" }}>
+                    {tipoDoc === "fisica" ? "CPF" : "CNPJ"} com dígito verificador inválido — confira os números.
+                  </div>
+                )}
+                <div style={{ fontSize: 12, color: "var(--ink-soft)" }}>
+                  {cepBuscando
+                    ? "Buscando endereço pelo CEP…"
+                    : "Dígito verificador conferido na hora. Mesmo CPF/CNPJ já cadastrado reutiliza o cadastro existente (não duplica cliente)."}
+                </div>
+              </div>
+            )}
+          </section>
+
+          {/* -------------------------------------------- 3. entrega ------ */}
+          <section style={CARD}>
+            <div style={LEGENDA}>Entrega ou retirada</div>
+            <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
+              <button
+                type="button"
+                aria-label="Cliente retira no balcão"
+                onClick={() => setModoEntrega("retira")}
+                style={{
+                  ...BTN_PRIMARIO,
+                  background: modoEntrega === "retira" ? "var(--pink-600)" : "#FFF",
+                  color: modoEntrega === "retira" ? "#FFF" : "var(--ink-soft)",
+                  border: modoEntrega === "retira" ? "none" : "1.5px solid var(--border)",
+                }}
+              >
+                Retira no balcão
+              </button>
+              <button
+                type="button"
+                aria-label="Entregar no endereço"
+                onClick={() => setModoEntrega("entrega")}
+                style={{
+                  ...BTN_PRIMARIO,
+                  background: modoEntrega === "entrega" ? "var(--pink-600)" : "#FFF",
+                  color: modoEntrega === "entrega" ? "#FFF" : "var(--ink-soft)",
+                  border: modoEntrega === "entrega" ? "none" : "1.5px solid var(--border)",
+                }}
+              >
+                Entregar
+              </button>
+              {modoEntrega === "entrega" && !modoNovo && clienteId && (
+                <button
+                  type="button"
+                  aria-label="Preencher cidade e UF do cadastro"
+                  onClick={preencherEntregaDoCliente}
+                  style={{
+                    ...BTN_PRIMARIO,
+                    background: "#FFF",
+                    color: "var(--ink-soft)",
+                    border: "1.5px solid var(--border)",
+                  }}
+                >
+                  Usar cidade/UF do cadastro
+                </button>
+              )}
+            </div>
+            {modoEntrega === "entrega" && (
+              <div style={{ display: "grid", gridTemplateColumns: COLUNAS, gap: 10 }}>
+                <input
+                  aria-label="CEP da entrega"
+                  placeholder="CEP"
+                  value={eCep}
+                  onChange={(e) => setECep(mascaraCep(e.target.value))}
+                  style={INPUT}
+                />
+                <input
+                  aria-label="Logradouro da entrega"
+                  placeholder="Rua, avenida*"
+                  value={eLogradouro}
+                  onChange={(e) => setELogradouro(e.target.value)}
+                  style={{ gridColumn: "1 / -2", ...INPUT }}
+                />
+                <input
+                  aria-label="Número da entrega"
+                  placeholder="Número*"
+                  value={eNumero}
+                  onChange={(e) => setENumero(e.target.value)}
+                  style={INPUT}
+                />
+                <input
+                  aria-label="Complemento da entrega"
+                  placeholder="Complemento"
+                  value={eComplemento}
+                  onChange={(e) => setEComplemento(e.target.value)}
+                  style={INPUT}
+                />
+                <input
+                  aria-label="Bairro da entrega"
+                  placeholder="Bairro"
+                  value={eBairro}
+                  onChange={(e) => setEBairro(e.target.value)}
+                  style={INPUT}
+                />
+                <input
+                  aria-label="Cidade da entrega"
+                  placeholder="Cidade"
+                  value={eCidade}
+                  onChange={(e) => setECidade(e.target.value)}
+                  style={INPUT}
+                />
+                <input
+                  aria-label="UF da entrega"
+                  placeholder="UF"
+                  maxLength={2}
+                  value={eUf}
+                  onChange={(e) => setEUf(e.target.value.toUpperCase())}
+                  style={INPUT}
+                />
+                <input
+                  aria-label="Transportadora"
+                  placeholder="Transportadora (opcional)"
+                  value={eTransportadora}
+                  onChange={(e) => setETransportadora(e.target.value)}
+                  style={INPUT}
+                />
+                <input
+                  aria-label="Prazo da entrega"
+                  type="date"
+                  value={ePrazo}
+                  onChange={(e) => setEPrazo(e.target.value)}
+                  style={INPUT}
+                />
+                <input
+                  aria-label="Observação da entrega"
+                  placeholder="Observação (portal, ponto de referência…)"
+                  value={eObservacao}
+                  onChange={(e) => setEObservacao(e.target.value)}
+                  style={{ gridColumn: "1 / -1", ...INPUT }}
+                />
+              </div>
+            )}
+          </section>
+        </div>
+
+        {/* --------------------------------------------- direita (fixa) -- */}
+        <div className="vman-lado">
+          {/* pagamento */}
+          <section style={CARD}>
+            <div style={LEGENDA}>Pagamento</div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 8, marginBottom: 12 }}>
+              {METODOS.map((m) => (
+                <button
+                  key={m.valor}
+                  type="button"
+                  aria-label={`Pagamento ${m.label}`}
+                  onClick={() => {
+                    setMetodo(m.valor);
+                    if (!m.parcela) setParcelas(1);
+                  }}
+                  style={{
+                    textAlign: "left",
+                    padding: "8px 12px",
+                    borderRadius: 10,
+                    border: `1.5px solid ${metodo === m.valor ? "var(--pink-600)" : "var(--border)"}`,
+                    background: metodo === m.valor ? "#FCE7F3" : "#FFF",
+                    cursor: "pointer",
+                    fontSize: 13,
+                    fontWeight: metodo === m.valor ? 800 : 600,
+                  }}
+                >
+                  {m.label}
+                  <div style={{ fontSize: 11, fontWeight: 500, color: "var(--ink-soft)" }}>{m.hint}</div>
+                </button>
+              ))}
+            </div>
+            <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
+              {aceitaParcela && (
+                <label style={{ fontSize: 13 }}>
+                  Parcelas{" "}
+                  <select
+                    aria-label="Parcelas"
+                    value={parcelas}
+                    onChange={(e) => setParcelas(Number(e.target.value))}
+                    style={INPUT}
+                  >
+                    {Array.from({ length: 12 }, (_, k) => k + 1).map((p) => (
+                      <option key={p} value={p}>
+                        {p}x
+                      </option>
+                    ))}
+                  </select>
+                  {parcelas > 1 && total > 0 && (
+                    <span style={{ color: "var(--ink-soft)", marginLeft: 8 }}>
+                      de {brl(total / parcelas)}
+                    </span>
+                  )}
+                </label>
+              )}
+              <label style={{ fontSize: 13 }}>
+                Desconto R${" "}
+                <input
+                  aria-label="Desconto em reais"
+                  placeholder="0,00"
+                  value={desconto}
+                  onChange={(e) => setDesconto(e.target.value)}
+                  style={{ ...INPUT, width: 110 }}
+                />
+              </label>
+            </div>
+          </section>
+
+          {/* resumo + total + ação (fica sempre à vista) */}
+          <section
+            style={{ ...CARD, border: "2px solid var(--navy)" }}
+            aria-label="Resumo da venda"
+          >
+            <div style={{ fontSize: 13, color: "var(--ink-soft)", marginBottom: 6 }}>
+              {carrinho.length} {carrinho.length === 1 ? "item" : "itens"} · {totalUnidades}{" "}
+              {totalUnidades === 1 ? "unidade" : "unidades"} · {canal === "varejo" ? "varejo" : "atacado"}
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14 }}>
+              <span>Subtotal</span>
+              <strong>{brl(subtotal)}</strong>
+            </div>
+            {descValor > 0 && (
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14, color: "#166534" }}>
+                <span>Desconto</span>
+                <strong>−{brl(descValor)}</strong>
+              </div>
+            )}
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "baseline",
+                marginTop: 8,
+                paddingTop: 8,
+                borderTop: "1.5px solid var(--border)",
               }}
             >
-              {m.label}
-              <div style={{ fontSize: 11, fontWeight: 500, color: "var(--ink-soft)" }}>{m.hint}</div>
-            </button>
-          ))}
-        </div>
-        <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
-          {aceitaParcela && (
-            <label style={{ fontSize: 13 }}>
-              Parcelas{" "}
-              <select
-                aria-label="Parcelas"
-                value={parcelas}
-                onChange={(e) => setParcelas(Number(e.target.value))}
-                style={INPUT}
-              >
-                {Array.from({ length: 12 }, (_, k) => k + 1).map((p) => (
-                  <option key={p} value={p}>
-                    {p}x
-                  </option>
-                ))}
-              </select>
-              {parcelas > 1 && total > 0 && (
-                <span style={{ color: "var(--ink-soft)", marginLeft: 8 }}>
-                  de {brl(total / parcelas)}
-                </span>
-              )}
-            </label>
-          )}
-          <label style={{ fontSize: 13 }}>
-            Desconto R${" "}
-            <input
-              aria-label="Desconto em reais"
-              placeholder="0,00"
-              value={desconto}
-              onChange={(e) => setDesconto(e.target.value)}
-              style={{ ...INPUT, width: 110 }}
-            />
-          </label>
-        </div>
-      </section>
-
-      {/* ---------------------------------------------------- 4. entrega -- */}
-      <section style={CARD}>
-        <div style={LEGENDA}>4. Entrega ou retirada</div>
-        <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-          <button
-            type="button"
-            aria-label="Cliente retira no balcão"
-            onClick={() => setModoEntrega("retira")}
-            style={{
-              ...BTN_PRIMARIO,
-              background: modoEntrega === "retira" ? "var(--pink-600)" : "#FFF",
-              color: modoEntrega === "retira" ? "#FFF" : "var(--ink-soft)",
-              border: modoEntrega === "retira" ? "none" : "1.5px solid var(--border)",
-            }}
-          >
-            Retira no balcão
-          </button>
-          <button
-            type="button"
-            aria-label="Entregar no endereço"
-            onClick={() => setModoEntrega("entrega")}
-            style={{
-              ...BTN_PRIMARIO,
-              background: modoEntrega === "entrega" ? "var(--pink-600)" : "#FFF",
-              color: modoEntrega === "entrega" ? "#FFF" : "var(--ink-soft)",
-              border: modoEntrega === "entrega" ? "none" : "1.5px solid var(--border)",
-            }}
-          >
-            Entregar
-          </button>
-          {modoEntrega === "entrega" && !modoNovo && clienteId && (
+              <span style={{ fontSize: 14, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.5 }}>
+                Total
+              </span>
+              <span style={{ fontSize: 30, fontWeight: 900, color: "var(--navy)" }}>{brl(total)}</span>
+            </div>
             <button
               type="button"
-              aria-label="Preencher cidade e UF do cadastro"
-              onClick={preencherEntregaDoCliente}
+              aria-label="Registrar venda"
+              disabled={!prontoParaEnviar}
+              onClick={enviar}
               style={{
                 ...BTN_PRIMARIO,
-                background: "#FFF",
-                color: "var(--ink-soft)",
-                border: "1.5px solid var(--border)",
+                width: "100%",
+                marginTop: 12,
+                fontSize: 15,
+                padding: "13px 22px",
+                opacity: prontoParaEnviar ? 1 : 0.5,
               }}
             >
-              Usar cidade/UF do cadastro
+              {enviando ? "Registrando…" : "Registrar venda"}
             </button>
-          )}
-        </div>
-        {modoEntrega === "entrega" && (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 10 }}>
-            <input
-              aria-label="CEP da entrega"
-              placeholder="CEP"
-              value={eCep}
-              onChange={(e) => setECep(mascaraCep(e.target.value))}
-              style={INPUT}
-            />
-            <input
-              aria-label="Logradouro da entrega"
-              placeholder="Rua, avenida*"
-              value={eLogradouro}
-              onChange={(e) => setELogradouro(e.target.value)}
-              style={{ gridColumn: "1 / -2", ...INPUT }}
-            />
-            <input
-              aria-label="Número da entrega"
-              placeholder="Número*"
-              value={eNumero}
-              onChange={(e) => setENumero(e.target.value)}
-              style={INPUT}
-            />
-            <input
-              aria-label="Complemento da entrega"
-              placeholder="Complemento"
-              value={eComplemento}
-              onChange={(e) => setEComplemento(e.target.value)}
-              style={INPUT}
-            />
-            <input
-              aria-label="Bairro da entrega"
-              placeholder="Bairro"
-              value={eBairro}
-              onChange={(e) => setEBairro(e.target.value)}
-              style={INPUT}
-            />
-            <input
-              aria-label="Cidade da entrega"
-              placeholder="Cidade"
-              value={eCidade}
-              onChange={(e) => setECidade(e.target.value)}
-              style={INPUT}
-            />
-            <input
-              aria-label="UF da entrega"
-              placeholder="UF"
-              maxLength={2}
-              value={eUf}
-              onChange={(e) => setEUf(e.target.value.toUpperCase())}
-              style={INPUT}
-            />
-            <input
-              aria-label="Transportadora"
-              placeholder="Transportadora (opcional)"
-              value={eTransportadora}
-              onChange={(e) => setETransportadora(e.target.value)}
-              style={INPUT}
-            />
-            <input
-              aria-label="Prazo da entrega"
-              type="date"
-              value={ePrazo}
-              onChange={(e) => setEPrazo(e.target.value)}
-              style={INPUT}
-            />
-            <input
-              aria-label="Observação da entrega"
-              placeholder="Observação (portal, ponto de referência…)"
-              value={eObservacao}
-              onChange={(e) => setEObservacao(e.target.value)}
-              style={{ gridColumn: "1 / -1", ...INPUT }}
-            />
-          </div>
-        )}
-      </section>
-
-      {/* ------------------------------------------------------ resumo --- */}
-      <section
-        style={{ ...CARD, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 14 }}
-        aria-label="Resumo da venda"
-      >
-        <div style={{ fontSize: 14 }}>
-          <div>
-            Subtotal: <strong>{brl(subtotal)}</strong>
-          </div>
-          {descValor > 0 && (
-            <div style={{ color: "var(--ink-soft)" }}>
-              Desconto: −{brl(descValor)}
+            <div style={{ fontSize: 11.5, color: "var(--ink-soft)", marginTop: 8, textAlign: "center" }}>
+              Ctrl+Enter grava · F4 busca produto · F2 busca cliente · F8 remove o último item
             </div>
-          )}
-          <div style={{ fontSize: 18, fontWeight: 800, marginTop: 4 }}>Total: {brl(total)}</div>
+          </section>
         </div>
-        <button
-          type="button"
-          aria-label="Registrar venda"
-          disabled={!prontoParaEnviar}
-          onClick={enviar}
-          style={{ ...BTN_PRIMARIO, fontSize: 15, padding: "12px 28px", opacity: prontoParaEnviar ? 1 : 0.5 }}
-        >
-          {enviando ? "Registrando…" : "Registrar venda"}
-        </button>
-      </section>
+      </div>
     </div>
   );
 }
