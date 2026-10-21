@@ -36,7 +36,7 @@ export default async function NovaVendaPage() {
       .order("name", { ascending: true }),
     admin
       .from("customers")
-      .select("id, name, documento, telefone, cidade, uf")
+      .select("id, name, documento, telefone, cep, logradouro, numero, complemento, bairro, cidade, uf")
       .eq("tenant_id", NUVEM_DE_PAPEL_TENANT_ID)
       .eq("ativo", true)
       .order("name", { ascending: true })
@@ -92,6 +92,11 @@ export default async function NovaVendaPage() {
     nome: c.name,
     documento: c.documento ?? null,
     telefone: c.telefone ?? null,
+    cep: c.cep ?? null,
+    logradouro: c.logradouro ?? null,
+    numero: c.numero ?? null,
+    complemento: c.complemento ?? null,
+    bairro: c.bairro ?? null,
     cidade: c.cidade ?? null,
     uf: c.uf ?? null,
   }));

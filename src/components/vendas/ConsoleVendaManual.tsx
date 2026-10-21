@@ -31,11 +31,26 @@ export type ClienteLista = {
   nome: string;
   documento: string | null;
   telefone: string | null;
+  cep: string | null;
+  logradouro: string | null;
+  numero: string | null;
+  complemento: string | null;
+  bairro: string | null;
   cidade: string | null;
   uf: string | null;
 };
 
 type LinhaCarrinho = { item_id: string; sku: string; name: string; qty: number };
+
+type EnderecoCompleto = {
+  cep: string;
+  logradouro: string;
+  numero: string;
+  complemento: string;
+  bairro: string;
+  cidade: string;
+  uf: string;
+};
 
 const METODOS: { valor: string; label: string; parcela: boolean; hint: string }[] = [
   { valor: "dinheiro", label: "Dinheiro", parcela: false, hint: "recebido na hora" },
@@ -145,7 +160,7 @@ export function ConsoleVendaManual({
   const [bairro, setBairro] = useState("");
   const [cidade, setCidade] = useState("");
   const [uf, setUf] = useState("");
-  const [cepBuscando, setCepBuscando] = useState(false);
+  const [buscandoCep, setBuscandoCep] = useState<"cliente" | "entrega" | null>(null);
 
   // itens
   const [buscaItem, setBuscaItem] = useState("");
@@ -159,6 +174,9 @@ export function ConsoleVendaManual({
 
   // entrega: null = retira
   const [modoEntrega, setModoEntrega] = useState<"retira" | "entrega">("retira");
+  // de onde veio o endereco da entrega: cadastro do cliente / digitado pelo
+  // operador (outro) / buscado pelo CEP
+  const [origemEndereco, setOrigemEndereco] = useState<"cadastro" | "outro" | "buscado" | null>(null);
   const [eCep, setECep] = useState("");
   const [eLogradouro, setELogradouro] = useState("");
   const [eNumero, setENumero] = useState("");
@@ -176,6 +194,7 @@ export function ConsoleVendaManual({
   const refBuscaItem = useRef<HTMLInputElement>(null);
   const refBuscaCliente = useRef<HTMLInputElement>(null);
   const refNome = useRef<HTMLInputElement>(null);
+  const refECep = useRef<HTMLInputElement>(null);
 
   const clientesFiltrados = useMemo(() => {
     const t = buscaCliente.trim().toLowerCase();
@@ -244,24 +263,100 @@ export function ConsoleVendaManual({
   }
 
   // CEP automatico (ViaCEP) do cadastro de cliente — ao sair do campo.
+  // Atencao: o ViaCEP devolve a cidade em "localidade" (nao "cidade").
   async function buscarCepCliente() {
     const d = somenteDigitos(cep);
     if (d.length !== 8) return;
-    setCepBuscando(true);
+    setBuscandoCep("cliente");
     try {
       const r = await fetch(`https://viacep.com.br/ws/${d}/json/`);
       const j = await r.json();
       if (!j.erro) {
-        setLogradouro(j.logradouro || "");
-        setBairro(j.bairro || "");
-        setCidade(j.cidade || "");
-        setUf((j.uf || "").toUpperCase());
+        setLogradouro(j.logradouro ?? "");
+        setBairro(j.bairro ?? "");
+        setCidade(j.localidade ?? "");
+        setUf((j.uf ?? "").toUpperCase());
       }
     } catch {
       // offline ou CEP ruim: operador digita na mao — nao trava nada.
     } finally {
-      setCepBuscando(false);
+      setBuscandoCep(null);
     }
+  }
+
+  // CEP automatico da ENTREGA (mesmo caminho — antes nao buscava nada).
+  async function buscarCepEntrega() {
+    const d = somenteDigitos(eCep);
+    if (d.length !== 8) return;
+    setBuscandoCep("entrega");
+    try {
+      const r = await fetch(`https://viacep.com.br/ws/${d}/json/`);
+      const j = await r.json();
+      if (!j.erro) {
+        setELogradouro(j.logradouro ?? "");
+        setEBairro(j.bairro ?? "");
+        setECidade(j.localidade ?? "");
+        setEUf((j.uf ?? "").toUpperCase());
+        setOrigemEndereco("buscado");
+      }
+    } catch {
+      // offline: operador digita o endereco na mao.
+    } finally {
+      setBuscandoCep(null);
+    }
+  }
+
+  /** endereco completo do cliente: cadastro novo em curso OU ja selecionado. */
+  function enderecoDoCliente(): EnderecoCompleto | null {
+    if (modoNovo) {
+      if (!(cep || logradouro || cidade || uf)) return null;
+      return { cep, logradouro, numero, complemento, bairro, cidade, uf };
+    }
+    const c = clientes.find((x) => x.id === clienteId);
+    if (!c || !(c.cep || c.logradouro || c.cidade)) return null;
+    return {
+      cep: c.cep ?? "",
+      logradouro: c.logradouro ?? "",
+      numero: c.numero ?? "",
+      complemento: c.complemento ?? "",
+      bairro: c.bairro ?? "",
+      cidade: c.cidade ?? "",
+      uf: c.uf ?? "",
+    };
+  }
+
+  /** "Entregar": traz o endereco do cliente; sem endereco, pede o CEP. */
+  function aoEntregar() {
+    const vinhaRetira = modoEntrega === "retira";
+    setModoEntrega("entrega");
+    if (!vinhaRetira) return; // ja estava em entrega — nao mexe no digitado
+    const end = enderecoDoCliente();
+    if (end) {
+      setECep(mascaraCep(end.cep));
+      setELogradouro(end.logradouro);
+      setENumero(end.numero);
+      setEComplemento(end.complemento);
+      setEBairro(end.bairro);
+      setECidade(end.cidade);
+      setEUf(end.uf.toUpperCase());
+      setOrigemEndereco("cadastro");
+    } else if (!eLogradouro.trim() && !somenteDigitos(eCep)) {
+      setOrigemEndereco("outro");
+    }
+  }
+
+  /** "E outro endereco": limpa e foca o CEP para a busca automatica. */
+  function usarOutroEndereco() {
+    setECep("");
+    setELogradouro("");
+    setENumero("");
+    setEComplemento("");
+    setEBairro("");
+    setECidade("");
+    setEUf("");
+    setOrigemEndereco("outro");
+    setAviso(null);
+    setTimeout(() => refECep.current?.focus(), 0);
   }
 
   async function enviar() {
@@ -745,7 +840,7 @@ export function ConsoleVendaManual({
                   </div>
                 )}
                 <div style={{ fontSize: 12, color: "var(--ink-soft)" }}>
-                  {cepBuscando
+                  {buscandoCep === "cliente"
                     ? "Buscando endereço pelo CEP…"
                     : "Dígito verificador conferido na hora. Mesmo CPF/CNPJ já cadastrado reutiliza o cadastro existente (não duplica cliente)."}
                 </div>
@@ -773,7 +868,7 @@ export function ConsoleVendaManual({
               <button
                 type="button"
                 aria-label="Entregar no endereço"
-                onClick={() => setModoEntrega("entrega")}
+                onClick={aoEntregar}
                 style={{
                   ...BTN_PRIMARIO,
                   background: modoEntrega === "entrega" ? "var(--pink-600)" : "#FFF",
@@ -799,13 +894,56 @@ export function ConsoleVendaManual({
                 </button>
               )}
             </div>
+            {modoEntrega === "entrega" && origemEndereco === "cadastro" && (
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 10,
+                  flexWrap: "wrap",
+                  background: "#EFF6FF",
+                  border: "1.5px solid #BFDBFE",
+                  borderRadius: 10,
+                  padding: "8px 12px",
+                  fontSize: 13,
+                  marginBottom: 12,
+                }}
+              >
+                <span>
+                  <strong>Endereço do cadastro do cliente.</strong> É este ponto de entrega?
+                </span>
+                <button
+                  type="button"
+                  aria-label="Usar outro endereço de entrega"
+                  onClick={usarOutroEndereco}
+                  style={{
+                    ...BTN_PRIMARIO,
+                    padding: "6px 14px",
+                    fontSize: 12.5,
+                    background: "#FFF",
+                    color: "var(--ink-soft)",
+                    border: "1.5px solid var(--border)",
+                  }}
+                >
+                  É outro — informar novo CEP
+                </button>
+              </div>
+            )}
+            {modoEntrega === "entrega" && origemEndereco !== "cadastro" && (
+              <div style={{ fontSize: 12.5, color: "var(--ink-soft)", marginBottom: 10 }}>
+                Informe o CEP — rua, bairro e cidade são preenchidos automaticamente ao sair do campo.
+              </div>
+            )}
             {modoEntrega === "entrega" && (
               <div style={{ display: "grid", gridTemplateColumns: COLUNAS, gap: 10 }}>
                 <input
+                  ref={refECep}
                   aria-label="CEP da entrega"
-                  placeholder="CEP"
+                  placeholder={buscandoCep === "entrega" ? "Buscando endereço…" : "CEP (busca o endereço)"}
                   value={eCep}
                   onChange={(e) => setECep(mascaraCep(e.target.value))}
+                  onBlur={buscarCepEntrega}
                   style={INPUT}
                 />
                 <input
