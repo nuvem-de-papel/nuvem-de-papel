@@ -470,65 +470,14 @@ body:has(.admin-shell) .floating-social {
 
 
 /* ============================================ Painel console (home /crm) ===
- * Home de tiles inspirada no ERP de balcao (entrega 8): acoes rapidas em
- * cima, 4 indicadores vivos, tile dominante "Efetuar venda" com o estado do
- * caixa, grade de modulos com badge de estado, banners colapsaveis e faixa
- * de status. Cards brancos sobre o fundo cinza (a sidebar e branca) e so a
+ * Home de tiles inspirada no ERP de balcao (entrega 8): 4 indicadores
+ * vivos, tile dominante "Efetuar venda" com o estado do caixa, grade de
+ * modulos com badge de estado, banners colapsaveis e faixa de status.
+ * Cards brancos sobre o fundo cinza (a sidebar e branca) e so a
  * paleta ja aprovada (navy / pink-600 / lilac / azul-claro).
  * Contratos preservados: nenhum <footer> (E2E vendas.cjs N10) e nenhum
- * link com nome exato "PDV" fora do menu lateral (N2). */
-.painel-acoes {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-  margin: 0 0 16px;
-}
-
-.painel-acoes-rot {
-  font-size: 10.5px;
-  font-weight: 800;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--ink-soft);
-  margin-right: 2px;
-}
-
-.painel-acoes-grupo {
-  font-size: 10.5px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--ink-faint);
-  margin: 0 2px 0 8px;
-}
-
-.painel-acoes-div {
-  width: 1px;
-  height: 20px;
-  background: var(--border);
-  margin: 0 4px;
-}
-
-.painel-qbtn {
-  display: inline-flex;
-  align-items: center;
-  padding: 6px 14px;
-  border: 1.5px solid var(--border);
-  border-radius: 999px;
-  background: #fff;
-  color: var(--navy);
-  font-size: 12.5px;
-  font-weight: 700;
-  text-decoration: none;
-  transition: border-color 0.15s, color 0.15s;
-}
-
-.painel-qbtn:hover {
-  border-color: var(--pink-600);
-  color: var(--pink-600);
-}
-
+ * link com nome exato "PDV" fora do menu lateral (N2).
+ * (A faixa de acoes rapidas foi removida a pedido do cliente em 20/10.) */
 .painel-stats {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -919,10 +868,6 @@ body:has(.admin-shell) .floating-social {
 
   .painel-grid {
     grid-template-columns: 1fr;
-  }
-
-  .painel-acoes-div {
-    display: none;
   }
 }
 

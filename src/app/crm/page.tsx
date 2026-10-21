@@ -4,12 +4,13 @@ import { PainelBanners } from "@/components/admin/PainelBanners";
 
 export const dynamic = "force-dynamic";
 
-// Home do painel — console de balcao (entrega 8): acoes rapidas, 4
-// indicadores vivos, tile dominante "Efetuar venda" com o estado do caixa,
-// grade de modulos com badge de estado, banners colapsaveis e faixa de
-// status. Contratos E2E preservados: heading "Painel CRM" + Voltar, nenhum
-// <footer> na pagina (o rodapé so existe na loja publica) e o menu lateral
-// continua sendo o AdminShell.
+// Home do painel — console de balcao (entrega 8): 4 indicadores vivos,
+// tile dominante "Efetuar venda" com o estado do caixa, grade de modulos
+// com badge de estado, banners colapsaveis e faixa de status. H1 so com a
+// sigla "CRM" e sem subtitulo (pedido do cliente 20/10); a faixa de acoes
+// rapidas tambem saiu. Contratos E2E preservados: heading "CRM" + Voltar,
+// nenhum <footer> na pagina (o rodapé so existe na loja publica) e o menu
+// lateral continua sendo o AdminShell.
 
 function formatBRL(value: number) {
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
@@ -321,41 +322,7 @@ export default async function CrmPage() {
 
   return (
     <main style={{ maxWidth: 1240, margin: "0 auto", padding: "32px 32px 40px" }}>
-      <PageHeader
-        titulo="Painel CRM"
-        subtitulo="Console do balcão — venda, caixa e indicadores com dado real do Supabase"
-        voltarPara="/"
-      />
-
-      <nav className="painel-acoes" aria-label="Ações rápidas do painel">
-        <span className="painel-acoes-rot">Ações rápidas</span>
-        <span className="painel-acoes-grupo">Operacional</span>
-        <a className="painel-qbtn" href="/vendas/nova">
-          Nova venda balcão
-        </a>
-        <a className="painel-qbtn" href="/pdv">
-          Abrir PDV
-        </a>
-        <span className="painel-acoes-div" />
-        <span className="painel-acoes-grupo">Financeiro</span>
-        <a className="painel-qbtn" href="/financeiro/cobranca">
-          Baixar títulos
-        </a>
-        <a className="painel-qbtn" href="/financeiro/despesas">
-          Despesas
-        </a>
-        <a className="painel-qbtn" href="/financeiro/conciliacao">
-          Conciliar banco
-        </a>
-        <span className="painel-acoes-div" />
-        <span className="painel-acoes-grupo">Sistema</span>
-        <a className="painel-qbtn" href="/configuracoes/importar">
-          Importar dados
-        </a>
-        <a className="painel-qbtn" href="/configuracoes/precos">
-          Tabela de preços
-        </a>
-      </nav>
+      <PageHeader titulo="CRM" subtitulo={null} voltarPara="/" />
 
       <section className="painel-stats" aria-label="Indicadores do negócio">
         {indicadores.map((ind) => (

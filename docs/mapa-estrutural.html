@@ -1,0 +1,739 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Nuvem de Papel — Mapa Estrutural do Sistema (governança)</title>
+<style>
+  /* Documento de governança — paleta do projeto (globals.css):
+     navy #073B4C · pink #E084AC · fundo #E0E0E0 · cards brancos.
+     Arquivo único, sem dependências externas: abre com duplo clique. */
+  :root{
+    --navy:#073B4C; --navy-light:#0D5268;
+    --pink:#E084AC; --pink-dark:#D06A97; --pink-100:#FBE4ED;
+    --bg:#E0E0E0; --border:#C9C9C9; --ink:#1A2B33; --soft:#5A6577; --faint:#CFCFCF;
+    --blue-100:#E6F0F4; --lilac-100:#FFF6E0; --lilac-600:#D06A97;
+    --ok:#0D5268;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font:14.5px/1.5 "Open Sans", "Segoe UI", sans-serif;
+  }
+  code, .rota, .tabela{
+    font-family:"Cascadia Mono", Consolas, "Courier New", monospace;
+    font-size:12.5px;
+  }
+
+  /* ---------------- topo ---------------- */
+  header.topo{
+    background:var(--navy); color:#fff; padding:22px 28px 20px;
+    position:sticky; top:0; z-index:50; box-shadow:0 2px 10px rgba(0,0,0,.25);
+  }
+  .topo-linha{display:flex; align-items:center; gap:14px; flex-wrap:wrap}
+  .topo h1{font:800 22px/1.2 "Poppins", sans-serif; margin:0; letter-spacing:-.02em}
+  .topo h1 small{display:block; font:700 10.5px/1.4 "Open Sans"; letter-spacing:.16em; text-transform:uppercase; color:#9FB6C6}
+  .badge-gov{
+    background:var(--pink); color:#fff; font-size:11px; font-weight:800;
+    letter-spacing:.1em; text-transform:uppercase; padding:5px 12px; border-radius:999px;
+  }
+  .versao{
+    margin-left:auto; background:rgba(255,255,255,.12); border:1px solid rgba(255,255,255,.3);
+    color:#fff; font-size:12px; font-weight:700; padding:5px 12px; border-radius:999px;
+  }
+  .regra{
+    margin-top:10px; font-size:12.5px; color:#CDE0E8; max-width:1100px;
+  }
+  .regra b{color:#fff}
+
+  /* ---------------- ferramentas ---------------- */
+  .ferramentas{
+    display:flex; gap:10px; align-items:center; flex-wrap:wrap;
+    padding:14px 28px; background:#fff; border-bottom:1px solid var(--border);
+    position:sticky; top:96px; z-index:40;
+  }
+  .ferramentas input{
+    flex:1; min-width:220px; max-width:420px; padding:9px 14px;
+    border:1.5px solid var(--border); border-radius:999px; font-size:13.5px; outline:none;
+  }
+  .ferramentas input:focus{border-color:var(--navy)}
+  .btn{
+    padding:8px 16px; border-radius:999px; border:1.5px solid var(--border);
+    background:#fff; color:var(--navy); font-size:12.5px; font-weight:800; cursor:pointer;
+  }
+  .btn:hover{border-color:var(--navy)}
+  .legenda{display:flex; gap:8px; flex-wrap:wrap; margin-left:auto}
+  .legenda span{font-size:10.5px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; color:var(--soft)}
+
+  main{max-width:1180px; margin:0 auto; padding:24px 28px 60px}
+
+  /* ---------------- árvore ---------------- */
+  details.nodo{
+    background:#fff; border:1px solid var(--border); border-radius:12px;
+    margin-bottom:12px; box-shadow:0 1px 3px rgba(0,0,0,.08); overflow:hidden;
+  }
+  details.nodo > summary{
+    list-style:none; cursor:pointer; padding:15px 18px;
+    display:flex; align-items:center; gap:12px; user-select:none;
+  }
+  details.nodo > summary::-webkit-details-marker{display:none}
+  details.nodo > summary:hover{background:#F7F7F7}
+  .seta{
+    width:0; height:0; border-left:7px solid var(--navy); border-top:5px solid transparent;
+    border-bottom:5px solid transparent; transition:transform .15s; flex:none;
+  }
+  details[open] > summary .seta{transform:rotate(90deg)}
+  .titulo{font:800 15.5px/1.2 "Poppins", sans-serif; color:var(--navy)}
+  .fio{color:var(--faint); font-weight:400}
+  .ramos{
+    margin-left:0; padding:2px 18px 16px 18px; border-top:1px solid #EFEFEF;
+  }
+  /* nível 2: blocos com listas penduradas */
+  .ramos details.nodo{margin:12px 0 0; border-left:3px solid var(--pink)}
+  .ramos details.nodo > summary{padding:11px 14px; background:#FBFBFB}
+  .ramos details.nodo[open] > summary{background:var(--pink-100)}
+  .ramos .titulo{font-size:14px}
+  ul.folhas{margin:0; padding:6px 0 4px 6px; list-style:none}
+  ul.folhas li{
+    position:relative; padding:6px 8px 6px 26px; border-left:2px solid var(--faint);
+    margin-left:8px;
+  }
+  ul.folhas li::before{
+    content:""; position:absolute; left:0; top:19px; width:14px; height:2px; background:var(--faint);
+  }
+  ul.folhas li:hover{background:#FAFAFA}
+  .folha-nome{font-weight:700; color:var(--ink)}
+  .desc{color:var(--soft); font-size:13px; display:block; margin-top:2px}
+
+  /* chips de tipo */
+  .rota{
+    display:inline-block; background:var(--blue-100); color:var(--navy);
+    border:1px solid #B4D4E0; padding:1px 8px; border-radius:999px; font-weight:700;
+  }
+  .tabela{
+    display:inline-block; background:var(--pink-100); color:var(--pink-dark);
+    border:1px solid var(--pink); padding:1px 8px; border-radius:999px; font-weight:700;
+  }
+  .tag{
+    display:inline-block; background:var(--lilac-100); color:#8A6A1F;
+    border:1px solid #FFD166; padding:1px 8px; border-radius:999px;
+    font-size:11px; font-weight:800; letter-spacing:.05em; text-transform:uppercase;
+  }
+  .tag.papel{background:#fff; color:var(--navy); border-color:var(--navy)}
+  .contagem{
+    margin-left:auto; font-size:11.5px; font-weight:800; color:var(--soft);
+    background:var(--bg); border-radius:999px; padding:3px 10px; flex:none;
+  }
+
+  /* ---------------- changelog + rodapé ---------------- */
+  .caixa{
+    background:#fff; border:1px solid var(--border); border-radius:12px;
+    padding:18px 20px; margin-top:20px; box-shadow:0 1px 3px rgba(0,0,0,.08);
+  }
+  .caixa h2{font:800 16px/1.2 "Poppins", sans-serif; color:var(--navy); margin:0 0 10px}
+  table.chg{width:100%; border-collapse:collapse; font-size:13.5px}
+  table.chg th{
+    text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.08em;
+    color:var(--soft); padding:6px 10px 6px 0; border-bottom:2px solid var(--border);
+  }
+  table.chg td{padding:9px 10px 9px 0; border-bottom:1px solid #EEE; vertical-align:top}
+  table.chg td.v{font-weight:800; color:var(--navy); white-space:nowrap}
+  .aviso{
+    margin-top:16px; background:var(--navy); color:#CDE0E8; border-radius:12px;
+    padding:14px 18px; font-size:13px;
+  }
+  .aviso b{color:#fff}
+  .escondido{display:none !important}
+  footer{text-align:center; color:var(--soft); font-size:12px; padding:0 20px 40px}
+
+  @media (max-width:760px){
+    .topo h1{font-size:18px}
+    .ferramentas{position:static}
+    header.topo{position:static}
+    .legenda{display:none}
+  }
+</style>
+</head>
+<body>
+
+<header class="topo">
+  <div class="topo-linha">
+    <svg width="34" height="24" viewBox="0 0 34 24" aria-hidden="true">
+      <path d="M26 20H8a7 7 0 0 1-1.2-13.9A9 9 0 0 1 24 7.4 6.4 6.4 0 0 1 26 20z" fill="#FBBF24"/>
+    </svg>
+    <h1>Nuvem de Papel<small>Mapa estrutural do sistema</small></h1>
+    <span class="badge-gov">Documento de governança</span>
+    <span class="versao">v1.1 · atualizado em 20/10/2026</span>
+  </div>
+  <p class="regra">
+    <b>Regra:</b> este mapa é atualizado <b>sempre que houver mudança estrutural</b> — rota nova ou
+    removida, módulo, tabela, cron/webhook, papel/RBAC ou integração. O update acontece no mesmo
+    commit da mudança: incremente a versão e registre a linha no changelog ao final da página.
+  </p>
+</header>
+
+<div class="ferramentas">
+  <input id="busca" type="search" placeholder="Filtrar tópico, rota ou tabela…" aria-label="Filtrar mapa" />
+  <button class="btn" onclick="abrirTudo()">Expandir tudo</button>
+  <button class="btn" onclick="fecharTudo()">Recolher tudo</button>
+  <div class="legenda" aria-hidden="true">
+    <span><span class="rota">/rota</span> &nbsp;rota</span>
+    <span><span class="tabela">tabela</span> &nbsp;banco</span>
+    <span><span class="tag">tipo</span> &nbsp;classificação</span>
+  </div>
+</div>
+
+<main id="mapa">
+
+  <!-- ============================ 1 ============================ -->
+  <details class="nodo" open>
+    <summary><span class="seta"></span><span class="titulo">1. Plataforma e ambientes</span>
+      <span class="contagem">6 ramos</span></summary>
+    <div class="ramos">
+      <details class="nodo" open>
+        <summary><span class="seta"></span><span class="titulo">Aplicação <span class="fio">— como roda</span></span></summary>
+        <div class="ramos">
+          <ul class="folhas">
+            <li><span class="folha-nome">Next.js 14.2.16 (App Router) · React 18 · TypeScript</span>
+              <span class="desc">SSR dinâmico (force-dynamic nas telas do painel); CSS próprio em <code>src/app/globals.css</code> com tokens de identidade (paleta v3 cinza).</span></li>
+            <li><span class="folha-nome">Server Components + Server Actions</span>
+              <span class="desc">Telas buscam dado direto no Supabase (<code>createAdminClient</code>); mutações via server actions com validação no servidor.</span></li>
+            <li><span class="folha-nome">Build de produção na Vercel</span>
+              <span class="desc"><code>vercel.json</code> define 3 crons diários; deploy de produção nasce do push da <code>main</code>.</span></li>
+          </ul>
+        </div>
+      </details>
+
+      <details class="nodo">
+        <summary><span class="seta"></span><span class="titulo">Repositórios</span></summary>
+        <div class="ramos">
+          <ul class="folhas">
+            <li><span class="folha-nome"><code>nuvem-de-papel</code> (este)</span>
+              <span class="desc">branch <b>staging</b> = homologação · branch <b>main</b> = produção (merge só com aprovação explícita).</span></li>
+            <li><span class="folha-nome"><code>nuvem-de-papel-documentacao</code></span>
+              <span class="desc">roadmap enterprise, pareceres e documentação de decisão.</span></li>
+          </ul>
+        </div>
+      </details>
+
+      <details class="nodo">
+        <summary><span class="seta"></span><span class="titulo">Ambientes</span></summary>
+        <div class="ramos">
+          <ul class="folhas">
+            <li><span class="folha-nome">Homologação (staging)</span>
+              <span class="desc">deploy da branch <code>staging</code>; banco Supabase de homologação (ref <code>urlfwxeflxpdmmxkuuur</code>).</span></li>
+            <li><span class="folha-nome">Produção</span>
+              <span class="desc"><b>nuvemdepapel.com.br</b> (alias <code>*.vercel.app</code> protegido por login Vercel); banco Supabase (ref <code>cbnmnpnpioukbzircmzn</code>).</span></li>
+          </ul>
+        </div>
+      </details>
+
+      <details class="nodo">
+        <summary><span class="seta"></span><span class="titulo">Banco de dados</span></summary>
+        <div class="ramos">
+          <ul class="folhas">
+            <li><span class="folha-nome">Supabase (PostgreSQL + Auth)</span>
+              <span class="desc">service role no servidor; RLS/tenant por <code>tenant_id</code>; RPCs <code>security definer</code> para operações críticas (vendas, estoque, financeiro).</span></li>
+            <li><span class="folha-nome">Multi-tenancy</span>
+              <span class="desc">tenant fixo <code>00000000-0000-0000-0000-000000000001</code> no E2E; toda query do painel filtra por <code>tenant_id</code>.</span></li>
+          </ul>
+        </div>
+      </details>
+
+      <details class="nodo">
+        <summary><span class="seta"></span><span class="titulo">Gates de mudança <span class="fio">— obrigatórios</span></span></summary>
+        <div class="ramos">
+          <ul class="folhas">
+            <li><span class="folha-nome">Código</span><span class="desc"><code>lint</code> → <code>type-check</code> → <code>build</code> → suíte <code>e2e</code> — zero falhas.</span></li>
+            <li><span class="folha-nome">Banco</span><span class="desc">por migration: <code>preflight</code> → <code>migration</code> → <code>pgTAP</code> → smoke comportamental → build. Em produção, <b>antes</b> do merge.</span></li>
+            <li><span class="folha-nome">Produção</span><span class="desc">merge <code>staging → main</code> <b>só com aprovação do dono do projeto</b>.</span></li>
+            <li><span class="folha-nome">CI</span><span class="desc">GitHub Actions roda lint/type-check/build em todo push.</span></li>
+          </ul>
+        </div>
+      </details>
+
+      <details class="nodo">
+        <summary><span class="seta"></span><span class="titulo">Estrutura de código</span></summary>
+        <div class="ramos">
+          <ul class="folhas">
+            <li><span class="folha-nome"><code>src/app</code></span><span class="desc">rotas (páginas, actions, APIs).</span></li>
+            <li><span class="folha-nome"><code>src/components</code></span><span class="desc">consoles e componentes de UI (AdminShell, PageHeader, consoles de cada módulo).</span></li>
+            <li><span class="folha-nome"><code>src/lib</code></span><span class="desc">regras de negócio, RBAC, Supabase, validações (ex.: <code>documento.ts</code>, <code>crm.ts</code>, <code>rbac.ts</code>).</span></li>
+            <li><span class="folha-nome"><code>supabase/migrations</code></span><span class="desc">40 migrations <code>0001–0040</code>, cada uma com preflight/test/rollback ao lado quando crítica.</span></li>
+            <li><span class="folha-nome"><code>e2e</code></span><span class="desc">suítes Playwright + helpers (<code>_*.cjs</code>, fora da chain).</span></li>
+            <li><span class="folha-nome"><code>AGENTS.md</code> + <code>docs/</code></span><span class="desc">regras permanentes de sessão e documentos de governança (este mapa).</span></li>
+          </ul>
+        </div>
+      </details>
+    </div>
+  </details>
+
+  <!-- ============================ 2 ============================ -->
+  <details class="nodo" open>
+    <summary><span class="seta"></span><span class="titulo">2. Segurança e acesso (RBAC)</span>
+      <span class="contagem">4 ramos</span></summary>
+    <div class="ramos">
+      <details class="nodo" open>
+        <summary><span class="seta"></span><span class="titulo">Middleware <span class="fio">— src/middleware.ts</span></span></summary>
+        <div class="ramos">
+          <ul class="folhas">
+            <li><span class="folha-nome">Matcher (áreas protegidas)</span>
+              <span class="desc"><span class="rota">/crm/*</span> <span class="rota">/configuracoes/*</span> <span class="rota">/logistica/*</span> <span class="rota">/pdv/*</span> <span class="rota">/financeiro/*</span> <span class="rota">/compras/*</span> <span class="rota">/vendas/*</span> <span class="rota">/email/*</span> <span class="rota">/portal/*</span></span></li>
+            <li><span class="folha-nome">Cadeia de verificação</span>
+              <span class="desc">sessão Supabase → perfil existe → perfil <code>ativo</code> → papel permitido no módulo. <b>Fail-closed</b>: sem env, 503; sem perfil/papel, 403; sem sessão, redirect <code>/login</code>.</span></li>
+          </ul>
+        </div>
+      </details>
+
+      <details class="nodo">
+        <summary><span class="seta"></span><span class="titulo">Papéis <span class="fio">— src/lib/rbac.ts</span></span></summary>
+        <div class="ramos">
+          <ul class="folhas">
+            <li><span class="tag papel">master</span> <span class="tag papel">gerente</span> <span class="tag papel">operador</span> <span class="tag papel">vendedor</span> <span class="tag papel">fornecedor</span> <span class="tag papel">revenda</span></li>
+            <li><span class="folha-nome">Hierarquia</span><span class="desc">master gerencia todos; gerente gerencia operador/vendedor/fornecedor/revenda (nunca master/gerente).</span></li>
+          </ul>
+        </div>
+      </details>
+
+      <details class="nodo">
+        <summary><span class="seta"></span><span class="titulo">Matriz por módulo</span></summary>
+        <div class="ramos">
+          <ul class="folhas">
+            <li><span class="folha-nome">Gestão <span class="tag">master · gerente</span></span><span class="desc"><span class="rota">/configuracoes</span> <span class="rota">/financeiro</span> <span class="rota">/compras</span> <span class="rota">/vendas</span> <span class="rota">/email</span></span></li>
+            <li><span class="folha-nome">Operacional <span class="tag">+ operador · vendedor</span></span><span class="desc"><span class="rota">/crm</span> <span class="rota">/logistica</span> <span class="rota">/pdv</span></span></li>
+            <li><span class="folha-nome">Externo</span><span class="desc"><span class="rota">/portal/fornecedor</span> → só <code>fornecedor</code>.</span></li>
+          </ul>
+        </div>
+      </details>
+
+      <details class="nodo">
+        <summary><span class="seta"></span><span class="titulo">Trilha de auditoria</span></summary>
+        <div class="ramos">
+          <ul class="folhas">
+            <li><span class="tabela">audit_log</span><span class="desc">ações de gestão (usuário criado/desativado, vendas, configurações) — leitura em <span class="rota">/configuracoes/auditoria</span>.</span></li>
+          </ul>
+        </div>
+      </details>
+    </div>
+  </details>
+
+  <!-- ============================ 3 ============================ -->
+  <details class="nodo">
+    <summary><span class="seta"></span><span class="titulo">3. Loja pública (sem login)</span>
+      <span class="contagem">4 ramos</span></summary>
+    <div class="ramos">
+      <details class="nodo">
+        <summary><span class="seta"></span><span class="titulo">Navegação</span></summary>
+        <div class="ramos">
+          <ul class="folhas">
+            <li><span class="rota">/</span> <span class="folha-nome">Home da loja</span><span class="desc">rodapé + flutuante (fora do painel, por padrão).</span></li>
+            <li><span class="rota">/produtos</span> <span class="folha-nome">Catálogo</span></li>
+            <li><span class="rota">/publicacoes</span> <span class="folha-nome">Publicações</span></li>
+            <li><span class="rota">/clube</span> <span class="folha-nome">Clube de assinantes</span><span class="desc">planos, checkout de assinatura e painel da conta.</span></li>
+            <li><span class="rota">/seja-revenda</span> <span class="folha-nome">Seja revenda</span></li>
+          </ul>
+        </div>
+      </details>
+      <details class="nodo">
+        <summary><span class="seta"></span><span class="titulo">Compra</span></summary>
+        <div class="ramos">
+          <ul class="folhas">
+            <li><span class="rota">/carrinho</span> <span class="folha-nome">Carrinho</span><span class="desc">recuperação de abandono (regras + envios, cron diário).</span></li>
+            <li><span class="rota">/checkout</span> <span class="folha-nome">Checkout</span><span class="desc">Pix/boleto/crédito via Mercado Pago; frete Correios por CEP (matriz local); retirada na loja.</span></li>
+            <li><span class="rota">/avaliar/[orderId]</span> <span class="folha-nome">Avaliar pedido</span></li>
+          </ul>
+        </div>
+      </details>
+      <details class="nodo">
+        <summary><span class="seta"></span><span class="titulo">Conta do cliente</span></summary>
+        <div class="ramos">
+          <ul class="folhas">
+            <li><span class="rota">/conta/pedidos</span> <span class="folha-nome">Meus pedidos</span></li>
+            <li><span class="rota">/conta/assinatura</span> <span class="folha-nome">Assinatura do clube</span></li>
+            <li><span class="rota">/login</span> <span class="rota">/sair/[token]</span> <span class="folha-nome">Autenticação</span></li>
+          </ul>
+        </div>
+      </details>
+      <details class="nodo">
+        <summary><span class="seta"></span><span class="titulo">E-mails transacionais</span></summary>
+        <div class="ramos">
+          <ul class="folhas">
+            <li><span class="folha-nome">Resend</span><span class="desc">pedido, recuperação de carrinho, reativação de clientes e avaliações disparam e-mail pela API (webhook de status).</span></li>
+          </ul>
+        </div>
+      </details>
+    </div>
+  </details>
+
+  <!-- ============================ 4 ============================ -->
+  <details class="nodo" open>
+    <summary><span class="seta"></span><span class="titulo">4. Painel administrativo</span>
+      <span class="contagem">9 ramos · 9 áreas</span></summary>
+    <div class="ramos">
+
+      <details class="nodo" open>
+        <summary><span class="seta"></span><span class="titulo">Home <span class="fio">— /crm “console de balcão”</span></span></summary>
+        <div class="ramos">
+          <ul class="folhas">
+            <li><span class="folha-nome">4 indicadores ao vivo</span><span class="desc">vendas de hoje (com delta vs ontem) · a receber 7 dias + vencidos · expedição e estoque · clientes.</span></li>
+            <li><span class="folha-nome">Tile dominante “Efetuar venda”</span><span class="desc">estado do caixa (aberto desde HH:MM / fechado) + CTAs PDV e venda balcão/telefone.</span></li>
+            <li><span class="folha-nome">13 tiles de módulo</span><span class="desc">badge de estado (vencidos, entregas, sem saldo, IA) + 3 banners colapsáveis.</span></li>
+            <li><span class="folha-nome">Blocos de dados</span><span class="desc">clientes recentes · pedidos por status · campanhas ativas · faixa de status (sem <code>&lt;footer&gt;</code> — contrato E2E).</span></li>
+          </ul>
+        </div>
+      </details>
+
+      <details class="nodo">
+        <summary><span class="seta"></span><span class="titulo">Vendas</span></summary>
+        <div class="ramos">
+          <ul class="folhas">
+            <li><span class="rota">/pdv</span> <span class="folha-nome">PDV (v6)</span><span class="desc">console de venda com caixa, atalhos F1–F8 e comanda lateral.</span></li>
+            <li><span class="rota">/vendas</span> <span class="folha-nome">Vendas Detalhada</span><span class="desc">lista de pedidos, emissão/cancelamento de NF-e, abas Vendas/Compras/Notas.</span></li>
+            <li><span class="rota">/vendas/nova</span> <span class="folha-nome">Venda manual (telefone/balcao)</span><span class="desc">PF/PJ, entrega/retirada, todas as formas de pagamento; sem caixa aberto; ViaCEP no cadastro e na entrega.</span></li>
+            <li><span class="rota">/vendas/recuperacao</span> <span class="folha-nome">Recuperação de carrinho</span></li>
+          </ul>
+        </div>
+      </details>
+
+      <details class="nodo">
+        <summary><span class="seta"></span><span class="titulo">Financeiro</span></summary>
+        <div class="ramos">
+          <ul class="folhas">
+            <li><span class="rota">/financeiro</span> <span class="folha-nome">Central</span><span class="desc">receber/pagar, liquidations, faturamento 30 dias, DRE (view <code>v_dre</code>).</span></li>
+            <li><span class="rota">/financeiro/cobranca</span> <span class="folha-nome">Cobrança</span><span class="desc">régua automática de lembretes (migração 0035) por parcela/regua.</span></li>
+            <li><span class="rota">/financeiro/despesas</span> <span class="folha-nome">Despesas</span><span class="desc">contas a pagar com rateio e lançamento no diário.</span></li>
+            <li><span class="rota">/financeiro/conciliacao</span> <span class="folha-nome">Conciliação</span><span class="desc">extratos bancários importados vs lançamentos.</span></li>
+          </ul>
+        </div>
+      </details>
+
+      <details class="nodo">
+        <summary><span class="seta"></span><span class="titulo">Operação física</span></summary>
+        <div class="ramos">
+          <ul class="folhas">
+            <li><span class="rota">/logistica</span> <span class="folha-nome">Logística</span><span class="desc">entregas (aguardando → separado → em trânsito → entregue) + painel de estoque (saldo vs mínimo).</span></li>
+            <li><span class="rota">/compras</span> <span class="folha-nome">Compras</span><span class="desc">cotações, pedidos a fornecedor, importação de NF-e de entrada.</span></li>
+            <li><span class="rota">/compras/pedido/[id]</span> <span class="folha-nome">Pedido de compra (PDF)</span><span class="desc">folha A4 impressa pelo próprio browser.</span></li>
+          </ul>
+        </div>
+      </details>
+
+      <details class="nodo">
+        <summary><span class="seta"></span><span class="titulo">Cadastros</span></summary>
+        <div class="ramos">
+          <ul class="folhas">
+            <li><span class="rota">/configuracoes/cadastro?tela=cliente</span> <span class="folha-nome">Clientes</span></li>
+            <li><span class="rota">/configuracoes/cadastro?tela=produto</span> <span class="folha-nome">Produtos</span></li>
+            <li><span class="rota">/configuracoes/cadastro?tela=fornecedor</span> <span class="folha-nome">Fornecedores</span></li>
+            <li><span class="rota">/configuracoes/cadastro?tela=revenda</span> <span class="folha-nome">Revendas</span></li>
+          </ul>
+        </div>
+      </details>
+
+      <details class="nodo">
+        <summary><span class="seta"></span><span class="titulo">Configurações</span></summary>
+        <div class="ramos">
+          <ul class="folhas">
+            <li><span class="rota">/configuracoes/cadastro?tela=empresa</span> <span class="folha-nome">Empresa emitente</span></li>
+            <li><span class="rota">/configuracoes/usuarios</span> <span class="folha-nome">Usuários</span></li>
+            <li><span class="rota">/configuracoes/precos</span> <span class="folha-nome">Tabela de preços</span></li>
+            <li><span class="rota">/configuracoes/marketplaces</span> <span class="folha-nome">Marketplaces</span></li>
+            <li><span class="rota">/configuracoes/importar</span> <span class="folha-nome">Exportar/Importar dados</span></li>
+            <li><span class="rota">/configuracoes/clube</span> <span class="folha-nome">Clube (planos)</span></li>
+            <li><span class="rota">/configuracoes/auditoria</span> <span class="folha-nome">Auditoria</span></li>
+          </ul>
+        </div>
+      </details>
+
+      <details class="nodo">
+        <summary><span class="seta"></span><span class="titulo">Marketing e IA</span></summary>
+        <div class="ramos">
+          <ul class="folhas">
+            <li><span class="rota">/crm/marketing</span> <span class="folha-nome">Campanhas</span><span class="desc">mensagens para a base, reativação de clientes e avaliações.</span></li>
+            <li><span class="rota">/crm/carta</span> <span class="folha-nome">Carta de insights com IA</span></li>
+            <li><span class="folha-nome">Catálogo com IA</span><span class="desc">descrições de produto geradas por Gemini a partir do cadastro.</span></li>
+          </ul>
+        </div>
+      </details>
+
+      <details class="nodo">
+        <summary><span class="seta"></span><span class="titulo">Comunicação e portal</span></summary>
+        <div class="ramos">
+          <ul class="folhas">
+            <li><span class="rota">/email</span> <span class="folha-nome">E-mail</span><span class="desc">caixa de e-mail da loja (Resend).</span></li>
+            <li><span class="rota">/portal/fornecedor</span> <span class="folha-nome">Portal do fornecedor</span></li>
+          </ul>
+        </div>
+      </details>
+
+      <details class="nodo">
+        <summary><span class="seta"></span><span class="titulo">Menu lateral <span class="fio">— AdminShell</span></span></summary>
+        <div class="ramos">
+          <ul class="folhas">
+            <li><span class="folha-nome">Grupos fixos</span><span class="desc">Painel CRM (1º item) · Vendas (PDV, Vendas Detalhada) · módulos (Financeiro, Logística, Marketing, Carta IA, Cadastros expansível, E-mail, Catálogo, Publicações) · engrenagem Configurações · Sair.</span></li>
+            <li><span class="folha-nome">Contrato E2E</span><span class="desc"><code>nav[aria-label="Navegação do painel"]</code> · item ativo <code>.admin-link--on</code> · Cadastros fechado por padrão.</span></li>
+          </ul>
+        </div>
+      </details>
+    </div>
+  </details>
+
+  <!-- ============================ 5 ============================ -->
+  <details class="nodo">
+    <summary><span class="seta"></span><span class="titulo">5. APIs — crons e webhooks</span>
+      <span class="contagem">2 ramos</span></summary>
+    <div class="ramos">
+      <details class="nodo">
+        <summary><span class="seta"></span><span class="titulo">Crons da Vercel <span class="fio">— diários, GET|POST com secret</span></span></summary>
+        <div class="ramos">
+          <ul class="folhas">
+            <li><span class="rota">/api/cron/cobranca</span> <span class="folha-nome">12:03 UTC (09:03 BRT)</span><span class="desc">dispara a régua de lembretes de cobrança.</span></li>
+            <li><span class="rota">/api/cron/recuperacao</span> <span class="folha-nome">13:33 UTC (10:33 BRT)</span><span class="desc">recuperação de carrinho abandonado.</span></li>
+            <li><span class="rota">/api/cron/marketing</span> <span class="folha-nome">17:07 UTC (14:07 BRT)</span><span class="desc">reação de clientes + pedidos de avaliação.</span></li>
+          </ul>
+        </div>
+      </details>
+      <details class="nodo">
+        <summary><span class="seta"></span><span class="titulo">Webhooks recebidos</span></summary>
+        <div class="ramos">
+          <ul class="folhas">
+            <li><span class="rota">/api/webhooks/mercadopago</span> <span class="folha-nome">Pagamentos</span></li>
+            <li><span class="rota">/api/webhooks/resend</span> <span class="folha-nome">Status de e-mails</span></li>
+            <li><span class="rota">/api/webhooks/marketplace</span> <span class="folha-nome">Mercado Livre / Shopee</span></li>
+          </ul>
+        </div>
+      </details>
+    </div>
+  </details>
+
+  <!-- ============================ 6 ============================ -->
+  <details class="nodo">
+    <summary><span class="seta"></span><span class="titulo">6. Banco de dados <span class="fio">— 40 migrations (0001–0040)</span></span>
+      <span class="contagem">9 domínios</span></summary>
+    <div class="ramos">
+      <details class="nodo">
+        <summary><span class="seta"></span><span class="titulo">Multi-tenant e auth</span></summary>
+        <div class="ramos"><ul class="folhas">
+          <li><span class="tabela">tenants</span> <span class="tabela">tenant_branding</span> <span class="tabela">profiles</span> <span class="tabela">audit_log</span></li>
+        </ul></div>
+      </details>
+      <details class="nodo">
+        <summary><span class="seta"></span><span class="titulo">Catálogo e estoque</span></summary>
+        <div class="ramos"><ul class="folhas">
+          <li><span class="tabela">catalog_items</span> <span class="tabela">item_fiscal_data</span> <span class="tabela">item_commercial_data</span> <span class="tabela">item_prices</span> <span class="tabela">item_supplier_data</span></li>
+          <li><span class="tabela">item_stock</span> <span class="tabela">stock_movements</span> <span class="desc">ledger <b>imutável</b> (trigger) · <span class="tabela">item_stock_public</span> (saldo público).</span></li>
+          <li><span class="tabela">publications</span> <span class="tabela">suppliers</span></li>
+        </ul></div>
+      </details>
+      <details class="nodo">
+        <summary><span class="seta"></span><span class="titulo">Pedidos e checkout</span></summary>
+        <div class="ramos"><ul class="folhas">
+          <li><span class="tabela">customers</span> <span class="tabela">orders</span> <span class="tabela">order_items</span> <span class="tabela">addresses</span></li>
+          <li><span class="tabela">webhook_events</span> <span class="tabela">cart_recovery_rules</span> <span class="tabela">cart_recovery_sends</span></li>
+        </ul></div>
+      </details>
+      <details class="nodo">
+        <summary><span class="seta"></span><span class="titulo">Financeiro e caixa</span></summary>
+        <div class="ramos"><ul class="folhas">
+          <li><span class="tabela">caixa_sessions</span> (1 aberta/tenant) <span class="tabela">caixa_movements</span> <b>imutável</b></li>
+          <li><span class="tabela">financial_titles</span> <span class="tabela">financial_installments</span> <span class="tabela">financial_settlements</span> <b>imutável</b></li>
+          <li><span class="tabela">bank_extratos</span> <span class="tabela">bank_linhas</span> <span class="tabela">expenses</span></li>
+          <li><span class="tabela">journal_entries</span> <span class="tabela">journal_entry_lines</span> <span class="tabela">account_catalog</span> <span class="tabela">tenant_accounts</span> <span class="tabela">cost_centers</span> · view <span class="tabela">v_dre</span></li>
+        </ul></div>
+      </details>
+      <details class="nodo">
+        <summary><span class="seta"></span><span class="titulo">Fiscal</span></summary>
+        <div class="ramos"><ul class="folhas">
+          <li><span class="tabela">nfe_emissoes</span> <span class="tabela">tenant_company</span> <span class="tabela">sefaz_config</span></li>
+        </ul></div>
+      </details>
+      <details class="nodo">
+        <summary><span class="seta"></span><span class="titulo">Compras</span></summary>
+        <div class="ramos"><ul class="folhas">
+          <li><span class="tabela">purchase_orders</span> <span class="tabela">purchase_order_items</span> <span class="tabela">purchase_receipts</span> <span class="tabela">purchase_receipt_items</span></li>
+          <li><span class="tabela">compra_importacao</span> <span class="tabela">nfe_recebidas</span> <span class="tabela">notas_entrada</span> <span class="tabela">compra_transporte</span> <span class="tabela">compra_transporte_eventos</span> <span class="tabela">compra_envios</span> <span class="tabela">supplier_item_map</span></li>
+        </ul></div>
+      </details>
+      <details class="nodo">
+        <summary><span class="seta"></span><span class="titulo">Entregas e frete</span></summary>
+        <div class="ramos"><ul class="folhas">
+          <li><span class="tabela">entregas</span> <span class="tabela">entrega_eventos</span> <span class="tabela">freight_tabelas</span> <span class="desc">matriz local de preços Correios (sem credencial).</span></li>
+        </ul></div>
+      </details>
+      <details class="nodo">
+        <summary><span class="seta"></span><span class="titulo">Marketplaces e clube</span></summary>
+        <div class="ramos"><ul class="folhas">
+          <li><span class="tabela">marketplace_channels</span> <span class="tabela">marketplace_accounts</span> <span class="tabela">marketplace_listings</span> <span class="tabela">marketplace_jobs</span> <span class="tabela">marketplace_orders</span> <span class="tabela">marketplace_webhooks</span></li>
+          <li><span class="tabela">club_plans</span> <span class="tabela">club_subscriptions</span></li>
+        </ul></div>
+      </details>
+      <details class="nodo">
+        <summary><span class="seta"></span><span class="titulo">Marketing, cobrança e vendedores</span></summary>
+        <div class="ramos"><ul class="folhas">
+          <li><span class="tabela">campaigns</span> <span class="tabela">cobranca_reguas</span> <span class="tabela">cobranca_envios</span> <span class="tabela">marketing_config</span></li>
+          <li><span class="tabela">customer_reactivation</span> <span class="tabela">review_requests</span> <span class="tabela">insight_cartas</span> <span class="tabela">sellers</span></li>
+        </ul></div>
+      </details>
+    </div>
+  </details>
+
+  <!-- ============================ 7 ============================ -->
+  <details class="nodo">
+    <summary><span class="seta"></span><span class="titulo">7. Integrações externas</span>
+      <span class="contagem">6 itens</span></summary>
+    <div class="ramos">
+      <ul class="folhas">
+        <li><span class="folha-nome">Mercado Pago</span><span class="desc">Pix, boleto e crédito no checkout; webhook de status.</span></li>
+        <li><span class="folha-nome">Correios (PAC/SEDEX)</span><span class="desc">cotação de frete por CEP com matriz local de preços.</span></li>
+        <li><span class="folha-nome">Resend</span><span class="desc">e-mail transacional (pedidos, campanhas, recuperação).</span></li>
+        <li><span class="folha-nome">Gemini (Google)</span><span class="desc">descrições de produto no catálogo e carta de insights — fila configurável.</span></li>
+        <li><span class="folha-nome">ViaCEP</span><span class="desc">preenchimento de endereço no cadastro de cliente e na entrega (atenção: cidade vem em <code>localidade</code>).</span></li>
+        <li><span class="folha-nome">Mercado Livre e Shopee</span><span class="desc">módulo de marketplaces: canais, contas, anúncios e jobs de sincronização.</span></li>
+      </ul>
+    </div>
+  </details>
+
+  <!-- ============================ 8 ============================ -->
+  <details class="nodo">
+    <summary><span class="seta"></span><span class="titulo">8. Testes e qualidade</span>
+      <span class="contagem">3 ramos</span></summary>
+    <div class="ramos">
+      <details class="nodo">
+        <summary><span class="seta"></span><span class="titulo">E2E Playwright <span class="fio">— npm run e2e · 27 suites</span></span></summary>
+        <div class="ramos">
+          <ul class="folhas">
+            <li><span class="folha-nome">Núcleo</span><span class="desc"><code>f2</code> RBAC · <code>f3</code> checkout · <code>f4</code> · <code>f5</code> catálogo · <code>f6</code> revenda/fornecedor</span></li>
+            <li><span class="folha-nome">Vendas</span><span class="desc"><code>vendas</code> (menu + NF-e) · <code>pdv-v6</code> · <code>vendas-v5</code> · <code>venda-manual</code> (28) · <code>vendedores</code></span></li>
+            <li><span class="folha-nome">Financeiro</span><span class="desc"><code>dre</code> · <code>despesas</code> · <code>conciliacao</code> · <code>precos</code></span></li>
+            <li><span class="folha-nome">Fiscal e documentos</span><span class="desc"><code>fiscal</code> · <code>sefaz</code> · <code>documentos</code></span></li>
+            <li><span class="folha-nome">Operação</span><span class="desc"><code>compras-v1</code> · <code>frete</code> · <code>marketplaces</code> · <code>produto-import</code> · <code>produtos</code> · <code>clientes</code></span></li>
+            <li><span class="folha-nome">Marketing/IA e outros</span><span class="desc"><code>email</code> · <code>clube</code> · <code>catalogo-ia</code> · <code>carta-ia</code></span></li>
+            <li><span class="folha-nome">Helpers (fora da chain)</span><span class="desc"><code>_print-painel.cjs</code> (prints do painel) · <code>_relogio-banco.cjs</code></span></li>
+          </ul>
+        </div>
+      </details>
+      <details class="nodo">
+        <summary><span class="seta"></span><span class="titulo">Banco</span></summary>
+        <div class="ramos">
+          <ul class="folhas">
+            <li><span class="folha-nome">pgTAP por migration crítica</span><span class="desc">arquivos <code>00xx_test.sql</code> + preflight + rollback.</span></li>
+            <li><span class="folha-nome">Smoke comportamental</span><span class="desc">RPCs novas testadas de verdade antes do E2E (a plpgsql só valida em runtime).</span></li>
+          </ul>
+        </div>
+      </details>
+      <details class="nodo">
+        <summary><span class="seta"></span><span class="titulo">Gates e CI</span></summary>
+        <div class="ramos">
+          <ul class="folhas">
+            <li><span class="folha-nome">Local</span><span class="desc"><code>lint</code> · <code>type-check</code> · <code>build</code> · <code>e2e</code> — sempre verdes antes de commitar.</span></li>
+            <li><span class="folha-nome">GitHub Actions</span><span class="desc">lint + type-check + build em cada push.</span></li>
+          </ul>
+        </div>
+      </details>
+    </div>
+  </details>
+
+  <!-- ============================ 9 ============================ -->
+  <details class="nodo">
+    <summary><span class="seta"></span><span class="titulo">9. Convenções de governança</span>
+      <span class="contagem">3 ramos</span></summary>
+    <div class="ramos">
+      <details class="nodo" open>
+        <summary><span class="seta"></span><span class="titulo">Quando atualizar ESTE mapa</span></summary>
+        <div class="ramos">
+          <ul class="folhas">
+            <li><span class="folha-nome">Rota nova, renomeada ou removida</span></li>
+            <li><span class="folha-nome">Módulo novo no painel ou na loja</span></li>
+            <li><span class="folha-nome">Tabela ou view nova/renomeada no banco</span></li>
+            <li><span class="folha-nome">Cron, webhook ou integração nova/removida</span></li>
+            <li><span class="folha-nome">Papel novo ou mudança na matriz RBAC</span></li>
+          </ul>
+        </div>
+      </details>
+      <details class="nodo">
+        <summary><span class="seta"></span><span class="titulo">Como atualizar</span></summary>
+        <div class="ramos">
+          <ul class="folhas">
+            <li><span class="folha-nome">1.</span><span class="desc">Edite o ramo afetado neste arquivo (<code>docs/mapa-estrutural.html</code>).</span></li>
+            <li><span class="folha-nome">2.</span><span class="desc">Incremente a versão e a data no topo (chip <b>vX.Y</b>).</span></li>
+            <li><span class="folha-nome">3.</span><span class="desc">Adicione linha no changelog abaixo.</span></li>
+            <li><span class="folha-nome">4.</span><span class="desc">Commite <b>junto com a mudança estrutural</b> que motivou a atualização.</span></li>
+          </ul>
+        </div>
+      </details>
+      <details class="nodo">
+        <summary><span class="seta"></span><span class="titulo">Regras permanentes de sessão</span></summary>
+        <div class="ramos">
+          <ul class="folhas">
+            <li><span class="folha-nome">Nunca commitar</span><span class="desc"><code>.gitignore</code> alheio · <code>nuvem-de-papel.code-workspace</code> · segredos (chaves Supabase, Mercado Pago, <code>CRON_SECRET</code>).</span></li>
+            <li><span class="folha-nome">Produção</span><span class="desc">ritual de migration antes do merge; merge na <code>main</code> só com aprovação explícita.</span></li>
+            <li><span class="folha-nome">Saída de comunicação</span><span class="desc">estilo TDAH: próxima ação na 1ª linha, listas curtas, sem cortesias.</span></li>
+          </ul>
+        </div>
+      </details>
+    </div>
+  </details>
+
+  <!-- ==================== CHANGELOG ==================== -->
+  <section class="caixa">
+    <h2>Changelog estrutural</h2>
+    <table class="chg">
+      <thead>
+        <tr><th style="width:70px">Versão</th><th style="width:110px">Data</th><th>Mudança estrutural</th></tr>
+      </thead>
+      <tbody>
+        <tr><td class="v">v1.1</td><td>20/10/2026</td>
+          <td>Home do painel simplificada a pedido do cliente: h1 passou a ser só <b>CRM</b> (sem subtítulo) e a faixa de ações rápidas foi removida do <span class="rota">/crm</span>.</td></tr>
+        <tr><td class="v">v1.0</td><td>20/10/2026</td>
+          <td>Criação do documento: mapa completo da estrutura vigente (pós-entrega 8 — console de balcão no <span class="rota">/crm</span>, venda manual, ViaCEP, DV de CPF/CNPJ).</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <p class="aviso">
+    <b>Como usar:</b> clique em qualquer tópico para abrir suas ramificações · use o filtro no topo
+    para achar rapidamente uma rota, tabela ou módulo · “Expandir tudo” mostra a árvore completa.
+    <b>Este arquivo é o documento de governança estrutural do sistema</b> — se você alterou a
+    estrutura e este mapa não mudou, o commit está incompleto.
+  </p>
+</main>
+
+<footer>Nuvem de Papel · documento de governança · versionado em <code>docs/mapa-estrutural.html</code></footer>
+
+<script>
+  function abrirTudo() {
+    document.querySelectorAll("details.nodo").forEach(function (d) { d.open = true; });
+  }
+  function fecharTudo() {
+    document.querySelectorAll("details.nodo").forEach(function (d, i) { if (i > 0) d.open = false; });
+    document.querySelectorAll("details.nodo")[0].open = true;
+  }
+
+  // filtro: mostra só os nós (e ancestrais) que casam com o texto
+  var busca = document.getElementById("busca");
+  busca.addEventListener("input", function () {
+    var q = busca.value.trim().toLowerCase();
+    var nos = document.querySelectorAll("main .nodo, main ul.folhas li");
+    if (!q) {
+      nos.forEach(function (n) { n.classList.remove("escondido"); });
+      return;
+    }
+    nos.forEach(function (n) { n.classList.add("escondido"); });
+    document.querySelectorAll("main ul.folhas li").forEach(function (li) {
+      if (li.textContent.toLowerCase().includes(q)) {
+        li.classList.remove("escondido");
+        var p = li.closest("details.nodo");
+        while (p) { p.classList.remove("escondido"); p.open = true; p = p.parentElement && p.parentElement.closest("details.nodo"); }
+      }
+    });
+    document.querySelectorAll("main details.nodo").forEach(function (d) {
+      if (d.querySelector("summary").textContent.toLowerCase().includes(q)) {
+        d.classList.remove("escondido");
+        var p = d.parentElement && d.parentElement.closest("details.nodo");
+        while (p) { p.classList.remove("escondido"); p.open = true; p = p.parentElement && p.parentElement.closest("details.nodo"); }
+      }
+    });
+  });
+</script>
+</body>
+</html>

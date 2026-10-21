@@ -90,7 +90,7 @@ async function main() {
     check("N6 item ativo destacado (Painel CRM)", (ativo || "").includes("Painel CRM"), ativo || "");
     check(
       "N7 /crm com título e botão Voltar",
-      (await page.getByRole("heading", { name: "Painel CRM" }).isVisible()) &&
+      (await page.getByRole("heading", { name: "CRM" }).isVisible()) &&
         (await page.getByRole("button", { name: "Voltar" }).isVisible())
     );
 

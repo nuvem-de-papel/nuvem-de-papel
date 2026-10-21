@@ -11,7 +11,8 @@ export function PageHeader({
   voltarPara = "/crm",
 }: {
   titulo: string;
-  subtitulo: React.ReactNode;
+  // opcional: sem subtítulo o h1 fica só com o título (sem " - " sobrando)
+  subtitulo?: React.ReactNode;
   voltarPara?: string;
 }) {
   function voltar() {
@@ -23,7 +24,7 @@ export function PageHeader({
     <div className="page-header">
       <h1 className="display">
         {titulo}
-        <span className="page-header-sub"> - {subtitulo}</span>
+        {subtitulo ? <span className="page-header-sub"> - {subtitulo}</span> : null}
       </h1>
       <button type="button" className="page-header-back" onClick={voltar}>
         <svg
