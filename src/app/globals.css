@@ -469,6 +469,463 @@ body:has(.admin-shell) .floating-social {
 }
 
 
+/* ============================================ Painel console (home /crm) ===
+ * Home de tiles inspirada no ERP de balcao (entrega 8): acoes rapidas em
+ * cima, 4 indicadores vivos, tile dominante "Efetuar venda" com o estado do
+ * caixa, grade de modulos com badge de estado, banners colapsaveis e faixa
+ * de status. Cards brancos sobre o fundo cinza (a sidebar e branca) e so a
+ * paleta ja aprovada (navy / pink-600 / lilac / azul-claro).
+ * Contratos preservados: nenhum <footer> (E2E vendas.cjs N10) e nenhum
+ * link com nome exato "PDV" fora do menu lateral (N2). */
+.painel-acoes {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 0 0 16px;
+}
+
+.painel-acoes-rot {
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  margin-right: 2px;
+}
+
+.painel-acoes-grupo {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  margin: 0 2px 0 8px;
+}
+
+.painel-acoes-div {
+  width: 1px;
+  height: 20px;
+  background: var(--border);
+  margin: 0 4px;
+}
+
+.painel-qbtn {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 14px;
+  border: 1.5px solid var(--border);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--navy);
+  font-size: 12.5px;
+  font-weight: 700;
+  text-decoration: none;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.painel-qbtn:hover {
+  border-color: var(--pink-600);
+  color: var(--pink-600);
+}
+
+.painel-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin: 0 0 16px;
+}
+
+.painel-stat {
+  position: relative;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  padding: 14px 16px;
+  box-shadow: var(--shadow-card);
+}
+
+.painel-stat-lbl {
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.painel-stat-val {
+  font-family: "Poppins", sans-serif;
+  font-weight: 700;
+  font-size: 23px;
+  color: var(--navy);
+  margin-top: 2px;
+  letter-spacing: -0.02em;
+}
+
+.painel-stat-sub {
+  font-size: 12px;
+  color: var(--ink-soft);
+  margin-top: 3px;
+  line-height: 1.4;
+}
+
+.painel-pill {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  font-size: 10.5px;
+  font-weight: 800;
+  border-radius: 999px;
+  padding: 3px 9px;
+}
+
+.painel-pill--ok,
+.painel-badge--ok {
+  background: var(--lilac-100);
+  color: var(--lilac-600);
+}
+
+.painel-pill--info,
+.painel-badge--info {
+  background: var(--blue-100);
+  color: var(--navy);
+}
+
+.painel-pill--atencao,
+.painel-badge--atencao {
+  background: var(--pink-100);
+  color: var(--pink-600-dark);
+}
+
+.painel-grid {
+  display: grid;
+  grid-template-columns: 1.55fr 1fr 1fr 1fr;
+  grid-auto-rows: minmax(112px, auto);
+  grid-auto-flow: dense;
+  gap: 12px;
+  margin: 0 0 16px;
+}
+
+.painel-tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: #fff;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-card);
+  padding: 14px;
+  color: var(--ink);
+  text-decoration: none;
+  box-shadow: var(--shadow-card);
+  transition: transform 0.14s, box-shadow 0.14s, border-color 0.14s;
+}
+
+.painel-tile:hover {
+  transform: translateY(-2px);
+  border-color: var(--navy);
+  box-shadow: 0 10px 22px rgba(7, 59, 76, 0.14);
+  color: var(--ink);
+}
+
+.painel-tile strong {
+  font-size: 12.5px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--navy);
+}
+
+.painel-tile small {
+  font-size: 11.5px;
+  color: var(--ink-soft);
+  line-height: 1.4;
+}
+
+.painel-ico {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: var(--bg-cloud);
+  color: var(--navy);
+  flex: none;
+}
+
+.painel-ico--claro {
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+}
+
+.painel-badge {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  font-size: 10.5px;
+  font-weight: 800;
+  border-radius: 999px;
+  padding: 3px 9px;
+}
+
+.painel-tile--destaque {
+  grid-row: span 2;
+  justify-content: space-between;
+  background: var(--navy);
+  border-color: var(--navy);
+  color: #fff;
+}
+
+.painel-tile--destaque:hover {
+  border-color: var(--navy-light);
+  box-shadow: 0 14px 30px rgba(7, 59, 76, 0.3);
+  color: #fff;
+}
+
+.painel-tile--destaque h2 {
+  color: #fff;
+  font-size: 26px;
+  line-height: 1.1;
+  margin: 8px 0 0;
+}
+
+.painel-tile--destaque p {
+  margin: 6px 0 0;
+  font-size: 13px;
+  color: #CDE0E8;
+  line-height: 1.45;
+}
+
+.painel-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 10px;
+  font-size: 11.5px;
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 4px 11px;
+}
+
+.painel-chip--aberto {
+  background: rgba(224, 132, 172, 0.22);
+  color: #fff;
+}
+
+.painel-chip--aberto .painel-dot {
+  background: var(--pink-300);
+}
+
+.painel-chip--fechado {
+  background: rgba(255, 255, 255, 0.1);
+  color: #CDE0E8;
+}
+
+.painel-chip--fechado .painel-dot {
+  background: #9BB4C4;
+}
+
+.painel-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 99px;
+}
+
+.painel-destaque-acoes {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+}
+
+.painel-btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 11px 20px;
+  border-radius: 999px;
+  font-size: 13.5px;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.painel-btn--pink {
+  background: var(--pink-600);
+  color: #fff;
+  border: 1.5px solid var(--pink-600);
+}
+
+.painel-btn--pink:hover {
+  background: var(--pink-600-dark);
+  border-color: var(--pink-600-dark);
+  color: #fff;
+}
+
+.painel-btn--ghost {
+  background: transparent;
+  color: #fff;
+  border: 1.5px solid rgba(255, 255, 255, 0.5);
+}
+
+.painel-btn--ghost:hover {
+  border-color: #fff;
+  color: #fff;
+}
+
+.painel-banners {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin: 0 0 16px;
+}
+
+.painel-banner {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-radius: var(--radius-card);
+  padding: 14px 16px;
+  color: #fff;
+  min-height: 84px;
+}
+
+.painel-banner--a {
+  background: var(--navy);
+}
+
+.painel-banner--b {
+  background: var(--navy-light);
+}
+
+.painel-banner--c {
+  background: var(--pink-600-dark);
+}
+
+.painel-banner .painel-ico {
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
+}
+
+.painel-banner-link {
+  color: #fff;
+  font-size: 13.5px;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.painel-banner-link:hover {
+  color: #fff;
+  text-decoration: underline;
+}
+
+.painel-banner small {
+  display: block;
+  font-size: 11.5px;
+  color: rgba(255, 255, 255, 0.85);
+  margin-top: 2px;
+  line-height: 1.4;
+}
+
+.painel-banner-x {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  border: 0;
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1;
+  display: grid;
+  place-items: center;
+}
+
+.painel-banner-x:hover {
+  background: rgba(255, 255, 255, 0.34);
+}
+
+.painel-banners-mostrar {
+  grid-column: 1 / -1;
+  justify-self: start;
+  background: none;
+  border: 0;
+  color: var(--ink-soft);
+  font-size: 12px;
+  font-weight: 700;
+  padding: 0;
+}
+
+.painel-banners-mostrar:hover {
+  color: var(--pink-600);
+}
+
+.painel-cards {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 24px;
+  margin: 0 0 24px;
+}
+
+.painel-status {
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap;
+  align-items: center;
+  background: var(--navy);
+  color: #CDE0E8;
+  font-size: 11.5px;
+  border-radius: var(--radius-card);
+  padding: 9px 16px;
+  margin-top: 16px;
+}
+
+.painel-status b {
+  color: #fff;
+  font-weight: 700;
+}
+
+@media (max-width: 1180px) {
+  .painel-stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .painel-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .painel-tile--destaque {
+    grid-column: 1 / -1;
+    grid-row: auto;
+  }
+
+  .painel-banners {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 900px) {
+  .painel-cards {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  .painel-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .painel-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .painel-acoes-div {
+    display: none;
+  }
+}
+
 /* ---------------------------------------------------------------- PDV v6 --
  * Layout do console: venda/busca + painel Caixa na coluna esquerda, comanda
  * na direita. Abaixo de 900px a comanda vira drawer lateral aberto pela barra
