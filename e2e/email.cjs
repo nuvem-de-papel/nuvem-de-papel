@@ -13,8 +13,7 @@ const fs = require("fs");
 const path = require("path");
 
 const BASE = "http://localhost:3000";
-const EMAIL_MASTER = "admin@nuvemdepapel.com.br";
-const SENHA_MASTER = "@@748596Jmsc##";
+const { email: EMAIL_MASTER, password: SENHA_MASTER } = require("./_credenciais-e2e.cjs");
 const SENHA = "E2e#2026Test";
 const TENANT = "00000000-0000-0000-0000-000000000001";
 const EMAIL_VENDEDOR = "e2e-vend-email-f65@nuvem-de-papel.com.br";

@@ -261,7 +261,10 @@ export function Hero() {
         overflow: "hidden",
         padding: "76px 32px 100px",
         background: "linear-gradient(180deg, #073B4C 0%, #0A4E63 40%, var(--bg-cotton) 100%)",
-        minHeight: 560,
+        // `dvh` acompanha a altura visível real: janela redimensionada e barras móveis.
+        // Os 61px correspondem ao cabeçalho sticky, mantendo o primeiro bloco na tela inteira.
+        minHeight: "calc(100dvh - 61px)",
+        boxSizing: "border-box",
       }}
     >
       {mode === "video" && (
@@ -301,6 +304,7 @@ export function Hero() {
 
       <div
         ref={contentRef}
+        className="hero-content"
         style={{
           maxWidth: 1240,
           margin: "0 auto",
@@ -414,7 +418,7 @@ export function Hero() {
           </div>
         </div>
 
-        <div style={{ position: "relative", height: 440 }}>
+        <div className="hero-showcase" style={{ position: "relative", height: 440 }}>
           <div
             style={{
               position: "absolute",

@@ -11,8 +11,7 @@ const fs = require("fs");
 const path = require("path");
 
 const BASE = "http://localhost:3000";
-const EMAIL_MASTER = "admin@nuvemdepapel.com.br";
-const SENHA_MASTER = "@@748596Jmsc##";
+const { email: EMAIL_MASTER, password: SENHA_MASTER } = require("./_credenciais-e2e.cjs");
 const TENANT = "00000000-0000-0000-0000-000000000001";
 const SKU_FISC = "SKU-E2E-FISC";
 const SKU_FISC2 = "SKU-E2E-FISC-2";

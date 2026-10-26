@@ -14,8 +14,7 @@ const path = require("path");
 const { t0Banco } = require("./_relogio-banco.cjs");
 
 const BASE = "http://localhost:3000";
-const EMAIL_MASTER = "admin@nuvemdepapel.com.br";
-const SENHA_MASTER = "@@748596Jmsc##";
+const { email: EMAIL_MASTER, password: SENHA_MASTER } = require("./_credenciais-e2e.cjs");
 const EMAIL_COMP = "e2e-comprador@nuvem-de-papel.com.br";
 const SENHA_COMP = "E2e#2026Test";
 const TENANT = "00000000-0000-0000-0000-000000000001";
