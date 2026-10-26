@@ -6,8 +6,7 @@ const os = require("os");
 const path = require("path");
 
 const BASE = "http://localhost:3000";
-const EMAIL = "admin@nuvemdepapel.com.br";
-const SENHA = "@@748596Jmsc##";
+const { email: EMAIL, password: SENHA } = require("./_credenciais-e2e.cjs");
 const SAIDA = (nome) => path.join(os.tmpdir(), `painel-crm-${nome}.png`);
 
 function lerEnv() {

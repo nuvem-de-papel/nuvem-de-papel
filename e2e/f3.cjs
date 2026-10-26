@@ -12,8 +12,7 @@ const path = require("path");
 const BASE = "http://localhost:3000";
 const EMAIL_COMP = "e2e-comprador@nuvem-de-papel.com.br";
 const SENHA_COMP = "E2e#2026Test";
-const EMAIL_MASTER = "admin@nuvemdepapel.com.br";
-const SENHA_MASTER = "@@748596Jmsc##";
+const { email: EMAIL_MASTER, password: SENHA_MASTER } = require("./_credenciais-e2e.cjs");
 const TENANT = "00000000-0000-0000-0000-000000000001";
 
 function lerEnv() {
@@ -41,16 +40,31 @@ async function acharUser(email) {
 
 async function limpar() {
   const u = await acharUser(EMAIL_COMP);
-  if (!u) return;
-  const { data: pedidos } = await admin.from("orders").select("id").eq("user_id", u.id);
-  for (const p of pedidos ?? []) {
+  const { data: clientes } = await admin.from("customers").select("id").eq("email", EMAIL_COMP);
+  const clienteIds = (clientes ?? []).map((cliente) => cliente.id);
+  const pedidosPorUsuario = u
+    ? await admin.from("orders").select("id, status").eq("user_id", u.id)
+    : { data: [] };
+  const pedidosPorCliente = clienteIds.length
+    ? await admin.from("orders").select("id, status").in("customer_id", clienteIds)
+    : { data: [] };
+  const pedidos = [...(pedidosPorUsuario.data ?? []), ...(pedidosPorCliente.data ?? [])];
+  const vistos = new Set();
+  for (const p of pedidos) {
+    if (vistos.has(p.id)) continue;
+    vistos.add(p.id);
+    if (p.status === "aguardando_pagamento") {
+      await admin.rpc("release_order_stock", { p_order_id: p.id });
+    }
     await admin.from("order_items").delete().eq("order_id", p.id);
     await admin.from("orders").delete().eq("id", p.id);
   }
-  await admin.from("addresses").delete().eq("user_id", u.id);
+  if (u) await admin.from("addresses").delete().eq("user_id", u.id);
   await admin.from("customers").delete().eq("email", EMAIL_COMP);
-  await admin.from("profiles").delete().eq("id", u.id);
-  await admin.auth.admin.deleteUser(u.id);
+  if (u) {
+    await admin.from("profiles").delete().eq("id", u.id);
+    await admin.auth.admin.deleteUser(u.id);
+  }
 }
 
 async function login(page, email, senha) {

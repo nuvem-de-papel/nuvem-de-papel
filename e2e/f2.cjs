@@ -11,8 +11,7 @@ const fs = require("fs");
 const path = require("path");
 
 const BASE = "http://localhost:3000";
-const EMAIL_MASTER = "admin@nuvemdepapel.com.br";
-const SENHA_MASTER = "@@748596Jmsc##";
+const { email: EMAIL_MASTER, password: SENHA_MASTER } = require("./_credenciais-e2e.cjs");
 const EMAIL_OP = "e2e-operador@nuvem-de-papel.com.br";
 const SENHA_OP = "E2e#2026Test";
 const NOME_OP = "Operador E2E";

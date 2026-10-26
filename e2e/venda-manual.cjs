@@ -13,8 +13,7 @@ const path = require("path");
 const { t0Banco } = require("./_relogio-banco.cjs");
 
 const BASE = "http://localhost:3000";
-const EMAIL_MASTER = "admin@nuvemdepapel.com.br";
-const SENHA_MASTER = "@@748596Jmsc##";
+const { email: EMAIL_MASTER, password: SENHA_MASTER } = require("./_credenciais-e2e.cjs");
 const TENANT = "00000000-0000-0000-0000-000000000001";
 const SKU = "SKU-E2E-VMAN";
 const NOME_ITEM = "Item E2E Venda Manual";

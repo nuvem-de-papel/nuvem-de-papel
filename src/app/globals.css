@@ -93,6 +93,16 @@ button {
 }
 
 @media (max-width: 768px) {
+  .hero-content {
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 0 !important;
+  }
+
+  /* No celular, a leitura e os CTAs são prioritários; o painel decorativo some. */
+  .hero-showcase {
+    display: none !important;
+  }
+
   .menu-toggle {
     display: block !important;
   }
