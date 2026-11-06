@@ -1,3 +1,5 @@
+import "server-only";
+
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 
 // Cliente ADMIN (service role) — uso exclusivo no servidor.
