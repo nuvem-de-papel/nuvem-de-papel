@@ -350,3 +350,21 @@ para uma plataforma ERP multi-tenant maior, se e quando decidido:
 
 Migrations em `supabase/migrations/NNNN_*.sql`, com `preflight/`, `rollback/`, `tests/`
 correspondentes por número — mesmo padrão de governança documentado no parecer de migração.
+
+## Convencao de backup externo (definida 07/11/2026)
+
+1. Volume dedicado, identificado por ROTULO (nao por letra): `FileSystemLabel = "BACKUP"`.
+   Letra atual: `E:` — pode mudar em outra maquina. Scripts/rotinas devem resolver
+   a letra em tempo de execucao, nunca hardcodar `E:\`:
+   ```powershell
+   $vol  = Get-Volume -FileSystemLabel "BACKUP"
+   $dest = "$($vol.DriveLetter):\bk-nuvem-de-papel"
+   ```
+2. Convencao de pasta por projeto (cross-projeto, nao exclusiva deste repo):
+   `<letra-resolvida>:\bk-<nome-do-projeto>\` — ex.: `E:\bk-nuvem-de-papel`,
+   `E:\bk-imobiliaria`.
+3. Pasta deste projeto ja criada: `E:\bk-nuvem-de-papel` (07/11/2026, volume
+   NTFS "BACKUP", ~300GB total, ~99GB livres no momento da criacao).
+4. Pendente (Fase 3 da auditoria 2026-11-07): rotina real de backup/restore dos
+   dois projetos Supabase (dump logico + Storage export + checksum + teste de
+   restore), gravando nesta pasta.
