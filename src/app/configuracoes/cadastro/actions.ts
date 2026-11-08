@@ -205,6 +205,9 @@ export type ProdutoInput = {
   sku: string;
   nome: string;
   categoria: string;
+  // 0043: classificacao interna (nao fiscal) - grupo > subgrupo do catalogo.
+  grupo: string;
+  subgrupo: string;
   ativo: boolean;
   gtin: string;
   ncm: string;
@@ -262,6 +265,9 @@ export async function salvarProduto(input: ProdutoInput): Promise<ResultadoAcao 
   const sku = (input.sku ?? "").trim();
   const nome = (input.nome ?? "").trim();
   const categoria = (input.categoria ?? "").trim();
+  // 0043: grupo/subgrupo - texto livre, so corte de tamanho (sem validacao fiscal).
+  const grupo = (input.grupo ?? "").trim().slice(0, 80);
+  const subgrupo = (input.subgrupo ?? "").trim().slice(0, 80);
   const gtin = digitos(input.gtin ?? "");
   const ncm = digitos(input.ncm ?? "");
   const csosn = digitos(input.csosn ?? "");
@@ -361,6 +367,7 @@ export async function salvarProduto(input: ProdutoInput): Promise<ResultadoAcao 
       .from("catalog_items")
       .update({
         sku, name: nome, category: categoria || null, active: input.ativo,
+        group_name: grupo || null, subgroup_name: subgrupo || null,
         fabricante: fabricante || null, notes: observacoes || null,
         hide_price_table: hidePriceTable,
         last_adjusted_at: lastAdj || null,
@@ -380,6 +387,8 @@ export async function salvarProduto(input: ProdutoInput): Promise<ResultadoAcao 
         sku,
         name: nome,
         category: categoria || null,
+        group_name: grupo || null,
+        subgroup_name: subgrupo || null,
         active: input.ativo,
         fabricante: fabricante || null,
         notes: observacoes || null,
