@@ -368,3 +368,61 @@ correspondentes por número — mesmo padrão de governança documentado no pare
 4. Pendente (Fase 3 da auditoria 2026-11-07): rotina real de backup/restore dos
    dois projetos Supabase (dump logico + Storage export + checksum + teste de
    restore), gravando nesta pasta.
+
+## Rotina de backup/restore Supabase (Fase 3 da auditoria, validada 08/11/2026)
+
+1. Ferramentas: Supabase CLI (`supabase --version`) + Docker Desktop na maquina
+   local. Nao precisa de `pg_dump` solto (o CLI usa o cliente embutido).
+2. Login: `supabase login` (abre navegador, token fica salvo local). Cuidado:
+   a conta pode vir logada em outro projeto/org (ja aconteceu com o CETADP) —
+   sempre conferir com `supabase projects list` antes de prosseguir.
+3. Dump (sempre staging primeiro):
+   ```powershell
+   $vol  = Get-Volume -FileSystemLabel "BACKUP"
+   $dest = "$($vol.DriveLetter):\bk-nuvem-de-papel\<staging|producao>\<data>"
+   New-Item -ItemType Directory -Path $dest -Force
+   supabase link --project-ref <ref-do-projeto>   # urlfwxeflxpdmmxkuuur (staging) / cbnmnpnpioukbzircmzn (producao)
+   supabase db dump -f "$dest\schema.sql"
+   supabase db dump --data-only -f "$dest\data.sql"
+   ```
+   Pede a senha do banco no prompt — nunca digitar em script/arquivo.
+4. Checksum obrigatorio logo apos o dump: `Get-FileHash *.sql -Algorithm SHA256`,
+   gravar em `checksums.sha256.txt` ao lado dos arquivos.
+5. **IMPORTANTE — voltar o link pra staging depois do dump de producao**
+   (`supabase link --project-ref urlfwxeflxpdmmxkuuur`) pra nao arriscar rodar
+   outro comando (migration etc.) apontando pra producao sem querer.
+
+### Teste de restore (validado 08/11/2026, dump de staging de 08/11/2026)
+
+Usa Postgres local descartavel via Docker — nao toca em nenhum projeto Supabase real:
+```powershell
+docker run -d --name restore-test -e POSTGRES_PASSWORD=postgres -p 5544:5432 supabase/postgres:<versao-igual-ao-projeto>
+docker cp schema.sql restore-test:/tmp/schema.sql
+docker cp data.sql restore-test:/tmp/data.sql
+docker exec restore-test psql -U postgres -d postgres -v ON_ERROR_STOP=0 -f /tmp/schema.sql
+docker exec restore-test psql -U postgres -d postgres -v ON_ERROR_STOP=0 -f /tmp/data.sql
+docker rm -f restore-test   # ao final
+```
+
+**A versao da imagem `supabase/postgres` tem que bater com a versao do projeto**
+(`select version();` no projeto real) — senao da erro de privilegio
+desconhecido (`maintain`, privilegio so do PG17). Projeto Nuvem de Papel roda
+Postgres 17.6 (imagem testada: `supabase/postgres:17.6.1.163`).
+
+Resultado do teste 08/11/2026 (dump de staging, 08/11/2026): schema e dados do
+negocio restauram sem perda — 5 contagens conferidas batendo exatamente com o
+staging real (orders 0, customers 2, journal_entries 734, account_catalog 60,
+catalog_items 14).
+
+**Ruido conhecido, nao e falha:**
+- Extensao `pgtap` instalada dentro do `public` (em vez de schema proprio) faz
+  o dump incluir GRANT de cada funcao interna dela — gera ~15-20 erros
+  "function ... does not exist" no restore (`_retval`, `_typename`,
+  `col_is_pk`, `format_type_string`, `has_pk`). Nao afeta schema/dados do
+  negocio. Fix pendente no backlog (Fase 5): mover `pgtap` pra schema proprio.
+- Dados de `auth.*`/`storage.*` (GoTrue/Storage) NAO restauram numa imagem
+  `supabase/postgres` solta — essas tabelas so existem completas quando a
+  stack completa roda (`supabase start`) ou dentro de um projeto Supabase de
+  verdade. Para recuperar auth/storage de verdade, restaurar num projeto
+  Supabase novo (nao num Postgres solto) — esse teste local valida só o
+  schema e os dados de negocio, que é o que importa pra auditoria financeira.
