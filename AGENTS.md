@@ -161,7 +161,7 @@ Valem para qualquer sessão/IA, mesmo sem ser lembradas na conversa:
 2. **O que SOBREVIVE**: `auth.users`, `profiles`, `tenants`, `tenant_branding`, `tenant_company`, `sefaz_config`, `account_catalog` (60 contas), `tenant_accounts` (60), `cost_centers` (4), `club_plans` (3), `freight_tabelas` (160 linhas Correios), `marketplace_channels` (10 canais).
 3. **Ordem e gatilhos**: desliga as 7 travas de imutabilidade (`trg_journal_*`, `trg_financial_settlements_*`, `trg_caixa_movements_*`, `trg_stock_movements_*`) dentro da transacao; apaga `nfe_*`/`notas_entrada` **antes** de `orders`/`purchase_orders` (constraint exige um dos dois — `0011:26-27`, `0017:136`); `settlements -> installments -> titles` e `caixa_movements -> sessions` por causa do `on delete restrict` (`0008:158`, `0008:139`, `0008:62`); `orders`/`campaigns` antes de `customers` (restrict `0003:22`).
 4. **Ritual executado nos DOIS bancos (19/10/2026)**: staging `urlfwxeflxpdmmxkuuur` e producao `cbnmnpnpioukbzircmzn` — preflight (base confirmada), migration (todas as operacionais zeradas, base preservada), pgTAP `0034_test.sql` (`TESTE OK` nos dois). Commit `a7f2e22` em `staging` e `main`; CI `39221533307` (staging) success.
-5. **Rollback NAO existe**: `rollback/0034_rollback.sql` so documenta — os dados sao perdidos. Se precisar restaurar, Point-in-Time Recovery do Supabase. Helper de SQL recriado em `C:\Users\joaqu\AppData\Local\Temp\opencode\supabase-query-pat.ps1` (usa PAT em `sbp-token.txt`, dois tokens: staging `sbp_...29c4c` e producao `sbp_...4575`).
+5. **Rollback NAO existe**: `rollback/0034_rollback.sql` so documenta — os dados sao perdidos. Se precisar restaurar, Point-in-Time Recovery do Supabase. Helper de SQL recriado em `C:\Users\joaqu\AppData\Local\Temp\opencode\supabase-query-pat.ps1` (usa PAT lido de `sbp-token.txt`, nunca commitado — tokens reais NAO ficam neste arquivo; ver no gerenciador de tokens do Supabase se precisar gerar um novo).
 
 ## Cobrança automática — régua de lembretes (0035 — 19/10/2026)
 
@@ -426,3 +426,29 @@ catalog_items 14).
   verdade. Para recuperar auth/storage de verdade, restaurar num projeto
   Supabase novo (nao num Postgres solto) — esse teste local valida só o
   schema e os dados de negocio, que é o que importa pra auditoria financeira.
+
+## RLS deny-all intencional (13 tabelas, revisado 08/11/2026)
+
+O advisor de seguranca do Supabase acusa "RLS enabled, no policy" (bloqueio
+total pra anon/authenticated) nestas 13 tabelas. Revisado uma por uma —
+todas sao deny-all por design, nao falta nenhuma policy:
+
+- `marketplace_accounts`: guarda `access_token`/`refresh_token` (credenciais
+  OAuth dos canais de marketplace) — nunca pode ser lido client-side.
+- `item_fiscal_data`, `item_commercial_data`: custo/margem/dados fiscais —
+  vazar isso pro cliente exporia preco de custo e dados fiscais internos.
+  (Preco de venda fica em `item_prices`, que tem policy publica — separacao
+  intencional.)
+- `tenants`: registro mestre multi-tenant (`slug`, `name`) — uma policy de
+  leitura vazaria a lista de todos os clientes/lojas da plataforma.
+- `customers`: cadastro de CRM operado pelo staff (sem coluna `user_id`/
+  `profile_id` — nao e o perfil do usuario logado, que fica em `profiles`).
+- `campaigns`, `webhook_events`, `marketplace_jobs`, `marketplace_listings`,
+  `marketplace_orders`, `marketplace_webhooks`, `marketplace_channels`,
+  `freight_tabelas`: fila/processamento interno ou tabela de apoio —
+  acessadas só via service_role (server actions, crons), sem motivo de
+  acesso direto do cliente.
+
+Decisao (08/11/2026): manter deny-all como esta, sem criar policy nova —
+é o comportamento correto. Esse item do advisor pode ser ignorado daqui
+pra frente nas proximas auditorias.
