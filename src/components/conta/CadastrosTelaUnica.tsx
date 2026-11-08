@@ -24,6 +24,37 @@ const UFS = [
 
 const FORNECEDORES_INICIAIS = ["Papelaria Central Ltda", "Distribuidora Papel & Arte", "Gráfica São José"];
 
+// 0043: Grupo > Subgrupo do catalogo - classificacao interna (nao fiscal),
+// definida na organizacao das fotos de produto (08/11/2026). Lista fixa serve
+// de sugestao no autocomplete; o dono pode digitar valor novo a vontade.
+const GRUPOS_PRODUTO = [
+  "Canetas e Lapiseiras",
+  "Lápis",
+  "Borrachas",
+  "Marcadores",
+  "Estojos",
+  "Cadernos",
+  "Blocos",
+  "Adesivos",
+  "Clipes",
+  "Calculadoras",
+  "Réguas",
+  "Livros",
+  "Brinquedos",
+  "Acessórios Diversos",
+];
+const SUBGRUPOS_POR_GRUPO: Record<string, string[]> = {
+  "Canetas e Lapiseiras": ["Canetas", "Lapiseiras"],
+  "Lápis": ["Lápis e Grafite", "Apontadores"],
+  "Marcadores": ["Marcadores e Canetinhas"],
+  "Cadernos": ["Cadernos, Agendas e Refil"],
+  "Blocos": ["Blocos de Notas e Post-its"],
+  "Adesivos": ["Adesivos e Fitas"],
+  "Clipes": ["Clipes, Corretivo e Acessórios"],
+  "Livros": ["Livros de Colorir e Atividades"],
+  "Brinquedos": ["Brinquedos e Miniaturas"],
+};
+
 const GTIN_DB: Record<string, Record<string, string>> = {
   "7898943477996": {
     descricao: "CADERNO ESPIRAL 96 FOLHAS COLUNA FINA",
@@ -296,6 +327,9 @@ export type ProdutoCad = {
   sku: string;
   nome: string;
   categoria: string;
+  // 0043: classificacao interna (nao fiscal) - grupo > subgrupo do catalogo.
+  grupo: string;
+  subgrupo: string;
   ativo: boolean;
   gtin: string;
   ncm: string;
@@ -547,12 +581,34 @@ export function CadastrosTelaUnica({
     }
     return [...vistos].sort((a, b) => a.localeCompare(b, "pt-BR"));
   }, [produtos]);
+  // 0043: Grupo - lista fixa (GRUPOS_PRODUTO) + qualquer valor novo que já
+  // tenha sido digitado em produtos cadastrados (mesmo padrão de "setores").
+  const grupos = useMemo(() => {
+    const vistos = new Set<string>(GRUPOS_PRODUTO);
+    for (const p of produtos) {
+      const g = p.grupo.trim();
+      if (g) vistos.add(g);
+    }
+    return [...vistos].sort((a, b) => a.localeCompare(b, "pt-BR"));
+  }, [produtos]);
   const [fornecedores, setFornecedores] = useState(FORNECEDORES_INICIAIS);
   const [setorQ, setSetorQ] = useState(setores[0] ?? "");
+  const [grupoQ, setGrupoQ] = useState("");
+  const [subgrupoQ, setSubgrupoQ] = useState("");
+  // Subgrupo - sugestoes do grupo escolhido (SUBGRUPOS_POR_GRUPO) + qualquer
+  // valor novo já usado em produtos daquele mesmo grupo.
+  const subgrupos = useMemo(() => {
+    const base = SUBGRUPOS_POR_GRUPO[grupoQ.trim()] ?? [];
+    const vistos = new Set<string>(base);
+    for (const p of produtos) {
+      if (p.grupo.trim() === grupoQ.trim() && p.subgrupo.trim()) vistos.add(p.subgrupo.trim());
+    }
+    return [...vistos].sort((a, b) => a.localeCompare(b, "pt-BR"));
+  }, [produtos, grupoQ]);
   const [skuQ, setSkuQ] = useState(produtos[0]?.sku ?? "");
   const [prodId, setProdId] = useState<string | null>(produtos[0]?.id ?? null);
   const [fornQ, setFornQ] = useState(FORNECEDORES_INICIAIS[0]);
-  const [acAberto, setAcAberto] = useState<null | "setor" | "fornecedor" | "sku">(null);
+  const [acAberto, setAcAberto] = useState<null | "setor" | "grupo" | "subgrupo" | "fornecedor" | "sku">(null);
   // busca de produto no header (nome/gtin/sku, qualquer parte do valor)
   const [buscaQ, setBuscaQ] = useState("");
   const [buscaAberta, setBuscaAberta] = useState(false);
@@ -696,6 +752,8 @@ export function CadastrosTelaUnica({
     };
     setVal("ct-prod-descricao", p?.nome ?? "");
     setSetorQ(p?.categoria ?? "");
+    setGrupoQ(p?.grupo ?? "");
+    setSubgrupoQ(p?.subgrupo ?? "");
     setVal("ct-prod-gtin", p?.gtin ?? "");
     setVal("ct-prod-ncm", p?.ncm ?? "");
     setVal("ct-prod-csosn", p?.csosn ?? "");
@@ -754,6 +812,8 @@ export function CadastrosTelaUnica({
       sku: skuQ.trim(),
       nome: val("ct-prod-descricao").trim(),
       categoria: setorQ.trim(),
+      grupo: grupoQ.trim(),
+      subgrupo: subgrupoQ.trim(),
       ativo: !(g<HTMLInputElement>("ct-prod-inativo")?.checked ?? false),
       gtin: val("ct-prod-gtin"),
       ncm: val("ct-prod-ncm"),
@@ -1559,6 +1619,50 @@ export function CadastrosTelaUnica({
                       <option key={u} value={u}>{u}</option>
                     ))}
                   </select>
+                </div>
+              </div>
+              <div className="ct-row ct-r2">
+                <div className="ct-field ct-ac">
+                  <label>Grupo</label>
+                  <input
+                    autoComplete="off"
+                    value={grupoQ}
+                    onChange={(e) => { setGrupoQ(e.target.value); setSubgrupoQ(""); setAcAberto("grupo"); }}
+                    onFocus={() => setAcAberto("grupo")}
+                    onBlur={() => setTimeout(() => setAcAberto(null), 150)}
+                  />
+                  <ul className={`ct-ac-list${acAberto === "grupo" ? " on" : ""}`}>
+                    {filtrar(grupos, grupoQ).length === 0 && <li className="ct-ac-empty">Nenhum cadastrado ainda</li>}
+                    {filtrar(grupos, grupoQ).map((v) => (
+                      <li key={v} onMouseDown={() => { setGrupoQ(v); setSubgrupoQ(""); setAcAberto(null); }}>{v}</li>
+                    ))}
+                    {grupoQ.trim() && !grupos.some((v) => v.toLowerCase() === grupoQ.trim().toLowerCase()) && (
+                      <li className="ct-ac-new">
+                        <span className="ct-ac-empty">Grupo novo — grave o produto e ele entra na lista</span>
+                      </li>
+                    )}
+                  </ul>
+                </div>
+                <div className="ct-field ct-ac">
+                  <label>Subgrupo</label>
+                  <input
+                    autoComplete="off"
+                    value={subgrupoQ}
+                    onChange={(e) => { setSubgrupoQ(e.target.value); setAcAberto("subgrupo"); }}
+                    onFocus={() => setAcAberto("subgrupo")}
+                    onBlur={() => setTimeout(() => setAcAberto(null), 150)}
+                  />
+                  <ul className={`ct-ac-list${acAberto === "subgrupo" ? " on" : ""}`}>
+                    {filtrar(subgrupos, subgrupoQ).length === 0 && <li className="ct-ac-empty">Nenhum cadastrado ainda</li>}
+                    {filtrar(subgrupos, subgrupoQ).map((v) => (
+                      <li key={v} onMouseDown={() => { setSubgrupoQ(v); setAcAberto(null); }}>{v}</li>
+                    ))}
+                    {subgrupoQ.trim() && !subgrupos.some((v) => v.toLowerCase() === subgrupoQ.trim().toLowerCase()) && (
+                      <li className="ct-ac-new">
+                        <span className="ct-ac-empty">Subgrupo novo — grave o produto e ele entra na lista</span>
+                      </li>
+                    )}
+                  </ul>
                 </div>
               </div>
             </div>
