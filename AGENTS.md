@@ -452,3 +452,11 @@ todas sao deny-all por design, nao falta nenhuma policy:
 Decisao (08/11/2026): manter deny-all como esta, sem criar policy nova —
 é o comportamento correto. Esse item do advisor pode ser ignorado daqui
 pra frente nas proximas auditorias.
+
+## Backlog bloqueado por plano: leaked password protection (08/11/2026)
+
+"Prevent use of leaked passwords" (Auth → Sign In/Providers → Email, checa
+senha contra HaveIBeenPwned) só existe no plano Pro do Supabase. A org
+`nuvem-de-papel's Org` está no plano FREE — toggle aparece desabilitado.
+Não é erro de configuração, é limite de plano. Revisitar se/quando fizer
+upgrade pra Pro.
