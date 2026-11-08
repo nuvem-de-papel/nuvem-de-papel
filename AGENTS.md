@@ -161,7 +161,7 @@ Valem para qualquer sessão/IA, mesmo sem ser lembradas na conversa:
 2. **O que SOBREVIVE**: `auth.users`, `profiles`, `tenants`, `tenant_branding`, `tenant_company`, `sefaz_config`, `account_catalog` (60 contas), `tenant_accounts` (60), `cost_centers` (4), `club_plans` (3), `freight_tabelas` (160 linhas Correios), `marketplace_channels` (10 canais).
 3. **Ordem e gatilhos**: desliga as 7 travas de imutabilidade (`trg_journal_*`, `trg_financial_settlements_*`, `trg_caixa_movements_*`, `trg_stock_movements_*`) dentro da transacao; apaga `nfe_*`/`notas_entrada` **antes** de `orders`/`purchase_orders` (constraint exige um dos dois — `0011:26-27`, `0017:136`); `settlements -> installments -> titles` e `caixa_movements -> sessions` por causa do `on delete restrict` (`0008:158`, `0008:139`, `0008:62`); `orders`/`campaigns` antes de `customers` (restrict `0003:22`).
 4. **Ritual executado nos DOIS bancos (19/10/2026)**: staging `urlfwxeflxpdmmxkuuur` e producao `cbnmnpnpioukbzircmzn` — preflight (base confirmada), migration (todas as operacionais zeradas, base preservada), pgTAP `0034_test.sql` (`TESTE OK` nos dois). Commit `a7f2e22` em `staging` e `main`; CI `39221533307` (staging) success.
-5. **Rollback NAO existe**: `rollback/0034_rollback.sql` so documenta — os dados sao perdidos. Se precisar restaurar, Point-in-Time Recovery do Supabase. Helper de SQL recriado em `C:\Users\joaqu\AppData\Local\Temp\opencode\supabase-query-pat.ps1` (usa PAT em `sbp-token.txt`, dois tokens: staging `sbp_...29c4c` e producao `sbp_...4575`).
+5. **Rollback NAO existe**: `rollback/0034_rollback.sql` so documenta — os dados sao perdidos. Se precisar restaurar, Point-in-Time Recovery do Supabase. Helper de SQL recriado em `C:\Users\joaqu\AppData\Local\Temp\opencode\supabase-query-pat.ps1` (usa PAT lido de `sbp-token.txt`, nunca commitado — tokens reais NAO ficam neste arquivo; ver no gerenciador de tokens do Supabase se precisar gerar um novo).
 
 ## Cobrança automática — régua de lembretes (0035 — 19/10/2026)
 
@@ -219,6 +219,22 @@ Valem para qualquer sessão/IA, mesmo sem ser lembradas na conversa:
 2. **`CRON_SECRET`**: a Vercel anexa sozinha `Authorization: Bearer ${CRON_SECRET}` quando o env var se chama **exatamente** `CRON_SECRET` (docs "Securing cron jobs"). Rotas fail-closed: sem env → 503, secret errado → 401. Teste manual: `curl -H "Authorization: Bearer <secret>" https://<dominio>/api/cron/cobranca`. Sem retry da Vercel em falha — ver logs em Settings → Cron Jobs.
 3. **Env vars de produção (conta `joaquimmscoelhoam-3974`, via CLI em 20/10)**: `GEMINI_API_KEY` (a mesma do `.env.local`, nunca commitar), `GEMINI_MODEL=gemini-3.5-flash` (decisão do dia — 3.8 free = 20 req/dia) e `CRON_SECRET` (valor novo exclusivo de produção, ≥16 chars; fica só na Vercel e em `.env.local` como `CRON_SECRET_PROD`).
 4. **Validado em produção (20/10, ~01:40 BRT)**: ritual `0035`–`0039` completo em produção **antes** do merge (preflight → migration → cada asserção dos testes, statement a statement); merge ff `5748226..0680efb`; deploy Ready; env vars **exigem redeploy** — o deploy disparado pelo push não captura vars adicionados depois dele (`vercel redeploy <url>` resolve); rota responde 401 sem secret e com secret errado, 200 nos 3 disparos reais (base pós-zeragem = nada a disparar; `marketing_config.link_google` pendente de configurar quando quiser coletar avaliações). Alias `*.vercel.app` fica protegido por login Vercel de propósito; **produção pública = `nuvemdepapel.com.br`**.
+
+## Venda manual — telefone/balcao (entrega 7 — 0040 — 20/10/2026)
+
+1. **O que e**: o dono/gerente registra venda completa pelo `/vendas/nova` (botao "Nova venda" no cabecalho da Vendas Detalhada) **sem caixa aberto**: PF ou PJ, entrega ou retirada, todas as formas de pagamento (dinheiro, pix, debito, credito, boleto, fiado), com ou sem desconto. Escopo aprovado: "venda manual (telefone/balcao) ponta a ponta com todos os testes". Cancelamento de venda (etapa `venda`) segue fora — igual ao PDV.
+2. **Migration `0040_venda_manual`** (+preflight/rollback/test): `orders_origem_check` + `'manual'`, `orders_payment_method_check` + `'fiado'`, `orders_condicao_check` estendido com `^[0-9]{1,2}x$` (o check antigo da 0015 so aceitava 'À vista'/'30 dias'/'30/60'/'30/60/90' — achado pelo smoke), `financial_titles_source_type_check` + `'manual'`. RPC **`manual_register_sale`** (security definer, execute só service_role): valida itens/estoque/cliente, **preco sempre server-side** (`resolve_price` com fallback varejo), estoque baixa direta via `register_stock_movement('venda')`, pedido nasce `etapa='venda'` `status='pago'` `origem='manual'` `venda_numero='V-'` (seq) SEM caixa; cliente existente (ativo) ou cria PF/PJ rapido (dedupe por documento, email placeholder `vendamanual-<8hex>@nuvemdepapel.com.br` porque `customers.email` e unico); TODO titulo `source_type='manual'` + parcelas — dinheiro/pix/debito liquidados na hora via `financial_settle` (mesma trilha do PDV ⇒ entram no diario), credito/boleto/fiado na regua de cobranca (boleto +3d, fiado +30d, credito +1..N meses); entrega (`p_entrega`) gera linha `entregas` `aguardando` com endereco jsonb, nulo = retira; idempotencia por `orders.idempotency_key` (mesma chave nao duplica).
+3. **Server action `registrarVendaManual`** (`src/app/vendas/actions.ts`): so master|gerente (sem teto — regra de desconto por perfil do PDV nao se aplica, /vendas e modulo de gestao), valida tudo de novo no servidor **inclusive o digito verificador do CPF/CNPJ** (`src/lib/documento.ts` → `documentoValido`, usado tambem na UI para feedback imediato: borda vermelha + trava do botao), chama a RPC com `crypto.randomUUID()` e audita `venda.manual`. **UI**: pagina `/vendas/nova` (`page.tsx` server com itens+preco por canal e clientes ativos) + `ConsoleVendaManual.tsx` — **layout "console de balcao" em tela unica** (2 colunas: grade de itens como heroi a esquerda com cliente e entrega; pagamento em chips + resumo/TOTAL fixo a direita; atalhos F2/F4/F8/Ctrl+Enter; abaixo de 1000px colapsa em pilha unica). Cadastro rapido preenche rua/bairro/cidade/UF pelo **CEP (ViaCEP no blur)** — e o **CEP da entrega também** (mesmo caminho). Atencao: **o ViaCEP devolve a cidade em `localidade`, nao em `cidade`** (usar `j.localidade`; bug classico: rua/bairro/uf preenchem e a cidade fica vazia). Clicar em "Entregar" **traz o endereco do cliente** (cadastro em curso ou ja selecionado) com a faixa "E este ponto de entrega?" + botao "E outro — informar novo CEP" (limpa e foca o CEP); sem endereco no cadastro, mostra a dica de informar o CEP. Na Vendas Detalhada a coluna origem mostra "Manual · {canal}". Contrato E2E (aria-labels + `section[aria-label="Resumo da venda"]`) preservado.
+4. **Validado em staging (20/10/2026)**: type-check 0 · lint 0 · pgTAP `falhas=0` · smoke comportamental da RPC 15/15 · **E2E `e2e/venda-manual.cjs` 28/28** (suíte nova na chain, depois de vendas-v5): PF pix+desconto, PJ fiado 3x+entrega (parcelas na regua, linha na Expedicao), cliente existente por busca+credito 2x, origem na lista, idempotencia, trava de estoque, limpeza. Vizinhas re-executadas verdes: vendas-v5 43/43, vendas 36/36, clientes 26/26, pdv-v6 33/33. Re-layout + DV + ViaCEP no commit `ee6cf1c` (20/10, staging) com E2E 28/28 re-executado. **Ainda NAO aplicado em producao** (preflight → migration → pgTAP em producao antes do merge, so com aprovacao).
+5. **Armadilhas pagas nesta entrega**: (a) `item_prices` tem PK de **4 colunas** desde a 0009 — `upsert(onConflict:"item_id,channel")` falha em silencio em fixture novo (bug latente do `f5.cjs`: passava so porque o fixture antigo ja tinha preco; a zeragem 0034 apagou os precos e a chain de 20/10 caiu no f5 — upsert corrigido para a PK completa no mesmo commit; qualquer fixture novo usa `onConflict:"item_id,channel,min_quantity,valid_from"`). (b) `CREATE OR REPLACE` com assinatura diferente cria **sobrecarga** — assinatura nova exige `DROP` da antiga na mesma migration. (c) plpgsql nao valida colunas na criacao: bug de parametro inexistente so aparece em runtime, por isso o smoke comportamental antes do E2E. (d) `stock_movements` imutavel + `on delete cascade` do item ⇒ item so vira `active=false`, nunca DELETE. (e) **f3 vazava estoque**: o checkout reserva 2 unidades e a limpeza so apagava o pedido (o ledger imutavel nao devolve) — o f3 consumia 2 do fixture do pdv-v6 a cada run e a chain de 20/10 caiu com saldo 1 (`ESTOQUE_INSUFICIENTE` no checkout); corrigido: f3 garante `SALDO_SEGURO=5` antes e devolve o saldo na limpeza via `register_stock_movement('ajuste')` (mesmo criterio do f5). (f) **compras-v1 quebrava com item fresco**: `ajustarEstoque(item, 0)` tentava registrar ajuste de **0** para criar a linha de `item_stock` (comentario antigo assumia isso), mas o RPC rejeita `QUANTIDADE_INVALIDA`; a linha agora e criada direto no `item_stock` zerada quando nao existe. (g) **documentos.cjs dependia de nota orfa**: o D6a-D8 (DANFE + download do XML) esperava uma nota em `nfe_emissoes` sobrando de runs antigos — a zeragem 0034 apagou a tabela toda e nenhuma suite da chain deixa uma (vendas/sefaz/vendas-v5 emitem e apagam a propria); a suíte agora semeia a propria nota (serie 9 = marcador da varredura, `chave` de 44 digitos, `protocolo` + `autorizada_em` porque o check `nfe_emissoes_autorizada_ok` exige, e `xml` de verdade para o D8) ligada ao PO que ja cria, e a limpeza apaga a nota ANTES do PO (o FK e `ON DELETE SET NULL`, sem isso fica orfa). (h) **produtos.cjs dependia do produto fictício "pastel"**: o P2g busca "pastel" no header de produtos para provar busca parcial por nome, mas a zeragem 0034 apagou o produto fictício — a suíte agora semeia o proprio (`SKU-E2E-PASTEL-*`, varredura no início e limpeza no final). (i) **Gemini free devolve "high demand" em pico**: `catalogo-ia.cjs` C3 (e o gerador da carta) chamam o Gemini real; o provedor recusa com "This model is currently experiencing high demand" em picos — **transitório** (standalone passa na hora). O C3 agora tenta **3x com 20s** entre tentativas antes de falhar; se cair de novo, é o provedor, não o código.
+
+## Painel console — home de tiles (entrega 8 — 20/10/2026)
+
+1. **O que e**: o `/crm` virou console de balcao (DNA do ERPClass legado, aprovado pelo cliente em mockup HTML antes de codar): faixa de acoes rapidas (chips reais — nova venda balcao, PDV, titulos, despesas, conciliacao, importar, precos), **4 indicadores vivos** (vendas de hoje com delta vs ontem, a receber 7 dias + vencidos, expedicao/estoque, clientes), **tile dominante navy "Efetuar venda"** com o estado do caixa (aberto desde HH:MM / fechado) e dois CTAs (PDV + venda balcao/telefone), 13 tiles de modulo com badge de estado (vencidos em rosa, entregas em azul, IA em lilas), 3 banners colapsaveis (componente cliente `src/components/admin/PainelBanners.tsx`), os blocos de sempre (clientes recentes, pedidos por status, campanhas ativas — cards agora brancos sobre o cinza) e faixa de status navy (`div.painel-status`, **nao** `<footer>`). CSS novo em `globals.css` ("Painel console") com colapso em 1180/900/760px.
+2. **Dados**: `getCrmSummary` (`src/lib/crm.ts`) ganhou queries paralelas defensivas (todas com `tenant_id` e `limit`): parcelas receivable em aberto (vencida = status `vencido` OU vencimento < hoje ainda aberto/parcial — a regua pode nao ter rodado; **parse de coluna `date` ao meio-dio** para nao subtrair dia por fuso), `caixa_sessions` (unica aberta por tenant, indice `caixa_sessions_one_open`), `entregas` (abertas + prazo hoje), estoque e count exato de SKUs. **Armadilha paga**: `item_stock` e `item_commercial_data` sao irmaos (PK `item_id` em `catalog_items`) — **nao existe FK entre eles**; um `select` partindo de `item_stock` falha com "Could not find a relationship in the schema cache" (so aparece no log do `next start`, em runtime); a query parte do `catalog_items` embutindo os dois lados e trata embed objeto/array (mesmo padrao do PDV).
+3. **Contratos E2E preservados**: heading "Painel CRM" + Voltar (PageHeader), nenhum `<footer>` na pagina (vendas.cjs N10 checa `document.querySelector("footer")`), "PDV" exato so no menu lateral (N2) e nenhum link com nome contendo "Usuarios"/"Auditoria" fora da engrenagem (N5 — o atalho "Usuarios" na pagina quebrava o teste; virou "Tabela de precos"). Verdes: **`vendas.cjs` 36/36** e **`f2.cjs` 15/15** (RBAC: master e operador com /crm 200). Helper `e2e/_print-painel.cjs` (fora da chain) tira prints wide/estreito para revisao visual. **Ainda NAO aplicado em producao** — mesma fila da entrega 7 (4 commits aguardando aprovacao; ritual 0040 antes do merge).
+
+5. **Ajustes pos-aprovacao (20/10, cliente)**: h1 do `/crm` virou so a sigla **"CRM"** (sem subtitulo — `PageHeader` passou a aceitar `subtitulo` opcional e nao renderiza o " - " quando vazio) e a **faixa de acoes rapidas foi removida** (classes `painel-acoes*`/`painel-qbtn` removidas do CSS junto). E2E `vendas.cjs` **N7 ajustado** para o heading "CRM" (N6/N11 seguem checando "Painel CRM" no menu lateral, intocado). **Novo documento de governanca `docs/mapa-estrutural.html`**: mapa em arvore de todo o sistema (plataforma/ambientes, RBAC, loja, painel, APIs/crons, banco por dominio, integracoes, suites, convencoes) com busca e expansao total — regra de ouro: **toda mudanca estrutural (rota, modulo, tabela, cron, papel, integracao) atualiza o mapa no mesmo commit** (bump de versao + linha no changelog do proprio arquivo). Verde apos os ajustes: `vendas.cjs` 36/36, `f2.cjs` 15/15, type-check 0, lint 0, build ok. **Fila de producao agora com 5 commits** aguardando aprovacao (ritual 0040 antes do merge).
 
 ## Bloco 4 - documentos (05/10/2026)
 
@@ -334,3 +350,113 @@ para uma plataforma ERP multi-tenant maior, se e quando decidido:
 
 Migrations em `supabase/migrations/NNNN_*.sql`, com `preflight/`, `rollback/`, `tests/`
 correspondentes por número — mesmo padrão de governança documentado no parecer de migração.
+
+## Convencao de backup externo (definida 07/11/2026)
+
+1. Volume dedicado, identificado por ROTULO (nao por letra): `FileSystemLabel = "BACKUP"`.
+   Letra atual: `E:` — pode mudar em outra maquina. Scripts/rotinas devem resolver
+   a letra em tempo de execucao, nunca hardcodar `E:\`:
+   ```powershell
+   $vol  = Get-Volume -FileSystemLabel "BACKUP"
+   $dest = "$($vol.DriveLetter):\bk-nuvem-de-papel"
+   ```
+2. Convencao de pasta por projeto (cross-projeto, nao exclusiva deste repo):
+   `<letra-resolvida>:\bk-<nome-do-projeto>\` — ex.: `E:\bk-nuvem-de-papel`,
+   `E:\bk-imobiliaria`.
+3. Pasta deste projeto ja criada: `E:\bk-nuvem-de-papel` (07/11/2026, volume
+   NTFS "BACKUP", ~300GB total, ~99GB livres no momento da criacao).
+4. Pendente (Fase 3 da auditoria 2026-11-07): rotina real de backup/restore dos
+   dois projetos Supabase (dump logico + Storage export + checksum + teste de
+   restore), gravando nesta pasta.
+
+## Rotina de backup/restore Supabase (Fase 3 da auditoria, validada 08/11/2026)
+
+1. Ferramentas: Supabase CLI (`supabase --version`) + Docker Desktop na maquina
+   local. Nao precisa de `pg_dump` solto (o CLI usa o cliente embutido).
+2. Login: `supabase login` (abre navegador, token fica salvo local). Cuidado:
+   a conta pode vir logada em outro projeto/org (ja aconteceu com o CETADP) —
+   sempre conferir com `supabase projects list` antes de prosseguir.
+3. Dump (sempre staging primeiro):
+   ```powershell
+   $vol  = Get-Volume -FileSystemLabel "BACKUP"
+   $dest = "$($vol.DriveLetter):\bk-nuvem-de-papel\<staging|producao>\<data>"
+   New-Item -ItemType Directory -Path $dest -Force
+   supabase link --project-ref <ref-do-projeto>   # urlfwxeflxpdmmxkuuur (staging) / cbnmnpnpioukbzircmzn (producao)
+   supabase db dump -f "$dest\schema.sql"
+   supabase db dump --data-only -f "$dest\data.sql"
+   ```
+   Pede a senha do banco no prompt — nunca digitar em script/arquivo.
+4. Checksum obrigatorio logo apos o dump: `Get-FileHash *.sql -Algorithm SHA256`,
+   gravar em `checksums.sha256.txt` ao lado dos arquivos.
+5. **IMPORTANTE — voltar o link pra staging depois do dump de producao**
+   (`supabase link --project-ref urlfwxeflxpdmmxkuuur`) pra nao arriscar rodar
+   outro comando (migration etc.) apontando pra producao sem querer.
+
+### Teste de restore (validado 08/11/2026, dump de staging de 08/11/2026)
+
+Usa Postgres local descartavel via Docker — nao toca em nenhum projeto Supabase real:
+```powershell
+docker run -d --name restore-test -e POSTGRES_PASSWORD=postgres -p 5544:5432 supabase/postgres:<versao-igual-ao-projeto>
+docker cp schema.sql restore-test:/tmp/schema.sql
+docker cp data.sql restore-test:/tmp/data.sql
+docker exec restore-test psql -U postgres -d postgres -v ON_ERROR_STOP=0 -f /tmp/schema.sql
+docker exec restore-test psql -U postgres -d postgres -v ON_ERROR_STOP=0 -f /tmp/data.sql
+docker rm -f restore-test   # ao final
+```
+
+**A versao da imagem `supabase/postgres` tem que bater com a versao do projeto**
+(`select version();` no projeto real) — senao da erro de privilegio
+desconhecido (`maintain`, privilegio so do PG17). Projeto Nuvem de Papel roda
+Postgres 17.6 (imagem testada: `supabase/postgres:17.6.1.163`).
+
+Resultado do teste 08/11/2026 (dump de staging, 08/11/2026): schema e dados do
+negocio restauram sem perda — 5 contagens conferidas batendo exatamente com o
+staging real (orders 0, customers 2, journal_entries 734, account_catalog 60,
+catalog_items 14).
+
+**Ruido conhecido, nao e falha:**
+- Extensao `pgtap` instalada dentro do `public` (em vez de schema proprio) faz
+  o dump incluir GRANT de cada funcao interna dela — gera ~15-20 erros
+  "function ... does not exist" no restore (`_retval`, `_typename`,
+  `col_is_pk`, `format_type_string`, `has_pk`). Nao afeta schema/dados do
+  negocio. Fix pendente no backlog (Fase 5): mover `pgtap` pra schema proprio.
+- Dados de `auth.*`/`storage.*` (GoTrue/Storage) NAO restauram numa imagem
+  `supabase/postgres` solta — essas tabelas so existem completas quando a
+  stack completa roda (`supabase start`) ou dentro de um projeto Supabase de
+  verdade. Para recuperar auth/storage de verdade, restaurar num projeto
+  Supabase novo (nao num Postgres solto) — esse teste local valida só o
+  schema e os dados de negocio, que é o que importa pra auditoria financeira.
+
+## RLS deny-all intencional (13 tabelas, revisado 08/11/2026)
+
+O advisor de seguranca do Supabase acusa "RLS enabled, no policy" (bloqueio
+total pra anon/authenticated) nestas 13 tabelas. Revisado uma por uma —
+todas sao deny-all por design, nao falta nenhuma policy:
+
+- `marketplace_accounts`: guarda `access_token`/`refresh_token` (credenciais
+  OAuth dos canais de marketplace) — nunca pode ser lido client-side.
+- `item_fiscal_data`, `item_commercial_data`: custo/margem/dados fiscais —
+  vazar isso pro cliente exporia preco de custo e dados fiscais internos.
+  (Preco de venda fica em `item_prices`, que tem policy publica — separacao
+  intencional.)
+- `tenants`: registro mestre multi-tenant (`slug`, `name`) — uma policy de
+  leitura vazaria a lista de todos os clientes/lojas da plataforma.
+- `customers`: cadastro de CRM operado pelo staff (sem coluna `user_id`/
+  `profile_id` — nao e o perfil do usuario logado, que fica em `profiles`).
+- `campaigns`, `webhook_events`, `marketplace_jobs`, `marketplace_listings`,
+  `marketplace_orders`, `marketplace_webhooks`, `marketplace_channels`,
+  `freight_tabelas`: fila/processamento interno ou tabela de apoio —
+  acessadas só via service_role (server actions, crons), sem motivo de
+  acesso direto do cliente.
+
+Decisao (08/11/2026): manter deny-all como esta, sem criar policy nova —
+é o comportamento correto. Esse item do advisor pode ser ignorado daqui
+pra frente nas proximas auditorias.
+
+## Backlog bloqueado por plano: leaked password protection (08/11/2026)
+
+"Prevent use of leaked passwords" (Auth → Sign In/Providers → Email, checa
+senha contra HaveIBeenPwned) só existe no plano Pro do Supabase. A org
+`nuvem-de-papel's Org` está no plano FREE — toggle aparece desabilitado.
+Não é erro de configuração, é limite de plano. Revisitar se/quando fizer
+upgrade pra Pro.
