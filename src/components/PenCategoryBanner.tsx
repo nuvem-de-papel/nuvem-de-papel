@@ -18,8 +18,8 @@ export function PenCategoryBanner() {
         <h2 className="script-heading" style={{ fontSize: 36 }}>Canetas</h2>
         <p
           style={{
-            fontSize: 17,
-            color: "var(--ink-soft)",
+            fontSize: 19,
+            color: "#000000",
             maxWidth: 620,
             margin: "12px auto 0",
             lineHeight: 1.6,

@@ -25,8 +25,8 @@ export function ThematicBanner() {
         </h2>
         <p
           style={{
-            fontSize: 19,
-            color: "var(--ink-soft)",
+            fontSize: 21,
+            color: "#000000",
             maxWidth: 580,
             margin: "14px auto 0",
             lineHeight: 1.6,

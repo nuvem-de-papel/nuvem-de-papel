@@ -34,7 +34,7 @@ export function ProductCarousel({
       <div style={{ textAlign: "center", marginBottom: 28 }}>
         <h2 className="script-heading" style={{ fontSize: 36 }}>{titulo}</h2>
         {subtitulo && (
-          <p style={{ fontSize: 17, color: "var(--ink-soft)", maxWidth: 620, margin: "12px auto 0", lineHeight: 1.6 }}>
+          <p style={{ fontSize: 19, color: "#000000", maxWidth: 620, margin: "12px auto 0", lineHeight: 1.6 }}>
             {subtitulo}
           </p>
         )}
@@ -46,7 +46,7 @@ export function ProductCarousel({
       </div>
 
       {produtos.length === 0 ? (
-        <p style={{ textAlign: "center", color: "var(--ink-soft)", fontSize: 14 }}>
+        <p style={{ textAlign: "center", color: "var(--ink-soft)", fontSize: 18 }}>
           Em breve, novidades nessa categoria.
         </p>
       ) : (
