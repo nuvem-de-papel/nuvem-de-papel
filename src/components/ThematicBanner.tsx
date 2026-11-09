@@ -20,12 +20,12 @@ export function ThematicBanner() {
   return (
     <section style={{ maxWidth: 1240, margin: "0 auto", padding: "8px 32px 72px" }}>
       <div style={{ textAlign: "center", marginBottom: 32 }}>
-        <h2 className="script-heading" style={{ fontSize: 35, margin: "0 auto", maxWidth: 760 }}>
+        <h2 className="script-heading" style={{ fontSize: 36, margin: "0 auto", maxWidth: "none", whiteSpace: "nowrap" }}>
           Papelaria cheia de personalidade pra quem ama criar
         </h2>
         <p
           style={{
-            fontSize: 17,
+            fontSize: 19,
             color: "var(--ink-soft)",
             maxWidth: 580,
             margin: "14px auto 0",
