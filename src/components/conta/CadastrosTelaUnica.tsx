@@ -360,6 +360,7 @@ export type ProdutoCad = {
   // Bloco 2 (0031): campos que antes eram "fantasma" no form - agora gravam.
   fabricante: string;
   observacoes: string;
+  detalhesProduto: string;
   cstPis: string;
   cstCofins: string;
   icmsBasePct: number;
@@ -548,24 +549,11 @@ export function CadastrosTelaUnica({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tela]);
 
-  // Importador por link: atalho interno Ctrl+Shift+[ mostra/esconde o bloco.
-  // Nada na tela menciona o recurso — é ferramenta de quem faz o cadastro.
+  // Importador por link: antes era atalho oculto Ctrl+Shift+[, agora é o
+  // botão visível "Busca web" (entre Incluir e Relatório) que chama
+  // toggleImport() abaixo.
   const [mostrarImport, setMostrarImport] = useState(false);
-  useEffect(() => {
-    const atalhoImport = (e: KeyboardEvent) => {
-      // e.key: "[" com ctrl+shift (mais tolerante a layout/zoom do que e.code);
-      // com Shift a tecla vira "{" em QWERTY, por isso aceitamos as duas.
-      // e.code fica como fallback pra layouts onde e.key vem diferente (ex. ABNT).
-      const teclaOk = e.key === "[" || e.key === "{" || e.code === "BracketLeft";
-      if (e.ctrlKey && e.shiftKey && teclaOk) {
-        e.preventDefault();
-        setMostrarImport((v) => !v);
-      }
-    };
-    window.addEventListener("keydown", atalhoImport);
-    return () => window.removeEventListener("keydown", atalhoImport);
-  }, []);
-  // ao abrir o bloco escondido o cursor ja cai no campo do link (fluxo teclado)
+  // ao abrir o bloco o cursor ja cai no campo do link (fluxo teclado)
   useEffect(() => {
     if (mostrarImport) document.getElementById("ct-prod-link")?.focus();
   }, [mostrarImport]);
@@ -730,6 +718,21 @@ export function CadastrosTelaUnica({
     setVal("ct-prod-gtin-master-mirror", val("ct-prod-gtin-master"));
   }
 
+  // miniatura ao lado do campo "Foto (URL)" - setVal() nao dispara onInput/
+  // onBlur do React, entao quem preenche o campo por script (carregarProduto,
+  // importarProdutoUI) precisa chamar isso manualmente, igual syncGtins().
+  function atualizarFotoPreview() {
+    const img = g<HTMLImageElement>("ct-prod-foto-preview");
+    const url = val("ct-prod-foto").trim();
+    if (!img) return;
+    if (!url) {
+      img.style.display = "none";
+      img.removeAttribute("src");
+      return;
+    }
+    img.src = url;
+  }
+
   // navegação por lista (◀◀ ◀ ▶ ▶▶): anda pela ordem alfabética da lista,
   // a mesma que o select do page.tsx devolve (.order("name")).
   function navegarProduto(passo: number) {
@@ -850,8 +853,10 @@ export function CadastrosTelaUnica({
     // Bloco 2 (0031): campos novos que agora gravam de verdade.
     setVal("ct-prod-fabricante", p?.fabricante ?? "");
     setVal("ct-prod-observacoes", p?.observacoes ?? "");
+    setVal("ct-prod-detalhes", p?.detalhesProduto ?? "");
     // 0032: foto do produto (URL do fornecedor)
     setVal("ct-prod-foto", p?.fotoUrl ?? "");
+    atualizarFotoPreview();
     // 0038 (entrega 5): descrição pública da vitrine (IA gera, dono aprova)
     setVal("ct-prod-descricao-vitrine", p?.descricao ?? "");
     setVal("ct-prod-cstpis", p?.cstPis ?? "");
@@ -911,6 +916,7 @@ export function CadastrosTelaUnica({
       // Bloco 2 (0031)
       fabricante: val("ct-prod-fabricante"),
       observacoes: val("ct-prod-observacoes"),
+      detalhesProduto: val("ct-prod-detalhes"),
       cstPis: val("ct-prod-cstpis"),
       cstCofins: val("ct-prod-cstcofins"),
       icmsBasePct: val("ct-prod-icmsbase"),
@@ -983,8 +989,9 @@ export function CadastrosTelaUnica({
       if (origemSel) origemSel.value = pr.origem;
       setVal("ct-prod-pesobruto", pr.pesoBruto ? pr.pesoBruto : "");
       setVal("ct-prod-fabricante", pr.fabricante);
-      setVal("ct-prod-observacoes", pr.observacoes);
+      setVal("ct-prod-detalhes", pr.detalhesProduto);
       setVal("ct-prod-foto", pr.fotoUrl);
+      atualizarFotoPreview();
       setVal("ct-prod-forn-nome", pr.fornecedorNome);
       setVal("ct-prod-forn-sku", pr.supplierSku);
       setVal("ct-prod-forn-ref", pr.refFabricante);
@@ -1630,6 +1637,7 @@ export function CadastrosTelaUnica({
             {iconeCheck}{salvando ? "Salvando..." : "Salvar"}
           </button>
           <button className="ct-act" onClick={() => carregarProduto(null)}>{iconePlus}Incluir</button>
+          <button className="ct-act" onClick={() => setMostrarImport((v) => !v)} aria-pressed={mostrarImport}>{iconeLupa}Busca web</button>
           <button
             id="ct-btn-relatorio"
             className="ct-act"
@@ -1659,13 +1667,13 @@ export function CadastrosTelaUnica({
         <div className="ct-grid">
           <div className="ct-main">
             <div className="ct-grp">
-              {/* importador: só aparece com o atalho Ctrl+Shift+[ */}
+              {/* importador: só aparece com o botão "Busca web" */}
               {mostrarImport && (
                 <div className="ct-row ct-r2">
                   <div className="ct-field" style={{ gridColumn: "span 2" }}>
-                    <label>Importar do fornecedor <span className="ct-hint">cola o link e preenche tudo</span></label>
+                    <label>Busca web <span className="ct-hint">cola o link do produto em qualquer site (Reval traz mais campos)</span></label>
                     <div style={{ display: "flex", gap: 6 }}>
-                      <input id="ct-prod-link" placeholder="https://...reval.net/produto/..." style={{ flex: 1 }} />
+                      <input id="ct-prod-link" placeholder="https://... (link do produto)" style={{ flex: 1 }} />
                       <button className="ct-act" onClick={importarProdutoUI} disabled={salvando} style={{ whiteSpace: "nowrap" }}>{iconeFoto}Importar</button>
                     </div>
                   </div>
@@ -1894,10 +1902,17 @@ export function CadastrosTelaUnica({
               <div className="ct-extra-tabs">
                 <button className={`ct-extra-tab${extra.produto === "obs" ? " on" : ""}`} onClick={() => mostrarExtra("produto", "obs")}>1. Observações</button>
                 <button className={`ct-extra-tab${extra.produto === "outros" ? " on" : ""}`} onClick={() => mostrarExtra("produto", "outros")}>2. Outros</button>
-                <button className={`ct-extra-tab${extra.produto === "desc" ? " on" : ""}`} onClick={() => mostrarExtra("produto", "desc")}>3. Descrição (IA)</button>
+                <button className={`ct-extra-tab${extra.produto === "detalhes" ? " on" : ""}`} onClick={() => mostrarExtra("produto", "detalhes")}>3. Descrição Produto</button>
+                <button className={`ct-extra-tab${extra.produto === "desc" ? " on" : ""}`} onClick={() => mostrarExtra("produto", "desc")}>4. Descrição IA</button>
               </div>
               <div className={`ct-extra-panel${extra.produto === "obs" ? " on" : ""}`}>
-                <div className="ct-field"><textarea id="ct-prod-observacoes" placeholder="Detalhes do produto / observações internas..." /></div>
+                <div className="ct-field"><textarea id="ct-prod-observacoes" placeholder="Observações internas..." /></div>
+              </div>
+              <div className={`ct-extra-panel${extra.produto === "detalhes" ? " on" : ""}`}>
+                <div className="ct-field">
+                  <label>Descrição do produto <span className="ct-hint">vem da Busca web (Reval) ou digite à mão</span></label>
+                  <textarea id="ct-prod-detalhes" placeholder="Detalhes do produto (características, material, etc.)..." style={{ minHeight: 96 }} />
+                </div>
               </div>
               <div className={`ct-extra-panel${extra.produto === "desc" ? " on" : ""}`}>
                 <div className="ct-field">
@@ -1908,7 +1923,7 @@ export function CadastrosTelaUnica({
                   {salvando ? "Gerando..." : "✨ Gerar descrição com IA"}
                 </button>
                 <div className="ct-status" style={{ marginTop: 6 }}>
-                  <span>A IA só redige a partir do nome, categoria e fabricante já cadastrados — ela nunca inventa preço, marca ou característica. A descrição é gravada só quando você clica Salvar.</span>
+                  <span>A IA redige a partir do nome, categoria e fabricante já cadastrados e, quando a aba &ldquo;Descrição Produto&rdquo; tiver texto, usa ele como fonte extra — nunca inventa preço, marca ou característica. A descrição é gravada só quando você clica Salvar.</span>
                 </div>
               </div>
               <div className={`ct-extra-panel${extra.produto === "outros" ? " on" : ""}`}>
@@ -1917,7 +1932,16 @@ export function CadastrosTelaUnica({
                   <div className="ct-field"><label>GTIN embalagem</label><input id="ct-prod-gtin-inner-mirror" readOnly disabled placeholder="7891027019150" style={{ opacity: 0.7 }} /></div>
                   <div className="ct-field"><label>GTIN produto</label><input id="ct-prod-gtin-master-mirror" readOnly disabled placeholder="17891027354944" style={{ opacity: 0.7 }} /></div>
                 </div>
-                <div className="ct-row ct-r1"><div className="ct-field"><label>Foto (URL)</label><input id="ct-prod-foto" placeholder="https://.../imagem/produtos/m/080000.jpg" /></div></div>
+                <div className="ct-row ct-r1">
+                  <div className="ct-field">
+                    <label>Foto (URL)</label>
+                    <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                      <input id="ct-prod-foto" placeholder="https://.../imagem/produtos/m/080000.jpg" style={{ flex: 1 }} onInput={atualizarFotoPreview} onBlur={atualizarFotoPreview} />
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img id="ct-prod-foto-preview" alt="" style={{ width: 48, height: 48, objectFit: "contain", borderRadius: 6, border: "1px solid var(--ct-border, #ddd)", display: "none", background: "#fff" }} onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} onLoad={(e) => { (e.target as HTMLImageElement).style.display = "block"; }} />
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>

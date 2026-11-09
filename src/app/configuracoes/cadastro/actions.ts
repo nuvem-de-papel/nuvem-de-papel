@@ -230,6 +230,7 @@ export type ProdutoInput = {
   // Bloco 2 (0031): campos que antes eram "fantasma" no form - agora gravam.
   fabricante: string;
   observacoes: string;
+  detalhesProduto: string;
   cstPis: string;
   cstCofins: string;
   icmsBasePct: string;
@@ -283,6 +284,7 @@ export async function salvarProduto(input: ProdutoInput): Promise<ResultadoAcao 
   // Bloco 2 (0031): campos novos - texto solto, dígitos e números opcionais.
   const fabricante = (input.fabricante ?? "").trim().slice(0, 80);
   const observacoes = (input.observacoes ?? "").trim().slice(0, 4000);
+  const detalhesProduto = (input.detalhesProduto ?? "").trim().slice(0, 4000);
   const cstPis = digitos(input.cstPis ?? "");
   const cstCofins = digitos(input.cstCofins ?? "");
   const cstIbsCbs = digitos(input.cstIbsCbs ?? "");
@@ -373,6 +375,7 @@ export async function salvarProduto(input: ProdutoInput): Promise<ResultadoAcao 
         sku, name: nome, category: categoria || null, active: input.ativo,
         group_name: grupo || null, subgroup_name: subgrupo || null,
         fabricante: fabricante || null, notes: observacoes || null,
+        detalhes_produto: detalhesProduto || null,
         hide_price_table: hidePriceTable,
         last_adjusted_at: lastAdj || null,
         foto_url: fotoUrl || null,
@@ -396,6 +399,7 @@ export async function salvarProduto(input: ProdutoInput): Promise<ResultadoAcao 
         active: input.ativo,
         fabricante: fabricante || null,
         notes: observacoes || null,
+        detalhes_produto: detalhesProduto || null,
         hide_price_table: hidePriceTable,
         last_adjusted_at: lastAdj || null,
         foto_url: fotoUrl || null,
@@ -624,6 +628,51 @@ export async function buscarGtinExterno(gtin: string): Promise<GtinExternoResult
 }
 
 // ---------------------------------------------------------------------------
+// Bloco 09/11/2026: busca reversa de imagem - encaixe preparado, SEM provedor
+// ligado ainda (decisao do dono, 2026-11-09): pra produtos onde so se tem a
+// FOTO (sem GTIN, sem descricao), a ideia e jogar a imagem na web e achar o
+// mesmo produto em Mercado Livre/Shopee/Amazon pra puxar os dados de la.
+//
+// Tecnologia real por tras disso: Cloud Vision API do Google, recurso "Web
+// Detection" - e o motor por tras do Google Lens, oferecido como API paga
+// (1.000 buscas gratis/mes, depois US$ 3,50 a cada 1.000 - confirmado em
+// cloud.google.com/vision/pricing, 09/11/2026). Bing Visual Search (a
+// alternativa da Microsoft) esta sendo DESCONTINUADA - fora de cogitacao.
+//
+// Fluxo pretendido quando houver chave (NAO implementado ainda):
+//   1) recebe a imagem (upload do form - ainda nao existe campo de upload,
+//      so o "Foto (URL)" de texto; precisa de UI nova quando isso avancar);
+//   2) chama Cloud Vision Web Detection com GOOGLE_VISION_API_KEY;
+//   3) do resultado (pagesWithMatchingImages), filtra so paginas em
+//      mercadolivre.com.br / shopee.com.br / amazon.com.br;
+//   4) reaproveita importarProdutoPorLink() (fornecedor-import.ts, criado
+//      09/11/2026 pro "Busca web" generico) nessas URLs pra trazer os dados
+//      estruturados - MESMO pipeline do link colado a mao, so que a URL vem
+//      da busca por imagem em vez de o usuario colar.
+//
+// Por que devolve erro sempre por enquanto: falta decisao e configuracao do
+// dono (criar projeto Google Cloud, ativar a Vision API, gerar a chave) -
+// isso nao pode ser feito por aqui. Quando GOOGLE_VISION_API_KEY existir no
+// ambiente, trocar o "return" abaixo pela chamada real.
+export type BuscaPorImagemResultado =
+  | { ok: true; candidatos: { url: string; fonte: string }[] }
+  | { ok: false; erro: string };
+
+export async function buscarProdutoPorImagem(
+  imagemBase64: string
+): Promise<BuscaPorImagemResultado> {
+  const gestor = await gestaoAtual();
+  if (!gestor) return { ok: false, erro: "Sem permissão para esta ação." };
+  void imagemBase64; // sem provedor ligado ainda - ver comentario acima
+  return {
+    ok: false,
+    erro:
+      "busca por imagem ainda não configurada — crie um projeto no Google Cloud, ative a Cloud Vision API " +
+      "(recurso Web Detection) e defina GOOGLE_VISION_API_KEY no ambiente para ligar.",
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Entrega 5 (0038) — Catálogo com IA: gerar descrição pública com Gemini.
 //
 // REGRA DE OURO (prompt de origem): a IA NUNCA inventa produto/preço — ela só
@@ -642,7 +691,7 @@ export async function gerarDescricaoProduto(
   const admin = createAdminClient();
   const { data: item } = await admin
     .from("catalog_items")
-    .select("sku, name, category, fabricante, active")
+    .select("sku, name, category, fabricante, detalhes_produto, active")
     .eq("id", itemId)
     .maybeSingle();
   if (!item) return { ok: false, erro: "Produto não encontrado." };
@@ -650,17 +699,20 @@ export async function gerarDescricaoProduto(
   const nome = (item.name ?? "").trim();
   if (!nome) return { ok: false, erro: "Produto sem nome — cadastre o nome antes de gerar a descrição." };
 
+  const detalhes = (item.detalhes_produto ?? "").trim();
   const linhas = [
     `Produto: ${nome}`,
     item.category ? `Categoria: ${item.category}` : null,
     item.fabricante ? `Fabricante: ${item.fabricante}` : null,
     `Código interno (SKU): ${item.sku}`,
+    detalhes ? `Detalhes do produto (texto do fabricante/fornecedor): ${detalhes}` : null,
   ].filter(Boolean);
 
   const prompt = [
     "Você escreve descrições de produtos para a vitrine online de uma papelaria chamada Nuvem de Papel.",
     "Escreva em português do Brasil, tom acolhedor e profissional, 2 a 3 frases.",
     "NÃO invente características, medidas, preços, promoções, marcas ou materiais que não estejam nos dados abaixo — se não souber um detalhe, não mencione.",
+    "Se houver uma linha \"Detalhes do produto\", use esse texto como fonte confiável para características reais — reescreva com suas palavras, não copie literalmente.",
     "NÃO inclua título, cabeçalho, emoji, bullets ou o nome do produto no início; devolva SÓ o texto da descrição.",
     "Dados do produto (fonte da verdade):",
     ...linhas,
@@ -701,7 +753,7 @@ export type ProdutoImportado = {
   pesoBruto: string;
   fornecedorNome: string;
   fabricante: string;
-  observacoes: string;
+  detalhesProduto: string;
   fotoUrl: string;
   supplierSku: string;
   refFabricante: string;
@@ -726,23 +778,36 @@ export async function importarProdutoFornecedor(
   const gestor = await gestaoAtual();
   if (!gestor) return { ok: false, erro: "Sem permissão para esta ação." };
 
-  const { importarProdutoReval } = await import("@/lib/fornecedor-import");
-  const r = await importarProdutoReval(url);
+  // Bloco 09/11/2026: "Busca web" nao e mais so Reval - importarProdutoPorLink
+  // resolve seguranca (SSRF), busca e decide o parser certo (Reval especifico
+  // x generico Open Graph/JSON-LD pra qualquer outro site).
+  const { importarProdutoPorLink } = await import("@/lib/fornecedor-import");
+  const r = await importarProdutoPorLink(url);
   if (!r.ok) return { ok: false, erro: r.erro };
 
   const p = r.produto;
+  const ehReval = r.fonte === "Reval";
   const s = (v: string | null) => (v ?? "").trim();
   const n = (v: number | null) => (v === null || v === undefined ? "" : String(v).replace(".", ","));
 
-  // SKU interno: sugere "REV-<codigo>" pra nao colidir com o codigo do
-  // fornecedor; usuario pode editar antes de salvar.
-  const sku = p.codigo ? `REV-${p.codigo}` : "";
+  // SKU interno: sugere "<prefixo>-<codigo>" pra nao colidir com o codigo do
+  // fornecedor; usuario pode editar antes de salvar. REV- pro Reval (mantem
+  // o padrao ja usado), WEB- pra qualquer outro site.
+  const sku = p.codigo ? `${ehReval ? "REV" : "WEB"}-${p.codigo}` : "";
+
+  // aviso: deixa claro quando veio de fora do Reval (menos campos - sem
+  // fiscal/embalagem) e, quando achou GTIN, que ele vem da propria pagina do
+  // produto (fonte original, nao e chute nosso).
+  const gtinNota = p.gtinUnitario ? ` GTIN veio da própria página (${r.fonte}).` : "";
+  const aviso = ehReval
+    ? p.pesoUnitarioKg
+      ? `Importado. Peso unitário calculado: ${n(p.pesoUnitarioKg)} kg (${n(p.pesoEmbalagemKg)} ÷ ${p.qtdEmbalagem}). Preço não vem do site (restrito a CNPJ) — preencha à mão.`
+      : "Importado. Preço não vem do site (restrito a CNPJ) — preencha à mão."
+    : `Importado de ${r.fonte}. Esse site traz menos campos que o Reval (sem fiscal/embalagem) — confira NCM, CEST e pesos à mão.${gtinNota}`;
 
   return {
     ok: true,
-    aviso: p.pesoUnitarioKg
-      ? `Importado. Peso unitário calculado: ${n(p.pesoUnitarioKg)} kg (${n(p.pesoEmbalagemKg)} ÷ ${p.qtdEmbalagem}). Preço não vem do site (restrito a CNPJ) — preencha à mão.`
-      : "Importado. Preço não vem do site (restrito a CNPJ) — preencha à mão.",
+    aviso,
     produto: {
       sku,
       nome: s(p.nome),
@@ -754,7 +819,7 @@ export async function importarProdutoFornecedor(
       pesoBruto: n(p.pesoUnitarioKg ?? p.pesoEmbalagemKg),
       fornecedorNome: s(p.fornecedor),
       fabricante: s(p.fabricante),
-      observacoes: s(p.observacoes),
+      detalhesProduto: s(p.observacoes),
       fotoUrl: s(p.fotoUrl),
       supplierSku: s(p.codigo),
       refFabricante: s(p.refFabricante),
