@@ -19,7 +19,7 @@ import { NUVEM_DE_PAPEL_TENANT_ID } from "@/lib/tenant";
 // faixa": se algo falhar no meio, sobra uma linha de mais (o proximo salvamento
 // conserta) e nunca uma linha de menos (preco sumido).
 
-export type Canais = "varejo" | "atacado";
+export type Canais = "varejo" | "atacado" | "web";
 export type ResultadoPreco = { ok: true } | { ok: false; erro: string };
 
 export type EntradaPreco = {
@@ -60,7 +60,7 @@ function dataValida(valor: string): boolean {
 }
 
 function canalDe(valor: unknown): Canais | null {
-  return valor === "varejo" || valor === "atacado" ? valor : null;
+  return valor === "varejo" || valor === "atacado" || valor === "web" ? valor : null;
 }
 
 async function gestorAtual(): Promise<{ id: string } | null> {
@@ -123,7 +123,7 @@ export async function salvarPreco(input: EntradaPreco): Promise<ResultadoPreco> 
   if (!gestor) return { ok: false, erro: "Sem permissao para alterar precos." };
 
   const canal = canalDe(input?.channel);
-  if (!canal) return { ok: false, erro: "Canal invalido: use varejo ou atacado." };
+  if (!canal) return { ok: false, erro: "Canal invalido: use varejo, atacado ou web." };
 
   const itemId = typeof input?.itemId === "string" ? input.itemId : "";
   if (!UUID.test(itemId)) return { ok: false, erro: "Escolha um produto valido." };

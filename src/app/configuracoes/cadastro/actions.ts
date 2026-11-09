@@ -208,6 +208,10 @@ export type ProdutoInput = {
   // 0043: classificacao interna (nao fiscal) - grupo > subgrupo do catalogo.
   grupo: string;
   subgrupo: string;
+  // 0044: saldo por local de estoque (loja/deposito/cd) — chave = stock_locations.id,
+  // valor = quantidade digitada (string, igual aos outros campos numericos do form).
+  // Cadastro manual; NAO mexe no ledger item_stock/stock_movements (0007).
+  estoquePorLocal: Record<string, string>;
   ativo: boolean;
   gtin: string;
   ncm: string;
@@ -490,6 +494,30 @@ export async function salvarProduto(input: ProdutoInput): Promise<ResultadoAcao 
   });
   if (errCom) return { ok: false, erro: `Falha nos dados comerciais: ${errCom.message}` };
 
+  // 0044: saldo por local (loja/deposito/cd) — cadastro manual, upsert por
+  // (item_id, location_id). So grava os locais com valor preenchido (campo
+  // vazio = nao mexe no saldo que ja estava la).
+  const entradasEstoque = Object.entries(input.estoquePorLocal ?? {}).filter(
+    ([, v]) => String(v ?? "").trim() !== ""
+  );
+  if (entradasEstoque.length > 0) {
+    const linhasEstoque: { item_id: string; location_id: string; stock_on_hand: number }[] = [];
+    for (const [locationId, valor] of entradasEstoque) {
+      if (!/^[0-9a-f-]{36}$/i.test(locationId)) continue;
+      const qtd = cf(valor, 0, 9999999);
+      if (qtd === null) return { ok: false, erro: "Estoque por local invalido (use um numero de 0 a 9.999.999)." };
+      linhasEstoque.push({ item_id: itemId as string, location_id: locationId, stock_on_hand: Math.floor(qtd) });
+    }
+    if (linhasEstoque.length > 0) {
+      const { error: errEstoqueLocal } = await admin
+        .from("item_stock_by_location")
+        .upsert(linhasEstoque, { onConflict: "item_id,location_id" });
+      if (errEstoqueLocal) {
+        return { ok: false, erro: `Falha no estoque por local: ${errEstoqueLocal.message}` };
+      }
+    }
+  }
+
   // O custo medio so acompanha o preco digitado ENQUANTO o produto nao passou
   // por nota de entrada (purchase_receipt_items). A partir da primeira nota
   // quem reescreve `cost_price` e o recebimento da Compras (0017:471-494), e
@@ -565,6 +593,34 @@ export async function salvarProduto(input: ProdutoInput): Promise<ResultadoAcao 
   revalidatePath("/configuracoes/cadastro");
   revalidatePath("/produtos");
   return { ok: true, id: itemId ?? undefined };
+}
+
+// ---------------------------------------------------------------------------
+// Busca de GTIN externa (preparado, sem fonte ligada — decisão do dono,
+// 2026-11-09): o GTIN_DB local do form (CadastrosTelaUnica.tsx) so tem 2
+// produtos de exemplo; quando um GTIN nao esta la, o dono quer um lookup
+// externo de NCM/descricao (igual outro sistema que ele usa). Ficou decidido
+// so deixar o ENCAIXE pronto por agora - quando escolher o provedor (Cosmos/
+// Bluesoft ou outro), troca so o corpo desta funcao pela chamada real; a
+// assinatura (GtinExternoResultado) e quem consome (onGtin, no form) ja
+// estao prontos e nao precisam mudar.
+//
+// IMPORTANTE (mesma conversa): NCM/descricao sao dados do PRODUTO e podem vir
+// de uma base externa. ICMS/CSOSN/CST PIS-Cofins sao do REGIME TRIBUTARIO do
+// proprio vendedor - nenhuma base de GTIN externa acerta isso pra esta loja,
+// entao esses 4 campos NAO fazem parte deste lookup (o form ja preenche com
+// o padrao fixo da loja quando o GTIN nao e encontrado - ver onGtin).
+export type GtinExternoResultado =
+  | { ok: true; descricao?: string; ncm?: string; fonte: string }
+  | { ok: false; erro: string };
+
+export async function buscarGtinExterno(gtin: string): Promise<GtinExternoResultado> {
+  const gestor = await gestaoAtual();
+  if (!gestor) return { ok: false, erro: "Sem permissão para esta ação." };
+  if (!/^(?:[0-9]{8}|[0-9]{13}|[0-9]{14})$/.test(digitos(gtin))) {
+    return { ok: false, erro: "GTIN inválido." };
+  }
+  return { ok: false, erro: "busca externa ainda não configurada — defina um provedor (ex.: Cosmos/Bluesoft)." };
 }
 
 // ---------------------------------------------------------------------------

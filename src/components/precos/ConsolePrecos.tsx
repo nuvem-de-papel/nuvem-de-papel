@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { PageHeader } from "@/components/admin/PageHeader";
 import { removerPreco, salvarPreco } from "@/app/configuracoes/precos/actions";
 
-type Canais = "varejo" | "atacado";
+type Canais = "varejo" | "atacado" | "web";
 
 type LinhaPreco = {
   channel: string;
@@ -199,7 +199,8 @@ export function ConsolePrecos({
   }
 
   function editar(produto: ProdutoPreco, linha: LinhaPreco) {
-    const canal: Canais = linha.channel === "atacado" ? "atacado" : "varejo";
+    const canal: Canais =
+      linha.channel === "atacado" ? "atacado" : linha.channel === "web" ? "web" : "varejo";
     setForm({
       itemId: produto.id,
       channel: canal,
@@ -264,7 +265,8 @@ export function ConsolePrecos({
   }
 
   function remover(produto: ProdutoPreco, linha: LinhaPreco) {
-    const canal: Canais = linha.channel === "atacado" ? "atacado" : "varejo";
+    const canal: Canais =
+      linha.channel === "atacado" ? "atacado" : linha.channel === "web" ? "web" : "varejo";
     const ok = window.confirm(
       `Remover a faixa ${linha.min_quantity} de ${produto.sku} no canal ${linha.channel}?`
     );
@@ -351,6 +353,7 @@ export function ConsolePrecos({
             >
               <option value="varejo">varejo</option>
               <option value="atacado">atacado</option>
+              <option value="web">web</option>
             </select>
           </label>
 
@@ -498,7 +501,8 @@ export function ConsolePrecos({
               <tbody>
                 {filtradas.map(({ chave, produto, linha }) => {
                   const st = situacao(linha);
-                  const canal = linha.channel === "atacado" ? "atacado" : "varejo";
+                  const canal =
+                    linha.channel === "atacado" ? "atacado" : linha.channel === "web" ? "web" : "varejo";
                   const faixa = linha.min_quantity;
                   return (
                     <tr key={chave} style={{ opacity: produto.active ? 1 : 0.6 }}>
@@ -523,8 +527,10 @@ export function ConsolePrecos({
                             borderRadius: 999,
                             fontSize: 12,
                             fontWeight: 700,
-                            background: canal === "atacado" ? "#EDE9FE" : "#E0F2FE",
-                            color: canal === "atacado" ? "#5B21B6" : "#075985",
+                            background:
+                              canal === "atacado" ? "#EDE9FE" : canal === "web" ? "#DCFCE7" : "#E0F2FE",
+                            color:
+                              canal === "atacado" ? "#5B21B6" : canal === "web" ? "#166534" : "#075985",
                           }}
                         >
                           {canal}

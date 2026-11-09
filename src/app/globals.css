@@ -175,6 +175,39 @@ body:has(.admin-shell) .floating-social {
   min-width: 0;
 }
 
+/* 0044: tela do admin sem scroll de pagina inteira - cabecalho (Header) e
+   menu lateral ficam parados, so o conteudo (.admin-main) rola por dentro.
+   So em telas >=901px: no breakpoint mobile o menu empilha em cima do
+   conteudo (ver @media max-width:900px) e a pagina volta a rolar normal. */
+@media (min-width: 901px) {
+  body:has(.admin-shell) {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  body:has(.admin-shell) > header {
+    flex-shrink: 0;
+  }
+
+  body:has(.admin-shell) .admin-shell {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  body:has(.admin-shell) .admin-side {
+    position: static;
+    height: 100%;
+  }
+
+  body:has(.admin-shell) .admin-main {
+    height: 100%;
+    overflow-y: auto;
+  }
+}
+
 .admin-brand {
   display: flex;
   align-items: center;
