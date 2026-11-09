@@ -18,9 +18,9 @@ const iconProps = {
 } as const;
 
 // Botão social do padrão da casa (pedido do cliente): circulo uniforme,
-// glifo claro, hover rosa. `rodape` = translucido sobre o fundo escuro do
-// rodape; `flutuante` = cinza solido (#4D4D4D = aparece igual ao do rodape)
-// para os icones continuarem legiveis sobre o fundo claro da loja.
+// hover rosa. `rodape` = translucido sobre o fundo escuro do rodape;
+// `flutuante` = fundo rosa, icone preto, borda preta (pedido 09/11/2026)
+// pra ficar legivel e com contraste sobre o fundo claro da loja.
 function SocialButton({
   href,
   label,
@@ -34,7 +34,11 @@ function SocialButton({
   size?: number;
   variante?: "rodape" | "flutuante";
 }) {
-  const fundo = variante === "flutuante" ? "#4D4D4D" : "rgba(255,255,255,0.1)";
+  const flutuante = variante === "flutuante";
+  const fundo = flutuante ? "var(--cta)" : "rgba(255,255,255,0.1)";
+  const fundoHover = flutuante ? "var(--cta-hover)" : "#E084AC";
+  const borda = flutuante ? "1px solid #000000" : "1px solid rgba(255,255,255,0.2)";
+  const cor = flutuante ? "#000000" : "#FFFFFF";
   return (
     <a
       href={href}
@@ -47,15 +51,15 @@ function SocialButton({
         height: size + 18,
         borderRadius: 999,
         background: fundo,
-        border: "1px solid rgba(255,255,255,0.2)",
-        color: "#FFFFFF",
+        border: borda,
+        color: cor,
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
         transition: "background 0.2s, transform 0.2s",
       }}
       onMouseEnter={(e) => {
-        e.currentTarget.style.background = "#E084AC";
+        e.currentTarget.style.background = fundoHover;
         e.currentTarget.style.transform = "translateY(-3px)";
       }}
       onMouseLeave={(e) => {
@@ -123,7 +127,7 @@ export function FloatingSocial() {
       }}
     >
       {socialLinks.map((s) => (
-        <SocialButton key={s.label} {...s} variante="flutuante" />
+        <SocialButton key={s.label} {...s} size={19} variante="flutuante" />
       ))}
       <WhatsappButton />
     </div>

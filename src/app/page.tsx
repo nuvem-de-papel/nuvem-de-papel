@@ -41,7 +41,16 @@ export default async function HomePage() {
 
       <ProductCarousel
         titulo="Lápis ou Lapiseira?"
-        subtitulo="Com designs criativos, cores encantadoras e detalhes que fazem brilhar os olhos, aqui você encontra desde o lápis fofo perfeito para presentear até a lapiseira funcional e estilosa que vai te acompanhar nos estudos ou no trabalho."
+        subtitulo={
+          <>
+            Com designs criativos, cores encantadoras e detalhes que fazem brilhar os olhos
+            <br />
+            Aqui você encontra desde o lápis fofo perfeito para presentear até a lapiseira funcional
+            <br />
+            estilosa que vai te acompanhar nos estudos ou no trabalho.
+          </>
+        }
+        subtituloMaxWidth="none"
         produtos={lapisELapiseiras}
       />
 

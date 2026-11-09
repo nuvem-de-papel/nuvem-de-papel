@@ -20,14 +20,14 @@ export function PenCategoryBanner() {
           style={{
             fontSize: 19,
             color: "#000000",
-            maxWidth: 620,
+            maxWidth: "none",
             margin: "12px auto 0",
             lineHeight: 1.6,
           }}
         >
-          Canetas são mágicas: com um simples traço, elas escrevem histórias, desenham
-          sonhos e organizam planos. Criativas, coloridas e fofas, perfeitas pra deixar sua
-          rotina mais leve e divertida.
+          Canetas são mágicas: com um simples traço, elas escrevem histórias, desenham sonhos e organizam planos.
+          <br />
+          Criativas, coloridas e fofas, perfeitas pra deixar sua rotina mais leve e divertida.
         </p>
       </div>
 
