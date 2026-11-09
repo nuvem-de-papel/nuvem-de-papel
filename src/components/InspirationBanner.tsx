@@ -90,7 +90,7 @@ export function InspirationBanner() {
           </button>
           <div ref={trilhoRef} className="carousel-track">
             {FOTOS.map((foto) => (
-              <div key={foto.id} className="inspiration-photo-item">
+              <div key={foto.id} className="media-photo-item">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={fotoPexels(foto.id)}

@@ -166,31 +166,6 @@ a {
 }
 
 /* Banner "Canetas" (PenCategoryBanner) - fotos com legenda por tipo. */
-.pen-category-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
-}
-
-.pen-category-item {
-  text-align: center;
-}
-
-.pen-category-item img {
-  width: 100%;
-  height: 300px;
-  object-fit: cover;
-  border-radius: var(--radius-card);
-  display: block;
-  margin-bottom: 10px;
-}
-
-.pen-category-item span {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--ink-soft);
-}
-
 /* ProductCarousel - trilho com scroll horizontal + setas. */
 .carousel-track {
   display: flex;
@@ -235,9 +210,14 @@ a {
 
 /* InspirationBanner - fotos grandes (mesmo tamanho do grid estatico
    original) rolando dentro do .carousel-track compartilhado. */
-.inspiration-photo-item {
-  flex: 0 0 380px;
-  height: 300px;
+/* Medida unica de foto (09/11/2026, pedido do Joaquim) usada por
+   InspirationBanner, ThematicBanner e PenCategoryBanner: altura fixa,
+   largura ajusta sozinha via aspect-ratio (mesma proporcao de antes,
+   380:300), carrossel com seta em todas. */
+.media-photo-item {
+  flex: 0 0 auto;
+  height: 250px;
+  aspect-ratio: 19 / 15;
   border-radius: var(--radius-card);
   overflow: hidden;
   scroll-snap-align: start;
@@ -245,10 +225,17 @@ a {
 }
 
 @media (max-width: 768px) {
-  .inspiration-photo-item {
-    flex-basis: 260px;
-    height: 220px;
+  .media-photo-item {
+    height: 184px;
   }
+}
+
+.media-photo-caption {
+  text-align: center;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-soft);
+  margin-top: 10px;
 }
 
 
@@ -261,10 +248,6 @@ a {
   .category-showcase-photo {
     width: 84px;
     height: 84px;
-  }
-
-  .pen-category-grid {
-    grid-template-columns: repeat(2, 1fr);
   }
 
   .carousel-item {
