@@ -39,6 +39,11 @@ export function CategoryCarousel({ title, products }: { title: string; products:
         <span style={{ flex: 1, height: 2, background: "var(--pink-300)", borderRadius: 2 }} />
       </div>
 
+      {products.length === 0 ? (
+        <p style={{ textAlign: "center", color: "var(--ink-soft)", fontSize: 15, padding: "18px 0 8px" }}>
+          Em breve, novidades nessa categoria.
+        </p>
+      ) : (
       <div style={{ position: "relative" }}>
         <button
           onClick={() => scroll(-1)}
@@ -212,6 +217,7 @@ export function CategoryCarousel({ title, products }: { title: string; products:
           ›
         </button>
       </div>
+      )}
     </section>
   );
 }

@@ -233,6 +233,31 @@ a {
   right: -6px;
 }
 
+/* InspirationBanner - carrossel full-bleed (video + fotos), 1 slide por vez. */
+.inspiration-carousel-track {
+  display: flex;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  border-radius: var(--radius-card);
+  scrollbar-width: none;
+}
+
+.inspiration-carousel-track::-webkit-scrollbar {
+  display: none;
+}
+
+.inspiration-carousel-slide {
+  flex: 0 0 100%;
+  scroll-snap-align: start;
+  height: 380px;
+}
+
+@media (max-width: 768px) {
+  .inspiration-carousel-slide {
+    height: 240px;
+  }
+}
+
 @media (max-width: 768px) {
   .category-showcase-grid {
     grid-template-columns: repeat(3, 1fr);
