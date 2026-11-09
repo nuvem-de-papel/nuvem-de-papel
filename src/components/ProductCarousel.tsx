@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, type ReactNode } from "react";
 import type { VarejoProduct } from "@/lib/products";
 import { ProductCard } from "@/components/ProductCard";
 
@@ -13,11 +13,13 @@ import { ProductCard } from "@/components/ProductCard";
 export function ProductCarousel({
   titulo,
   subtitulo,
+  subtituloMaxWidth = 620,
   produtos,
   verTodosHref,
 }: {
   titulo: string;
-  subtitulo?: string;
+  subtitulo?: ReactNode;
+  subtituloMaxWidth?: number | string;
   produtos: VarejoProduct[];
   verTodosHref?: string;
 }) {
@@ -34,7 +36,7 @@ export function ProductCarousel({
       <div style={{ textAlign: "center", marginBottom: 28 }}>
         <h2 className="script-heading" style={{ fontSize: 36 }}>{titulo}</h2>
         {subtitulo && (
-          <p style={{ fontSize: 19, color: "#000000", maxWidth: 620, margin: "12px auto 0", lineHeight: 1.6 }}>
+          <p style={{ fontSize: 19, color: "#000000", maxWidth: subtituloMaxWidth, margin: "12px auto 0", lineHeight: 1.6 }}>
             {subtitulo}
           </p>
         )}
