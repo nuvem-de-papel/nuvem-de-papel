@@ -134,8 +134,8 @@ a {
 }
 
 .category-showcase-photo {
-  width: 120px;
-  height: 120px;
+  width: 122px;
+  height: 122px;
   border-radius: 999px;
   overflow: hidden;
   background: var(--bg-cloud);
@@ -153,13 +153,13 @@ a {
 .category-showcase-item h3 {
   font-family: "Poppins", sans-serif;
   font-weight: 700;
-  font-size: 14px;
+  font-size: 17px;
   color: var(--cta);
   margin: 0 0 6px;
 }
 
 .category-showcase-item p {
-  font-size: 14px;
+  font-size: 15px;
   color: var(--ink-soft);
   line-height: 1.5;
   margin: 0;
