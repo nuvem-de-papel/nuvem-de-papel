@@ -44,6 +44,8 @@ Essa regra vale para qualquer IA ou pessoa trabalhando neste projeto a partir de
 
 Merge é local, sem PR no GitHub: com CI verde, `git fetch` → `git merge origin/staging` na pasta de produção → `git push origin main` (Vercel deploya).
 
+> **Correção (09/11/2026):** as branches `main` e `staging` têm *branch protection* no GitHub (exige PR, sem push direto mesmo do fetch/merge local) — a frase acima ("merge local, sem PR") está desatualizada pra isso: push direto em qualquer uma das duas é rejeitado (`GH006: Protected branch update failed`). Os PRs #10 a #13 foram merged direto em `main` via `gh pr merge --admin` (sem passar por `staging` antes), deixando `staging` 7 commits atrás; reconciliado no PR #14 (merge de `main` para `staging`). Daqui pra frente: **todo trabalho novo commita e abre PR contra `staging` primeiro** (valida no Preview da Vercel); o avanço de `staging` para `main` também precisa de PR (`gh pr create --base main` + `gh pr merge --admin`, mesma mecânica), não há mais merge local sem PR nas duas branches.
+
 ## Regras permanentes de sessão (auto-aplicáveis)
 
 Valem para qualquer sessão/IA, mesmo sem ser lembradas na conversa:

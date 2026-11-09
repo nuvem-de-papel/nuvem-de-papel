@@ -1,4 +1,5 @@
 import { Hero } from "@/components/Hero";
+import { InspirationBanner } from "@/components/InspirationBanner";
 import { CategoryHighlights } from "@/components/CategoryHighlights";
 import { ClubBanner } from "@/components/ClubBanner";
 import { ProductCard } from "@/components/ProductCard";
@@ -14,6 +15,7 @@ export default async function HomePage() {
   return (
     <main>
       <Hero />
+      <InspirationBanner />
       <CategoryHighlights />
 
       <section style={{ maxWidth: 1240, margin: "0 auto", padding: "0 32px 56px" }}>
