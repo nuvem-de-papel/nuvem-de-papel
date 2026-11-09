@@ -147,7 +147,7 @@ export function Footer() {
           display: "grid",
           gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
           gap: 32,
-          fontSize: 13,
+          fontSize: 15,
         }}
       >
         <div>
@@ -158,11 +158,11 @@ export function Footer() {
                 fill="#FFD166"
               />
             </svg>
-            <span className="display" style={{ fontSize: 16, color: "#FFFFFF" }}>
+            <span className="display" style={{ fontSize: 18, color: "#FFFFFF" }}>
               Nuvem de Papel
             </span>
           </div>
-          <p style={{ margin: 0, fontStyle: "italic", color: "#E084AC", fontSize: 12 }}>
+          <p style={{ margin: 0, fontStyle: "italic", color: "#E084AC", fontSize: 14 }}>
             Organização e Criatividade que transforma a rotina
           </p>
           <p style={{ maxWidth: 240, lineHeight: 1.5, margin: "10px 0 0" }}>
@@ -171,7 +171,7 @@ export function Footer() {
         </div>
 
         <div>
-          <h4 style={{ color: "#FFFFFF", fontSize: 13, fontWeight: 700, marginBottom: 14 }}>
+          <h4 style={{ color: "#FFFFFF", fontSize: 15, fontWeight: 700, marginBottom: 14 }}>
             Institucional
           </h4>
           <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "grid", gap: 10 }}>
@@ -185,7 +185,7 @@ export function Footer() {
         </div>
 
         <div style={{ maxWidth: 340 }}>
-          <h4 style={{ color: "#FFFFFF", fontSize: 13, fontWeight: 700, marginBottom: 14 }}>
+          <h4 style={{ color: "#FFFFFF", fontSize: 15, fontWeight: 700, marginBottom: 14 }}>
             Endereço Comercial
           </h4>
           <p style={{ margin: 0, lineHeight: 1.6 }}>
@@ -207,7 +207,7 @@ export function Footer() {
               background: "rgba(255,255,255,0.1)",
               border: "1px solid rgba(255,255,255,0.2)",
               color: "#FFFFFF",
-              fontSize: 12,
+              fontSize: 14,
               fontWeight: 700,
               textDecoration: "none",
             }}
@@ -218,7 +218,7 @@ export function Footer() {
             Ver no Google Maps
           </a>
 
-          <h4 style={{ color: "#FFFFFF", fontSize: 13, fontWeight: 700, margin: "22px 0 14px" }}>
+          <h4 style={{ color: "#FFFFFF", fontSize: 15, fontWeight: 700, margin: "22px 0 14px" }}>
             Depósito e Expedição
           </h4>
           <p style={{ margin: 0, lineHeight: 1.6 }}>
@@ -229,7 +229,7 @@ export function Footer() {
         </div>
 
         <div>
-          <h4 style={{ color: "#FFFFFF", fontSize: 13, fontWeight: 700, marginBottom: 14 }}>
+          <h4 style={{ color: "#FFFFFF", fontSize: 15, fontWeight: 700, marginBottom: 14 }}>
             Contato
           </h4>
           <p style={{ margin: 0 }}>contato@nuvemdepapel.com.br</p>
@@ -244,7 +244,7 @@ export function Footer() {
             </a>
           </p>
 
-          <h4 style={{ color: "#FFFFFF", fontSize: 13, fontWeight: 700, margin: "22px 0 12px" }}>
+          <h4 style={{ color: "#FFFFFF", fontSize: 15, fontWeight: 700, margin: "22px 0 12px" }}>
             Redes sociais
           </h4>
           <div style={{ display: "flex", gap: 10 }}>
@@ -262,7 +262,7 @@ export function Footer() {
           margin: "40px auto 0",
           paddingTop: 20,
           borderTop: "1px solid rgba(255,255,255,0.12)",
-          fontSize: 11,
+          fontSize: 13,
           color: "rgba(255,255,255,0.55)",
           textAlign: "center",
           lineHeight: 1.7,

@@ -1,62 +1,55 @@
 import { Hero } from "@/components/Hero";
-import { CategoryHighlights } from "@/components/CategoryHighlights";
-import { ClubBanner } from "@/components/ClubBanner";
-import { ProductCard } from "@/components/ProductCard";
-import { PublicationCard } from "@/components/PublicationCard";
-import { getStoreProducts } from "@/lib/products";
-import { getPublications } from "@/lib/publications";
+import { InspirationBanner } from "@/components/InspirationBanner";
+import { CategoryShowcase } from "@/components/CategoryShowcase";
+import { ThematicBanner } from "@/components/ThematicBanner";
+import { PenCategoryBanner } from "@/components/PenCategoryBanner";
+import { ProductCarousel } from "@/components/ProductCarousel";
+import { getStoreProducts, type VarejoProduct } from "@/lib/products";
+
+// Normaliza texto (minusculo, sem acento) pra filtrar categoria sem
+// depender de grafia exata (ex.: "Lápis" vs "lapis").
+function normaliza(texto: string) {
+  return texto
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase();
+}
+
+function porCategoria(produtos: VarejoProduct[], termos: string[]) {
+  return produtos.filter((p) => {
+    const categoria = normaliza(p.category ?? "");
+    return termos.some((termo) => categoria.includes(normaliza(termo)));
+  });
+}
 
 export default async function HomePage() {
-  const [produtos, publicacoes] = await Promise.all([getStoreProducts(), getPublications()]);
-  const destaque = produtos.slice(0, 3);
-  const novidades = publicacoes.slice(0, 3);
+  const produtos = await getStoreProducts();
+  const destaque = produtos.slice(0, 8);
+  const lapisELapiseiras = porCategoria(produtos, ["lapis", "lapiseira"]);
+  const borrachas = porCategoria(produtos, ["borracha"]);
 
   return (
     <main>
       <Hero />
-      <CategoryHighlights />
+      <InspirationBanner />
+      <CategoryShowcase />
+      <ThematicBanner />
 
-      <section style={{ maxWidth: 1240, margin: "0 auto", padding: "0 32px 56px" }}>
-        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 24 }}>
-          <h2 className="display" style={{ fontSize: 24, color: "var(--ink)" }}>
-            Produtos em destaque
-          </h2>
-          <a href="/produtos" style={{ fontSize: 13, color: "var(--ink-soft)" }}>
-            Ver todos →
-          </a>
-        </div>
-        {destaque.length === 0 ? (
-          <p style={{ color: "var(--ink-soft)" }}>Nenhum produto encontrado.</p>
-        ) : (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 22 }}>
-            {destaque.map((produto) => (
-              <ProductCard key={produto.id} produto={produto} />
-            ))}
-          </div>
-        )}
-      </section>
+      <ProductCarousel titulo="Destaques" subtitulo="Confira os mais queridinhos" produtos={destaque} verTodosHref="/produtos" />
 
-      <ClubBanner />
+      <PenCategoryBanner />
 
-      <section style={{ maxWidth: 1240, margin: "0 auto", padding: "0 32px 80px" }}>
-        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 24 }}>
-          <h2 className="display" style={{ fontSize: 24, color: "var(--ink)" }}>
-            Publicações & novidades
-          </h2>
-          <a href="/publicacoes" style={{ fontSize: 13, color: "var(--ink-soft)" }}>
-            Ver todas →
-          </a>
-        </div>
-        {novidades.length === 0 ? (
-          <p style={{ color: "var(--ink-soft)" }}>Nenhuma publicação encontrada.</p>
-        ) : (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 22 }}>
-            {novidades.map((publicacao, index) => (
-              <PublicationCard key={publicacao.id} publicacao={publicacao} index={index} />
-            ))}
-          </div>
-        )}
-      </section>
+      <ProductCarousel
+        titulo="Lápis ou Lapiseira?"
+        subtitulo="Com designs criativos, cores encantadoras e detalhes que fazem brilhar os olhos, aqui você encontra desde o lápis fofo perfeito para presentear até a lapiseira funcional e estilosa que vai te acompanhar nos estudos ou no trabalho."
+        produtos={lapisELapiseiras}
+      />
+
+      <ProductCarousel
+        titulo="Borrachas criativas e colecionáveis para quem ama papelaria fofa"
+        subtitulo="Borrachas criativas, fofas e colecionáveis, com formatos diferentes e funcionais que transformam o dia a dia com muito estilo."
+        produtos={borrachas}
+      />
     </main>
   );
 }
