@@ -26,13 +26,13 @@ export function InspirationBanner() {
   return (
     <section style={{ maxWidth: 1240, margin: "0 auto", padding: "8px 32px 72px" }}>
       <div style={{ textAlign: "center", marginBottom: 32 }}>
-        <h2 className="script-heading" style={{ fontSize: 39, margin: "0 auto", maxWidth: "none", whiteSpace: "nowrap" }}>
+        <h2 className="script-heading" style={{ fontSize: 40, margin: "0 auto", maxWidth: "none", whiteSpace: "nowrap" }}>
           Papelaria criativa para alegrar sua rotina
         </h2>
         <p
           style={{
-            fontSize: 17,
-            color: "var(--ink-soft)",
+            fontSize: 19,
+            color: "#000000",
             maxWidth: "none",
             margin: "14px auto 0",
             lineHeight: 1.6,

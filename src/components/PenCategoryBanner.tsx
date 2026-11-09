@@ -15,11 +15,11 @@ export function PenCategoryBanner() {
   return (
     <section style={{ maxWidth: 1240, margin: "0 auto", padding: "8px 32px 72px" }}>
       <div style={{ textAlign: "center", marginBottom: 28 }}>
-        <h2 className="script-heading" style={{ fontSize: 35 }}>Canetas</h2>
+        <h2 className="script-heading" style={{ fontSize: 36 }}>Canetas</h2>
         <p
           style={{
-            fontSize: 17,
-            color: "var(--ink-soft)",
+            fontSize: 19,
+            color: "#000000",
             maxWidth: 620,
             margin: "12px auto 0",
             lineHeight: 1.6,
