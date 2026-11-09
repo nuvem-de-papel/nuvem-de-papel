@@ -9,6 +9,7 @@ import {
   type ClienteCad,
   type EmpresaCad,
   type FornecedorCad,
+  type LocalEstoqueCad,
   type ProdutoCad,
   type RevendaCad,
 } from "@/components/conta/CadastrosTelaUnica";
@@ -49,7 +50,7 @@ export default async function CadastroPage() {
   if (!user) redirect("/login?next=/configuracoes/cadastro");
 
   const admin = createAdminClient();
-  const [fornRes, revRes, meuRes, empRes, sefazRes, prodRes, cliRes] = await Promise.all([
+  const [fornRes, revRes, meuRes, empRes, sefazRes, prodRes, cliRes, locaisRes] = await Promise.all([
     admin
       .from("suppliers")
       .select("id, name, contact_email, cnpj, active")
@@ -73,7 +74,7 @@ export default async function CadastroPage() {
     admin
       .from("catalog_items")
       .select(
-        "id, sku, name, category, active, fabricante, notes, hide_price_table, last_adjusted_at, foto_url, description, item_fiscal_data(gtin, ncm, cst_csosn, cest, origem, unit, icms_rate, ipi_rate, weight_kg, weight_gross_kg, cst_pis, cst_cofins, icms_base_pct, cst_ibscbs, cclass_trib, gtin_tributavel), item_commercial_data(preco_custo, cost_price, margin_percent, min_stock), item_prices(price, min_quantity, channel), item_supplier_data(supplier_sku, manufacturer_ref, supplier_name, manufacturer, source_type, source_url, pack_qty, master_qty, gtin_inner, gtin_master, emb_comprimento_cm, emb_altura_cm, emb_largura_cm, emb_peso_kg, master_comprimento_cm, master_altura_cm, master_largura_cm, master_peso_kg)"
+        "id, sku, name, category, group_name, subgroup_name, active, fabricante, notes, detalhes_produto, hide_price_table, last_adjusted_at, foto_url, description, item_fiscal_data(gtin, ncm, cst_csosn, cest, origem, unit, icms_rate, ipi_rate, weight_kg, weight_gross_kg, cst_pis, cst_cofins, icms_base_pct, cst_ibscbs, cclass_trib, gtin_tributavel), item_commercial_data(preco_custo, cost_price, margin_percent, min_stock), item_prices(price, min_quantity, channel), item_supplier_data(supplier_sku, manufacturer_ref, supplier_name, manufacturer, source_type, source_url, pack_qty, master_qty, gtin_inner, gtin_master, emb_comprimento_cm, emb_altura_cm, emb_largura_cm, emb_peso_kg, master_comprimento_cm, master_altura_cm, master_largura_cm, master_peso_kg), item_stock_by_location(location_id, stock_on_hand)"
       )
       .order("name", { ascending: true }),
     // Bloco 5 passo 3: clientes reais (antes os contadores e a ficha eram fixos)
@@ -85,7 +86,23 @@ export default async function CadastroPage() {
       .eq("tenant_id", NUVEM_DE_PAPEL_TENANT_ID)
       .order("name", { ascending: true })
       .limit(500),
+    // 0044: locais de estoque (loja/deposito/cd) — ordenados pela prioridade
+    // de consumo (menor primeiro). Cadastro de Produto so EXIBE/EDITA o saldo
+    // por local; a baixa automatica na venda fica pra uma proxima entrega.
+    admin
+      .from("stock_locations")
+      .select("id, code, name, tipo, priority")
+      .eq("tenant_id", NUVEM_DE_PAPEL_TENANT_ID)
+      .eq("active", true)
+      .order("priority", { ascending: true }),
   ]);
+
+  const locaisEstoque: LocalEstoqueCad[] = (locaisRes.data ?? []).map((l) => ({
+    id: l.id,
+    code: l.code,
+    nome: l.name,
+    tipo: l.tipo,
+  }));
 
   const meu = meuRes.data;
   if (!meu || meu.status !== "ativo" || !PAPEIS_GESTAO.includes(meu.role)) {
@@ -193,6 +210,10 @@ export default async function CadastroPage() {
       min_quantity: number;
       channel: string;
     }[];
+    const estoqueLocais = (Array.isArray(p.item_stock_by_location) ? p.item_stock_by_location : []) as {
+      location_id: string;
+      stock_on_hand: number;
+    }[];
     const preco =
       precos.find((x) => x.channel === "varejo" && x.min_quantity === 1)?.price ??
       precos.find((x) => x.channel === "varejo")?.price ??
@@ -202,6 +223,11 @@ export default async function CadastroPage() {
       sku: p.sku,
       nome: p.name,
       categoria: p.category ?? "",
+      grupo: p.group_name ?? "",
+      subgrupo: p.subgroup_name ?? "",
+      estoquePorLocal: Object.fromEntries(
+        estoqueLocais.map((e) => [e.location_id, Number(e.stock_on_hand ?? 0)])
+      ),
       ativo: p.active,
       gtin: f?.gtin ?? "",
       ncm: f?.ncm ?? "",
@@ -221,6 +247,7 @@ export default async function CadastroPage() {
       // Bloco 2 (0031)
       fabricante: p.fabricante ?? "",
       observacoes: p.notes ?? "",
+      detalhesProduto: p.detalhes_produto ?? "",
       fotoUrl: p.foto_url ?? "",
       descricao: p.description ?? "",
       cstPis: f?.cst_pis ?? "",
@@ -310,6 +337,7 @@ export default async function CadastroPage() {
       empresa={empresa}
       produtos={produtos}
       clientes={clientes}
+      locaisEstoque={locaisEstoque}
     />
   );
 }
