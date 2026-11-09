@@ -26,16 +26,17 @@ export function InspirationBanner() {
   return (
     <section style={{ maxWidth: 1240, margin: "0 auto", padding: "8px 32px 72px" }}>
       <div style={{ textAlign: "center", marginBottom: 32 }}>
-        <h2 className="script-heading" style={{ fontSize: 38, margin: "0 auto", maxWidth: 720 }}>
+        <h2 className="script-heading" style={{ fontSize: 39, margin: "0 auto", maxWidth: "none", whiteSpace: "nowrap" }}>
           Papelaria criativa para alegrar sua rotina
         </h2>
         <p
           style={{
-            fontSize: 15,
+            fontSize: 17,
             color: "var(--ink-soft)",
-            maxWidth: 560,
+            maxWidth: "none",
             margin: "14px auto 0",
             lineHeight: 1.6,
+            whiteSpace: "nowrap",
           }}
         >
           Itens fofos e cheios de charme para organizar o dia a dia com cor, leveza e
