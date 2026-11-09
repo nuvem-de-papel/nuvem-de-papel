@@ -27,13 +27,14 @@ export function ThematicBanner() {
           style={{
             fontSize: 21,
             color: "#000000",
-            maxWidth: 580,
+            maxWidth: "none",
             margin: "14px auto 0",
             lineHeight: 1.6,
           }}
         >
-          Itens criativos e cheios de estilo que trazem leveza pra rotina - perfeitos pra
-          colecionadores e apaixonados por papelaria com personalidade.
+          Itens criativos e cheios de estilo que trazem leveza pra rotina
+          <br />
+          Perfeitos pra colecionadores e apaixonados por papelaria com personalidade.
         </p>
         <div
           aria-hidden="true"
