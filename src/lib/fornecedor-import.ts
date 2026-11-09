@@ -1,9 +1,20 @@
-// fornecedor-import.ts - importador de cadastro de produto por link do
-// fornecedor (Reval/Tilibra). Bloco 2, regra 14/10/2026 (staging primeiro).
+// fornecedor-import.ts - "Busca web": importador de cadastro de produto por
+// link de QUALQUER site (nao so Reval/Tilibra mais - ver importarProdutoPorLink,
+// bloco de 09/11/2026). O Reval continua com parser proprio (campos fiscais e
+// de logistica completos); qualquer outro link cai no parser generico
+// (Open Graph + JSON-LD schema.org/Product), que traz menos campos mas
+// funciona na maioria dos sites com pagina de produto padrao.
 //
 // Por que aqui e nao no browser: o fetch roda no SERVIDOR (Node), que nao
 // sofre CORS - o browser bloquearia a chamada pro site deles. O form cola o
 // link, a server action busca, parseia e devolve JSON ja preenchido.
+//
+// Seguranca (SSRF): como agora aceitamos QUALQUER https, urlSeguraParaBusca()
+// resolve o host e bloqueia IP privado/loopback/link-local antes de buscar -
+// nao da pra apontar pro metadata da nuvem nem pra rede interna. Nao protege
+// 100% contra DNS rebinding (o IP poderia mudar entre o check e o fetch) -
+// risco aceitavel aqui porque a action exige login de gestor (gestaoAtual())
+// nunca e publica.
 //
 // Por que regex e nao cheerio: a pagina do Reval e ASP.NET WebForms server-
 // rendered (sem JavaScript) e a tabela de caracteristicas e FIXA
@@ -15,6 +26,9 @@
 // O unico campo que NAO vem e o PRECO ("faca login" - restrito a login de
 // CNPJ). Peso e dimensoes vem POR EMBALAGEM e por MASTER; o peso UNITARIO se
 // calcula (peso emb / qtd emb = 1,39 / 4 = 0,3475 kg/un).
+
+import { lookup } from "node:dns/promises";
+import { isIP } from "node:net";
 
 export type ProdutoFornecedor = {
   // identificacao
@@ -359,4 +373,249 @@ export async function importarProdutoReval(
   }
 
   return { ok: true, produto };
+}
+
+// ------------------------------------------------------- SSRF guard -------
+// Bloco 09/11/2026: "Busca web" deixou de ser so Reval - aceita qualquer
+// link https. Antes de buscar, resolve o host e bloqueia IP privado/
+// loopback/link-local (nao da pra usar isso pra sondar rede interna ou
+// metadata da nuvem). Ver nota de seguranca no topo do arquivo.
+function ipEhPrivada(ip: string): boolean {
+  if (isIP(ip) === 4) {
+    const partes = ip.split(".").map(Number);
+    const [a, b] = partes;
+    if (a === 10) return true; // 10.0.0.0/8
+    if (a === 172 && b >= 16 && b <= 31) return true; // 172.16.0.0/12
+    if (a === 192 && b === 168) return true; // 192.168.0.0/16
+    if (a === 127) return true; // loopback
+    if (a === 169 && b === 254) return true; // link-local (inclui metadata 169.254.169.254)
+    if (a === 0) return true; // "esta rede"
+    if (a >= 224) return true; // multicast/reservado
+    return false;
+  }
+  if (isIP(ip) === 6) {
+    const low = ip.toLowerCase();
+    if (low === "::1") return true; // loopback
+    if (low.startsWith("fe8") || low.startsWith("fe9") || low.startsWith("fea") || low.startsWith("feb")) return true; // link-local fe80::/10
+    if (low.startsWith("fc") || low.startsWith("fd")) return true; // unique local fc00::/7
+    if (low.startsWith("::ffff:")) {
+      const v4 = low.split(":").pop() ?? "";
+      if (v4.includes(".")) return ipEhPrivada(v4);
+    }
+    return false;
+  }
+  return true; // formato de IP desconhecido -> trata como inseguro
+}
+
+export async function urlSeguraParaBusca(
+  urlStr: string
+): Promise<{ ok: true } | { ok: false; erro: string }> {
+  let u: URL;
+  try {
+    u = new URL(urlStr.trim());
+  } catch {
+    return { ok: false, erro: "Link inválido." };
+  }
+  if (u.protocol !== "https:") return { ok: false, erro: "Cole um link https://." };
+  const host = u.hostname.toLowerCase();
+  if (host === "localhost" || host.endsWith(".local") || host.endsWith(".internal")) {
+    return { ok: false, erro: "Esse endereço não é permitido." };
+  }
+  if (isIP(host)) {
+    if (ipEhPrivada(host)) return { ok: false, erro: "Esse endereço aponta pra rede interna — não permitido." };
+    return { ok: true };
+  }
+  let enderecos: { address: string }[];
+  try {
+    enderecos = await lookup(host, { all: true });
+  } catch {
+    return { ok: false, erro: "Não consegui resolver esse endereço." };
+  }
+  if (enderecos.length === 0 || enderecos.some((e) => ipEhPrivada(e.address))) {
+    return { ok: false, erro: "Esse endereço aponta pra rede interna — não permitido." };
+  }
+  return { ok: true };
+}
+
+// ------------------------------------------------- parser generico --------
+// Open Graph + JSON-LD (schema.org/Product) - cobre a maioria dos sites com
+// pagina de produto padrao (inclusive provavelmente Mercado Livre). Amazon e
+// Shopee tem bloqueio anti-bot forte: o fetch simples de servidor pode vir
+// vazio ou com pagina de "verificacao" - nesse caso o parser so nao acha nada
+// e a action devolve aviso (nao e bug nosso, e bloqueio deles).
+function extrairJsonLd(html: string): Record<string, unknown>[] {
+  const blocos: Record<string, unknown>[] = [];
+  const re = /<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
+  for (const m of html.matchAll(re)) {
+    try {
+      const parsed = JSON.parse(m[1].trim());
+      const itens = Array.isArray(parsed) ? parsed : [parsed];
+      for (const item of itens) {
+        if (item && typeof item === "object") {
+          const graph = (item as Record<string, unknown>)["@graph"];
+          if (Array.isArray(graph)) blocos.push(...(graph as Record<string, unknown>[]));
+          else blocos.push(item as Record<string, unknown>);
+        }
+      }
+    } catch {
+      // bloco de JSON-LD invalido - ignora, nao quebra o resto do parse
+    }
+  }
+  return blocos;
+}
+
+function achaProdutoJsonLd(blocos: Record<string, unknown>[]): Record<string, unknown> | null {
+  for (const b of blocos) {
+    const tipo = b["@type"];
+    const tipos = Array.isArray(tipo) ? tipo : [tipo];
+    if (tipos.includes("Product")) return b;
+  }
+  return null;
+}
+
+function extrairMeta(html: string, prop: string): string | null {
+  const p1 = new RegExp(`<meta[^>]*(?:property|name)=["']${prop}["'][^>]*content=["']([^"']*)["']`, "i");
+  const p2 = new RegExp(`<meta[^>]*content=["']([^"']*)["'][^>]*(?:property|name)=["']${prop}["']`, "i");
+  const m = html.match(p1) ?? html.match(p2);
+  return textoLimpo(m?.[1] ?? null);
+}
+
+function extrairTituloGenerico(html: string): string | null {
+  return extrairMeta(html, "og:title") ?? textoLimpo(html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] ?? null);
+}
+
+function imagemDeJsonLd(v: unknown): string | null {
+  if (!v) return null;
+  if (typeof v === "string") return v;
+  if (Array.isArray(v)) return imagemDeJsonLd(v[0]);
+  if (typeof v === "object" && typeof (v as { url?: unknown }).url === "string") {
+    return (v as { url: string }).url;
+  }
+  return null;
+}
+
+function gtinDeJsonLd(p: Record<string, unknown>): string | null {
+  for (const campo of ["gtin13", "gtin", "gtin14", "gtin8", "gtin12"]) {
+    const v = p[campo];
+    if (typeof v === "string" || typeof v === "number") {
+      const n = normalizaGtin(String(v));
+      if (n) return n;
+    }
+  }
+  return null;
+}
+
+export function parsePaginaGenerica(html: string, urlOrigem: string): ProdutoFornecedor {
+  const blocos = extrairJsonLd(html);
+  const produto = achaProdutoJsonLd(blocos);
+
+  const ofertas = produto ? (Array.isArray(produto.offers) ? produto.offers[0] : produto.offers) : null;
+  void ofertas; // preco restrito/variavel - nao preenchemos preco por link generico, so fiscal/identificacao
+
+  const nomeJsonLd = produto && typeof produto.name === "string" ? produto.name : null;
+  const descJsonLd = produto && typeof produto.description === "string" ? produto.description : null;
+  const marcaJsonLd =
+    produto && typeof produto.brand === "string"
+      ? produto.brand
+      : (produto?.brand as { name?: string } | undefined)?.name ?? null;
+
+  const nome = textoLimpo(nomeJsonLd) ?? extrairTituloGenerico(html);
+  const descricao = textoLimpo(descJsonLd) ?? extrairMeta(html, "og:description");
+  const fotoUrl = imagemDeJsonLd(produto?.image) ?? extrairMeta(html, "og:image");
+  const marca = textoLimpo(marcaJsonLd);
+  const fornecedorMeta = extrairMeta(html, "og:site_name");
+  const skuJsonLd = produto && (typeof produto.sku === "string" || typeof produto.sku === "number") ? String(produto.sku) : null;
+  const mpnJsonLd = produto && (typeof produto.mpn === "string" || typeof produto.mpn === "number") ? String(produto.mpn) : null;
+  const categoriaJsonLd = produto && typeof produto.category === "string" ? produto.category : null;
+
+  return {
+    codigo: textoLimpo(skuJsonLd ?? mpnJsonLd) ?? extrairCodigoDaUrl(urlOrigem),
+    refFabricante: textoLimpo(mpnJsonLd),
+    nome,
+    categoria: textoLimpo(categoriaJsonLd),
+    fornecedor: marca ?? fornecedorMeta,
+    fabricante: marca,
+    descricao,
+    observacoes: descricao,
+    fotoUrl: fotoUrl ? fotoUrl.replace(/^http:\/\//i, "https://") : null,
+
+    ncm: null,
+    cest: null,
+    origem: null,
+    gtinUnitario: produto ? gtinDeJsonLd(produto) : null,
+    gtinEmbalagem: null,
+    gtinMaster: null,
+
+    embalagem: null,
+    qtdEmbalagem: null,
+    qtdMaster: null,
+    pesoEmbalagemKg: null,
+    embComprimentoCm: null,
+    embAlturaCm: null,
+    embLarguraCm: null,
+    pesoMasterKg: null,
+    masterComprimentoCm: null,
+    masterAlturaCm: null,
+    masterLarguraCm: null,
+    pesoUnitarioKg: null,
+  };
+}
+
+// ------------------------------------------------- dispatcher "Busca web" -
+// Ponto de entrada unico pro form: resolve seguranca (SSRF), busca a pagina
+// e escolhe o parser certo (Reval especifico x generico). O Reval continua
+// trazendo mais campos (fiscal, embalagem, master) porque a pagina dele tem
+// essa estrutura fixa; qualquer outro link traz o que o Open Graph/JSON-LD
+// do site oferecer - normalmente nome, foto, descricao, e GTIN quando o site
+// publica.
+export async function importarProdutoPorLink(
+  url: string
+): Promise<{ ok: true; produto: ProdutoFornecedor; fonte: string } | { ok: false; erro: string }> {
+  const trimmed = url.trim();
+  const seguranca = await urlSeguraParaBusca(trimmed);
+  if (!seguranca.ok) return { ok: false, erro: seguranca.erro };
+
+  let resp: Response;
+  try {
+    resp = await fetch(trimmed, {
+      headers: {
+        "User-Agent": UA_NAVEGADOR,
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "pt-BR,pt;q=0.9",
+      },
+      redirect: "follow",
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    });
+  } catch {
+    return { ok: false, erro: "Não consegui acessar esse link (rede ou site fora do ar)." };
+  }
+  if (!resp.ok) {
+    return { ok: false, erro: `O site respondeu ${resp.status} para este link.` };
+  }
+  const html = (await resp.text()).slice(0, MAX_HTML);
+
+  if (ehLinkReval(trimmed)) {
+    const produto = parsePaginaReval(html, trimmed);
+    if (!produto.nome && !produto.codigo) {
+      return { ok: false, erro: "Não encontrei dados de produto nesta página (confira se é o link direto do item)." };
+    }
+    return { ok: true, produto, fonte: "Reval" };
+  }
+
+  const produto = parsePaginaGenerica(html, trimmed);
+  if (!produto.nome) {
+    return {
+      ok: false,
+      erro:
+        "Não encontrei dados de produto nesta página — esse site pode bloquear leitura automática " +
+        "(comum em Amazon/Shopee) ou a página não segue um formato padrão de produto. Preencha à mão.",
+    };
+  }
+  let fonte = "site";
+  try {
+    fonte = new URL(trimmed).hostname;
+  } catch {
+    // trimmed ja validado acima, nao deveria cair aqui
+  }
+  return { ok: true, produto, fonte };
 }
