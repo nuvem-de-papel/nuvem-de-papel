@@ -31,8 +31,8 @@ export function InspirationBanner() {
         </h2>
         <p
           style={{
-            fontSize: 17,
-            color: "var(--ink-soft)",
+            fontSize: 19,
+            color: "#000000",
             maxWidth: "none",
             margin: "14px auto 0",
             lineHeight: 1.6,
