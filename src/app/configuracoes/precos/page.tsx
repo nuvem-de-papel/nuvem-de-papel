@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
   title: "Configurações - Tabela de preços - Nuvem de Papel",
   description:
-    "Preço por canal (varejo/atacado), por faixa de quantidade e com vigência.",
+    "Preço por canal (varejo/atacado/web), por faixa de quantidade e com vigência.",
 };
 
 type LinhaPreco = {
