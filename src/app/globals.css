@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&family=Open+Sans:wght@400;500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@1,500;1,600&family=Poppins:wght@500;600;700;800&family=Open+Sans:wght@400;500;600;700&display=swap");
 
 /* Identidade visual 2026 — paleta v3 cinza (aprovada 25/09/2026):
    fundos #E0E0E0 · barras topo/rodapé #3D3D3D · botão = Pink-600 #E084AC · amarelo = só a marca.
@@ -73,6 +73,48 @@ h3,
 a {
   color: var(--pink-600);
   text-decoration: none;
+}
+
+/* Banner "Papelaria criativa" (home) - titulo estilo script/italico, pedido
+   pra reproduzir a referencia enviada pelo Joaquim (titulo rosa cursivo +
+   fileira de fotos). Fonte dedicada (Playfair Display italica), nao mexe no
+   .display padrao (Poppins) usado no resto do site. */
+.script-heading {
+  font-family: "Playfair Display", serif;
+  font-style: italic;
+  font-weight: 600;
+  /* usa --cta (nao --pink-600): o tenant_branding deste ambiente sobrescreve
+     --pink-600/--pink-300 pra um tom verde-azulado (achado em 09/11/2026,
+     reportado ao Joaquim) - --cta fica estavel na cor rosa aprovada. */
+  color: var(--cta);
+  margin: 0;
+  line-height: 1.25;
+}
+
+.banner-photos {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  border-radius: var(--radius-card);
+  overflow: hidden;
+}
+
+.banner-photos img {
+  height: 300px;
+}
+
+@media (max-width: 768px) {
+  .banner-photos {
+    grid-template-columns: 1fr;
+  }
+
+  .banner-photos img {
+    height: 220px;
+  }
+
+  .script-heading {
+    font-size: 28px !important;
+  }
 }
 a:hover {
   color: var(--pink-600-dark);
