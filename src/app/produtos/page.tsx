@@ -1,60 +1,52 @@
-import { Fragment } from "react";
+import { Fragment, type ReactNode } from "react";
 import { getStoreProducts, type VarejoProduct } from "@/lib/products";
+import { CATEGORIAS_PRODUTOS } from "@/lib/categoriasProdutos";
 import { BannerSlider } from "@/components/produtos/BannerSlider";
 import { CategoryCarousel } from "@/components/produtos/CategoryCarousel";
 import { PromoStrip, PROMO_ICONS } from "@/components/produtos/PromoStrip";
 import { PageHeader } from "@/components/admin/PageHeader";
 
-const GROUP_DEFS: { title: string; test: RegExp }[] = [
-  { title: "Cadernos & agendas", test: /caderno|agenda|planner|fichari|bloco|bloqu/ },
-  { title: "Papelaria criativa", test: /criativ|adesiv|papel|arma|cola|tesoura|artesan|presente|acessor/ },
-  { title: "Material escolar", test: /escolar|l[áa]pis|caneta|material/ },
-];
+type Group = { slug: string; title: string; items: VarejoProduct[] };
 
-type Group = { title: string; items: VarejoProduct[] };
-
+// 09/11/2026 (pedido do Joaquim): 6 secoes FIXAS, uma por categoria de
+// CATEGORIAS_PRODUTOS (mesma lista usada no CategoryShowcase da home) -
+// sempre nessa ordem e sempre as 6, mesmo vazia, pra servir de destino
+// fixo pro clique no icone de categoria ("#cadernos", "#canetas" etc).
+// Antes disso a pagina montava grupos dinamicos a partir do catalogo e
+// escondia os vazios; agora quem decide o agrupamento e a lista fixa.
 function groupProducts(produtos: VarejoProduct[]): Group[] {
-  const groups: Group[] = GROUP_DEFS.map((g) => ({ title: g.title, items: [] }));
-  const extras: Group[] = [];
+  const groups: Group[] = CATEGORIAS_PRODUTOS.map((c) => ({ slug: c.slug, title: c.titulo, items: [] }));
+  const catchAllIdx = groups.length - 1;
 
   for (const p of produtos) {
     const key = (p.category ?? "").toLowerCase();
-    const idx = GROUP_DEFS.findIndex((g) => g.test.test(key));
-    if (idx >= 0) {
-      groups[idx].items.push(p);
-    } else {
-      let extra = extras.find((e) => e.title === (p.category ?? "Outros"));
-      if (!extra) {
-        extra = { title: p.category ?? "Outros", items: [] };
-        extras.push(extra);
-      }
-      extra.items.push(p);
-    }
+    const idx = CATEGORIAS_PRODUTOS.findIndex((c) => c.match.test(key));
+    groups[idx >= 0 ? idx : catchAllIdx].items.push(p);
   }
 
-  return [...groups.filter((g) => g.items.length > 0), ...extras];
+  return groups;
 }
 
 export default async function ProdutosPage() {
   const produtos = await getStoreProducts();
   const groups = groupProducts(produtos);
 
-  const midBanners = [
-    {
-      variant: "pink" as const,
+  const midBanners: Record<number, { variant: "pink" | "green"; icon: ReactNode; title: string; text: string; tag: string }> = {
+    1: {
+      variant: "pink",
       icon: PROMO_ICONS.scissors,
       title: "Armaria & criatividade",
       text: "Cola, tesoura, papel colorido e muito mais.",
       tag: "Ver tudo",
     },
-    {
-      variant: "green" as const,
+    3: {
+      variant: "green",
       icon: PROMO_ICONS.backpack,
       title: "Escolar 2027",
       text: "Tudo para o ano letivo com preços de lançamento.",
       tag: "40% OFF",
     },
-  ];
+  };
 
   return (
     <main style={{ paddingBottom: 72 }}>
@@ -71,24 +63,22 @@ export default async function ProdutosPage() {
         <BannerSlider />
       </div>
 
-      {groups.length === 0 && (
-        <p style={{ maxWidth: 1240, margin: "0 auto", padding: "34px 32px 0", color: "var(--ink-soft)" }}>
-          Nenhum produto encontrado.
-        </p>
-      )}
-
       {groups.map((group, i) => (
-        <Fragment key={group.title}>
+        <Fragment key={group.slug}>
           <div
+            id={group.slug}
             style={{
               maxWidth: 1240,
               margin: "0 auto",
               padding: i === 0 ? "34px 32px 0" : "18px 32px 0",
+              // cabecalho fica sticky (61px) - folga pro titulo da secao nao
+              // ficar colado/escondido quando chega via #ancora.
+              scrollMarginTop: 77,
             }}
           >
             <CategoryCarousel title={group.title} products={group.items} />
           </div>
-          {i < groups.length - 1 && midBanners[i] && (
+          {midBanners[i] && (
             <div style={{ maxWidth: 1240, margin: "0 auto", padding: "0 32px" }}>
               <PromoStrip {...midBanners[i]} />
             </div>
