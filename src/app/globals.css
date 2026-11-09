@@ -233,6 +233,24 @@ a {
   right: -6px;
 }
 
+/* InspirationBanner - fotos grandes (mesmo tamanho do grid estatico
+   original) rolando dentro do .carousel-track compartilhado. */
+.inspiration-photo-item {
+  flex: 0 0 380px;
+  height: 300px;
+  border-radius: var(--radius-card);
+  overflow: hidden;
+  scroll-snap-align: start;
+  box-shadow: var(--shadow-soft);
+}
+
+@media (max-width: 768px) {
+  .inspiration-photo-item {
+    flex-basis: 260px;
+    height: 220px;
+  }
+}
+
 
 @media (max-width: 768px) {
   .category-showcase-grid {
