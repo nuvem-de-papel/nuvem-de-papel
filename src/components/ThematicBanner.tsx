@@ -23,19 +23,6 @@ export function ThematicBanner() {
         <h2 className="script-heading" style={{ fontSize: 37, margin: "0 auto", maxWidth: "none", whiteSpace: "nowrap" }}>
           Papelaria cheia de personalidade pra quem ama criar
         </h2>
-        <p
-          style={{
-            fontSize: 21,
-            color: "#000000",
-            maxWidth: "none",
-            margin: "14px auto 0",
-            lineHeight: 1.6,
-          }}
-        >
-          Itens criativos e cheios de estilo que trazem leveza pra rotina
-          <br />
-          Perfeitos pra colecionadores e apaixonados por papelaria com personalidade.
-        </p>
         <div
           aria-hidden="true"
           style={{ width: 64, height: 3, background: "var(--cta)", opacity: 0.6, margin: "18px auto 0", borderRadius: 2 }}

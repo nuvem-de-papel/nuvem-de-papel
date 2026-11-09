@@ -16,19 +16,6 @@ export function PenCategoryBanner() {
     <section style={{ maxWidth: 1240, margin: "0 auto", padding: "8px 32px 72px" }}>
       <div style={{ textAlign: "center", marginBottom: 28 }}>
         <h2 className="script-heading" style={{ fontSize: 36 }}>Canetas</h2>
-        <p
-          style={{
-            fontSize: 19,
-            color: "#000000",
-            maxWidth: "none",
-            margin: "12px auto 0",
-            lineHeight: 1.6,
-          }}
-        >
-          Canetas são mágicas: com um simples traço, elas escrevem histórias, desenham sonhos e organizam planos.
-          <br />
-          Criativas, coloridas e fofas, perfeitas pra deixar sua rotina mais leve e divertida.
-        </p>
       </div>
 
       <div className="pen-category-grid">

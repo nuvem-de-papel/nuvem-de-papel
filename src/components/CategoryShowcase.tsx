@@ -14,12 +14,11 @@ function fotoPexels(id: number, largura = 300) {
 
 export function CategoryShowcase() {
   return (
-    <section style={{ maxWidth: 1240, margin: "0 auto", padding: "16px 32px 72px" }}>
+    <section style={{ maxWidth: 1240, margin: "0 auto", padding: "32px 32px 72px" }}>
       <div style={{ textAlign: "center", marginBottom: 40 }}>
-        <h2 className="script-heading" style={{ fontSize: 35 }}>Navegue por Categoria</h2>
         <div
           aria-hidden="true"
-          style={{ width: 64, height: 3, background: "var(--cta)", opacity: 0.6, margin: "16px auto 0", borderRadius: 2 }}
+          style={{ width: 64, height: 3, background: "var(--cta)", opacity: 0.6, margin: "0 auto", borderRadius: 2 }}
         />
       </div>
 
