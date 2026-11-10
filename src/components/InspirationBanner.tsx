@@ -3,10 +3,9 @@
 // Banner "Papelaria criativa" — 10/11/2026 (pedido do Joaquim): as fotos
 // decorativas do Pexels viraram carrossel de PRODUTO real (ProductCard
 // - imagem, categoria, nome, preco, estoque disponivel/indisponivel),
-// igual ao Destaques/Lapis-Lapiseira/Borrachas. Mantem o fundo com video
-// full-bleed esmaecido atras do conteudo (ajustado em rodada anterior,
-// o Joaquim avaliou que nao ficou perfeito mas decidiu deixar assim por
-// enquanto).
+// igual ao Destaques/Lapis-Lapiseira/Borrachas. Fundo com video full-bleed
+// removido em 10/11/2026 (o Joaquim avaliou e pediu pra tirar) - secao
+// fica com o fundo padrao da pagina.
 import { useRef } from "react";
 import type { VarejoProduct } from "@/lib/products";
 import { ProductCard } from "@/components/ProductCard";
@@ -21,23 +20,8 @@ export function InspirationBanner({ produtos }: { produtos: VarejoProduct[] }) {
   }
 
   return (
-    <section style={{ position: "relative", overflow: "hidden", padding: "40px 0 72px" }}>
-      <video
-        src="/videos/papelaria-criativa-hero.mp4"
-        autoPlay
-        muted
-        loop
-        playsInline
-        preload="auto"
-        aria-hidden="true"
-        style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", zIndex: 0 }}
-      />
-      <div
-        aria-hidden="true"
-        style={{ position: "absolute", inset: 0, background: "rgba(255,251,247,0.72)", zIndex: 1 }}
-      />
-
-      <div style={{ position: "relative", zIndex: 2, maxWidth: 1240, margin: "0 auto", padding: "0 32px" }}>
+    <section style={{ padding: "40px 0 72px" }}>
+      <div style={{ maxWidth: 1240, margin: "0 auto", padding: "0 32px" }}>
         <div style={{ textAlign: "center", marginBottom: 32 }}>
           <h2 className="script-heading" style={{ fontSize: 40, margin: "0 auto", maxWidth: "none", whiteSpace: "nowrap" }}>
             Papelaria criativa para alegrar sua rotina
