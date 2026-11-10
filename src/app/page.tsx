@@ -1,8 +1,6 @@
 import { Hero } from "@/components/Hero";
 import { InspirationBanner } from "@/components/InspirationBanner";
 import { CategoryShowcase } from "@/components/CategoryShowcase";
-import { ThematicBanner } from "@/components/ThematicBanner";
-import { PenCategoryBanner } from "@/components/PenCategoryBanner";
 import { ProductCarousel } from "@/components/ProductCarousel";
 import { getStoreProducts, type VarejoProduct } from "@/lib/products";
 
@@ -25,6 +23,7 @@ function porCategoria(produtos: VarejoProduct[], termos: string[]) {
 export default async function HomePage() {
   const produtos = await getStoreProducts();
   const destaque = produtos.slice(0, 8);
+  const canetas = porCategoria(produtos, ["caneta"]);
   const lapisELapiseiras = porCategoria(produtos, ["lapis", "lapiseira"]);
   const borrachas = porCategoria(produtos, ["borracha"]);
 
@@ -32,12 +31,13 @@ export default async function HomePage() {
     <main>
       <Hero />
       <CategoryShowcase />
-      <InspirationBanner />
-      <ThematicBanner />
+      <InspirationBanner produtos={produtos} />
+
+      <ProductCarousel titulo="Papelaria cheia de personalidade pra quem ama criar" produtos={produtos} />
 
       <ProductCarousel titulo="Destaques" produtos={destaque} verTodosHref="/produtos" />
 
-      <PenCategoryBanner />
+      <ProductCarousel titulo="Canetas" produtos={canetas} />
 
       <ProductCarousel titulo="Lápis ou Lapiseira?" produtos={lapisELapiseiras} />
 

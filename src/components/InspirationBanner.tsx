@@ -1,48 +1,17 @@
 "use client";
 
-// Banner "Papelaria criativa" — reestruturado 09/11/2026 (pedido do
-// Joaquim, 2a rodada): video vira FUNDO da secao inteira (full-bleed,
-// esmaecido sob um véu pastel pra legibilidade, mesmo espirito do
-// Hero.tsx), as 6 fotos ficam por cima, em carrossel, no tamanho grande
-// que elas tinham antes de virar carrossel (300px/220px de altura, como
-// era no grid estatico original de 3 fotos). Titulo sem subtitulo.
-// Fotos reais do banco gratuito Pexels (busca "papelaria criativa",
-// https://www.pexels.com/pt-br/procurar/?q=papelaria%20criativa). Licenca
-// Pexels permite uso comercial livre, sem atribuicao obrigatoria.
+// Banner "Papelaria criativa" — 10/11/2026 (pedido do Joaquim): as fotos
+// decorativas do Pexels viraram carrossel de PRODUTO real (ProductCard
+// - imagem, categoria, nome, preco, estoque disponivel/indisponivel),
+// igual ao Destaques/Lapis-Lapiseira/Borrachas. Mantem o fundo com video
+// full-bleed esmaecido atras do conteudo (ajustado em rodada anterior,
+// o Joaquim avaliou que nao ficou perfeito mas decidiu deixar assim por
+// enquanto).
 import { useRef } from "react";
+import type { VarejoProduct } from "@/lib/products";
+import { ProductCard } from "@/components/ProductCard";
 
-const FOTOS = [
-  {
-    id: 6193094,
-    alt: "Marcadores, lapis de cor e clipes organizados em tons pastel sobre a mesa",
-  },
-  {
-    id: 6969285,
-    alt: "Composicao flat lay com clipes de papel e canetinhas coloridas",
-  },
-  {
-    id: 35822002,
-    alt: "Materiais de artesanato e adesivos coloridos para projetos criativos",
-  },
-  {
-    id: 6193082,
-    alt: "Adesivos e etiquetas decorativas em tons pastel sobre caderno aberto",
-  },
-  {
-    id: 5705998,
-    alt: "Canetinhas coloridas organizadas ao lado de planner aberto",
-  },
-  {
-    id: 30552130,
-    alt: "Papelaria criativa com materiais de artesanato em cores suaves",
-  },
-] as const;
-
-function fotoPexels(id: number, largura = 700) {
-  return `https://images.pexels.com/photos/${id}/pexels-photo-${id}.jpeg?auto=compress&cs=tinysrgb&w=${largura}`;
-}
-
-export function InspirationBanner() {
+export function InspirationBanner({ produtos }: { produtos: VarejoProduct[] }) {
   const trilhoRef = useRef<HTMLDivElement | null>(null);
 
   function rolar(direcao: 1 | -1) {
@@ -79,37 +48,37 @@ export function InspirationBanner() {
           />
         </div>
 
-        <div style={{ position: "relative" }}>
-          <button
-            type="button"
-            aria-label="Anterior"
-            className="carousel-arrow carousel-arrow-left"
-            onClick={() => rolar(-1)}
-          >
-            ‹
-          </button>
-          <div ref={trilhoRef} className="carousel-track">
-            {FOTOS.map((foto) => (
-              <div key={foto.id} className="media-photo-item">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={fotoPexels(foto.id)}
-                  alt={foto.alt}
-                  loading="lazy"
-                  style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-                />
-              </div>
-            ))}
+        {produtos.length === 0 ? (
+          <p style={{ textAlign: "center", color: "var(--ink-soft)", fontSize: 18 }}>
+            Em breve, novidades nessa categoria.
+          </p>
+        ) : (
+          <div style={{ position: "relative" }}>
+            <button
+              type="button"
+              aria-label="Anterior"
+              className="carousel-arrow carousel-arrow-left"
+              onClick={() => rolar(-1)}
+            >
+              ‹
+            </button>
+            <div ref={trilhoRef} className="carousel-track">
+              {produtos.map((produto) => (
+                <div key={produto.id} className="carousel-item">
+                  <ProductCard produto={produto} />
+                </div>
+              ))}
+            </div>
+            <button
+              type="button"
+              aria-label="Próximo"
+              className="carousel-arrow carousel-arrow-right"
+              onClick={() => rolar(1)}
+            >
+              ›
+            </button>
           </div>
-          <button
-            type="button"
-            aria-label="Próximo"
-            className="carousel-arrow carousel-arrow-right"
-            onClick={() => rolar(1)}
-          >
-            ›
-          </button>
-        </div>
+        )}
       </div>
     </section>
   );
