@@ -1,8 +1,6 @@
 import { Hero } from "@/components/Hero";
 import { InspirationBanner } from "@/components/InspirationBanner";
 import { CategoryShowcase } from "@/components/CategoryShowcase";
-import { ThematicBanner } from "@/components/ThematicBanner";
-import { PenCategoryBanner } from "@/components/PenCategoryBanner";
 import { ProductCarousel } from "@/components/ProductCarousel";
 import { getStoreProducts, type VarejoProduct } from "@/lib/products";
 
@@ -25,38 +23,26 @@ function porCategoria(produtos: VarejoProduct[], termos: string[]) {
 export default async function HomePage() {
   const produtos = await getStoreProducts();
   const destaque = produtos.slice(0, 8);
+  const canetas = porCategoria(produtos, ["caneta"]);
   const lapisELapiseiras = porCategoria(produtos, ["lapis", "lapiseira"]);
   const borrachas = porCategoria(produtos, ["borracha"]);
 
   return (
     <main>
       <Hero />
-      <InspirationBanner />
       <CategoryShowcase />
-      <ThematicBanner />
+      <InspirationBanner produtos={produtos} />
 
-      <ProductCarousel titulo="Destaques" subtitulo="Confira os mais queridinhos" produtos={destaque} verTodosHref="/produtos" />
+      <ProductCarousel titulo="Papelaria cheia de personalidade pra quem ama criar" produtos={produtos} />
 
-      <PenCategoryBanner />
+      <ProductCarousel titulo="Destaques" produtos={destaque} verTodosHref="/produtos" />
 
-      <ProductCarousel
-        titulo="Lápis ou Lapiseira?"
-        subtitulo={
-          <>
-            Com designs criativos, cores encantadoras e detalhes que fazem brilhar os olhos
-            <br />
-            Aqui você encontra desde o lápis fofo perfeito para presentear até a lapiseira funcional
-            <br />
-            estilosa que vai te acompanhar nos estudos ou no trabalho.
-          </>
-        }
-        subtituloMaxWidth="none"
-        produtos={lapisELapiseiras}
-      />
+      <ProductCarousel titulo="Canetas" produtos={canetas} />
+
+      <ProductCarousel titulo="Lápis ou Lapiseira?" produtos={lapisELapiseiras} />
 
       <ProductCarousel
         titulo="Borrachas criativas e colecionáveis para quem ama papelaria fofa"
-        subtitulo="Borrachas criativas, fofas e colecionáveis, com formatos diferentes e funcionais que transformam o dia a dia com muito estilo."
         produtos={borrachas}
       />
     </main>

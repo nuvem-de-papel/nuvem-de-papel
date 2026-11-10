@@ -19,8 +19,8 @@ const iconProps = {
 
 // Botão social do padrão da casa (pedido do cliente): circulo uniforme,
 // hover rosa. `rodape` = translucido sobre o fundo escuro do rodape;
-// `flutuante` = fundo rosa, icone preto, borda preta (pedido 09/11/2026)
-// pra ficar legivel e com contraste sobre o fundo claro da loja.
+// `flutuante` = fundo preto, icone e borda rosa (invertido em 10/11/2026 -
+// antes era fundo rosa/icone preto, o Joaquim pediu o oposto).
 function SocialButton({
   href,
   label,
@@ -35,10 +35,10 @@ function SocialButton({
   variante?: "rodape" | "flutuante";
 }) {
   const flutuante = variante === "flutuante";
-  const fundo = flutuante ? "var(--cta)" : "rgba(255,255,255,0.1)";
-  const fundoHover = flutuante ? "var(--cta-hover)" : "#E084AC";
-  const borda = flutuante ? "1px solid #000000" : "1px solid rgba(255,255,255,0.2)";
-  const cor = flutuante ? "#000000" : "#FFFFFF";
+  const fundo = flutuante ? "#000000" : "rgba(255,255,255,0.1)";
+  const fundoHover = flutuante ? "#1A1A1A" : "#E084AC";
+  const borda = flutuante ? "1px solid var(--cta)" : "1px solid rgba(255,255,255,0.2)";
+  const cor = flutuante ? "var(--cta)" : "#FFFFFF";
   return (
     <a
       href={href}
@@ -127,7 +127,7 @@ export function FloatingSocial() {
       }}
     >
       {socialLinks.map((s) => (
-        <SocialButton key={s.label} {...s} size={19} variante="flutuante" />
+        <SocialButton key={s.label} {...s} size={20} variante="flutuante" />
       ))}
       <WhatsappButton />
     </div>
