@@ -3,6 +3,7 @@ import "./globals.css";
 import { Header } from "@/components/Header";
 import { Footer, FloatingSocial } from "@/components/Footer";
 import { CartProvider } from "@/components/carrinho/CartProvider";
+import { OrcamentoProvider } from "@/components/orcamento/OrcamentoProvider";
 import { getBrandingCssVars } from "@/lib/branding";
 
 export const dynamic = "force-dynamic";
@@ -26,10 +27,12 @@ export default async function RootLayout({
       </head>
       <body>
         <CartProvider>
+          <OrcamentoProvider>
           <Header />
           <FloatingSocial />
           {children}
           <Footer />
+        </OrcamentoProvider>
         </CartProvider>
       </body>
     </html>

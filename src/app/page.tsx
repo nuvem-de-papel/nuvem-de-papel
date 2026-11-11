@@ -1,8 +1,8 @@
 import { Hero } from "@/components/Hero";
-import { InspirationBanner } from "@/components/InspirationBanner";
 import { CategoryShowcase } from "@/components/CategoryShowcase";
-import { ProductCarousel } from "@/components/ProductCarousel";
+import { CategoryCarousel } from "@/components/produtos/CategoryCarousel";
 import { getStoreProducts, type VarejoProduct } from "@/lib/products";
+import { agruparPorSetor } from "@/lib/categoriasProdutos";
 
 // Normaliza texto (minusculo, sem acento) pra filtrar categoria sem
 // depender de grafia exata (ex.: "Lápis" vs "lapis").
@@ -20,31 +20,46 @@ function porCategoria(produtos: VarejoProduct[], termos: string[]) {
   });
 }
 
+// Vitrine do Hero em loop: 1o produto de cada setor, depois o 2o de cada, etc.
+function ordemLoop(setores: { items: VarejoProduct[] }[]): VarejoProduct[] {
+  const saida: VarejoProduct[] = [];
+  const maior = Math.max(0, ...setores.map((s) => s.items.length));
+  for (let j = 0; j < maior; j++) {
+    for (const setor of setores) {
+      if (setor.items[j]) saida.push(setor.items[j]);
+    }
+  }
+  return saida;
+}
+
 export default async function HomePage() {
   const produtos = await getStoreProducts();
   const destaque = produtos.slice(0, 8);
-  const canetas = porCategoria(produtos, ["caneta"]);
   const lapisELapiseiras = porCategoria(produtos, ["lapis", "lapiseira"]);
-  const borrachas = porCategoria(produtos, ["borracha"]);
+  const setores = agruparPorSetor(produtos);
 
   return (
-    <main>
-      <Hero />
+    <main style={{ overflowX: "clip" }}>
+      <Hero vitrine={ordemLoop(setores)} />
       <CategoryShowcase />
-      <InspirationBanner produtos={produtos} />
 
-      <ProductCarousel titulo="Papelaria cheia de personalidade pra quem ama criar" produtos={produtos} />
+      <section className="fundo-animado fundo-home-setores">
+        <div style={{ maxWidth: 1240, margin: "0 auto", padding: "34px 32px 0" }}>
+          {setores.map((setor) => (
+            <div key={setor.slug} style={{ marginBottom: 18 }}>
+              <CategoryCarousel title={setor.title} products={setor.items} cor={setor.cor} corTitulo={setor.corTitulo} />
+            </div>
+          ))}
+        </div>
+      </section>
 
-      <ProductCarousel titulo="Destaques" produtos={destaque} verTodosHref="/produtos" />
+      <div style={{ maxWidth: 1240, margin: "0 auto", padding: "18px 32px 0" }}>
+        <CategoryCarousel title="Destaques" products={destaque} />
+      </div>
 
-      <ProductCarousel titulo="Canetas" produtos={canetas} />
-
-      <ProductCarousel titulo="Lápis ou Lapiseira?" produtos={lapisELapiseiras} />
-
-      <ProductCarousel
-        titulo="Borrachas criativas e colecionáveis para quem ama papelaria fofa"
-        produtos={borrachas}
-      />
+      <div style={{ maxWidth: 1240, margin: "0 auto", padding: "18px 32px 72px" }}>
+        <CategoryCarousel title="Lápis ou Lapiseira?" products={lapisELapiseiras} />
+      </div>
     </main>
   );
 }

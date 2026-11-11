@@ -1,45 +1,55 @@
 @import url("https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@1,500;1,600&family=Poppins:wght@500;600;700;800&family=Open+Sans:wght@400;500;600;700&display=swap");
 
 /* Identidade visual 2026 — paleta v3 cinza (aprovada 25/09/2026):
-   fundos #E0E0E0 · barras topo/rodapé #3D3D3D · botão = Pink-600 #E084AC · amarelo = só a marca.
+   fundos #FBFBF7 · barras topo/rodapé #3D3D3D · botão = Pink-600 #FC99D3 · amarelo = só a marca.
    Fontes: Poppins (títulos) + Open Sans (corpo). */
 :root {
-  /* Fundos */
-  --bg-cotton: #E0E0E0;
-  --bg-cloud: #E0E0E0;
+  /* Paleta oficial Nuvem de Papel (fonte unica) */
+  --nuvem-azul: #0CCAFD;
+  --nuvem-ciano: #24F1FC;
+  --nuvem-azul-profundo: #006BE1;
+  --nuvem-rosa: #FC99D3;
+  --nuvem-amarelo: #FECD01;
+  --nuvem-verde: #03BF01;
+  --nuvem-madeira: #FFE9B1;
+  --nuvem-pincel: #E9761C;
+  --nuvem-metal: #B29D8B;
+  --nuvem-preto: #100D0D;
+  --nuvem-branco: #FBFBF7;
 
-  /* Azul Noturno — texto forte e títulos */
-  --navy: #073B4C;
-  --navy-light: #0D5268;
+  /* Papeis do site: apontam para a paleta acima (trocar aqui muda tudo) */
+  --bg-cotton: var(--nuvem-branco);
+  --bg-cloud: var(--nuvem-branco);
 
-  /* Pink-600 — principal (destaques, links, acentos) */
-  --pink-100: #FBE4ED;
-  --pink-300: #F2B8CE;
-  --pink-600: #E084AC;
-  --pink-600-dark: #D06A97;
+  --navy: var(--nuvem-azul-profundo);
+  --navy-light: var(--nuvem-azul);
 
-  /* Pink-600 — CTAs, botões de compra (paleta v2 aprovada) */
-  --cta: #E084AC;
-  --cta-hover: #D06A97;
+  --pink-100: var(--nuvem-madeira);
+  --pink-300: var(--nuvem-rosa);
+  --pink-600: var(--nuvem-rosa);
+  --pink-600-dark: var(--nuvem-pincel);
+
+  --cta: var(--nuvem-rosa);
+  --cta-hover: var(--nuvem-amarelo);
 
   /* Compatibilidade com componentes existentes */
-  --blue-100: #E6F0F4;
-  --blue-300: #B4D4E0;
-  --blue-600: #073B4C;
-  --lilac-100: #FFF6E0;
-  --lilac-300: #FFD166;
-  --lilac-600: #D06A97;
+  --blue-100: var(--nuvem-branco);
+  --blue-300: var(--nuvem-azul);
+  --blue-600: var(--nuvem-azul-profundo);
+  --lilac-100: var(--nuvem-madeira);
+  --lilac-300: var(--nuvem-amarelo);
+  --lilac-600: var(--nuvem-pincel);
 
   /* Texto */
-  --ink: #1A2B33;
-  --ink-soft: #5A6577;
-  --ink-faint: #CFCFCF;
-  --ink-2: #073B4C;
+  --ink: var(--nuvem-preto);
+  --ink-soft: var(--nuvem-preto);
+  --ink-faint: var(--nuvem-metal);
+  --ink-2: var(--nuvem-preto);
   --white: #FFFFFF;
   --on-accent: #FFFFFF;
 
   /* Bordas e sombras */
-  --border: #C9C9C9;
+  --border: var(--nuvem-metal);
   --shadow-soft: 0 6px 20px rgba(0, 0, 0, 0.15);
   --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.10);
 
@@ -117,10 +127,14 @@ a {
   }
 }
 
-/* "Navegue por Categoria" (CategoryShowcase) - grid de 6, foto circular. */
+/* "Navegue por Categoria" (CategoryShowcase) - 1 item por setor real (7 hoje).
+   2026-11-10: trocado de grid fixo de 6 colunas (sobrava o 7o setor sozinho
+   numa linha nova, grudado na esquerda) pra flex com wrap + centralizado -
+   ocupa a secao inteira dos dois lados em qualquer quantidade de setores. */
 .category-showcase-grid {
-  display: grid;
-  grid-template-columns: repeat(6, 1fr);
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
   gap: 20px;
 }
 
@@ -130,6 +144,7 @@ a {
   align-items: center;
   text-align: center;
   text-decoration: none;
+  width: 140px;
   color: inherit;
 }
 
@@ -214,8 +229,11 @@ a {
 
 @media (max-width: 768px) {
   .category-showcase-grid {
-    grid-template-columns: repeat(3, 1fr);
     gap: 16px;
+  }
+
+  .category-showcase-item {
+    width: 96px;
   }
 
   .category-showcase-photo {
@@ -225,6 +243,52 @@ a {
 
   .carousel-item {
     flex-basis: 220px;
+  }
+
+  /* Rede social flutuante: tamanho ORIGINAL no mobile (0048) - o aumento de
+     2px é só pra tela cheia (ver regra >= 769px mais abaixo). */
+  .social-btn-float {
+    width: 38px !important;
+    height: 38px !important;
+  }
+
+  .social-btn-float-icon {
+    width: 20px !important;
+    height: 20px !important;
+  }
+
+  .whatsapp-float {
+    width: 36px !important;
+    height: 36px !important;
+  }
+
+  .whatsapp-float-icon {
+    width: 18px !important;
+    height: 18px !important;
+  }
+}
+
+/* Rede social flutuante: 2px maior na tela cheia (pedido 2026-11-10) -
+   mobile mantém o tamanho original (regra acima). */
+@media (min-width: 769px) {
+  .social-btn-float {
+    width: 40px !important;
+    height: 40px !important;
+  }
+
+  .social-btn-float-icon {
+    width: 22px !important;
+    height: 22px !important;
+  }
+
+  .whatsapp-float {
+    width: 38px !important;
+    height: 38px !important;
+  }
+
+  .whatsapp-float-icon {
+    width: 20px !important;
+    height: 20px !important;
   }
 }
 a:hover {
@@ -769,7 +833,7 @@ body:has(.admin-shell) .floating-social {
 .painel-tile:hover {
   transform: translateY(-2px);
   border-color: var(--navy);
-  box-shadow: 0 10px 22px rgba(7, 59, 76, 0.14);
+  box-shadow: 0 10px 22px rgba(0, 107, 225, 0.14);
   color: var(--ink);
 }
 
@@ -823,7 +887,7 @@ body:has(.admin-shell) .floating-social {
 
 .painel-tile--destaque:hover {
   border-color: var(--navy-light);
-  box-shadow: 0 14px 30px rgba(7, 59, 76, 0.3);
+  box-shadow: 0 14px 30px rgba(0, 107, 225, 0.3);
   color: #fff;
 }
 
@@ -853,7 +917,7 @@ body:has(.admin-shell) .floating-social {
 }
 
 .painel-chip--aberto {
-  background: rgba(224, 132, 172, 0.22);
+  background: rgba(252, 153, 211, 0.22);
   color: #fff;
 }
 
@@ -1153,7 +1217,7 @@ body:has(.admin-shell) .floating-social {
     position: fixed;
     inset: 0;
     z-index: 65;
-    background: rgba(7, 59, 76, 0.55);
+    background: rgba(0, 107, 225, 0.55);
     border: 0;
     padding: 0;
   }
@@ -1236,4 +1300,250 @@ body:has(.admin-shell) .floating-social {
   .doc-print-quebra {
     page-break-after: always;
   }
+}
+
+/* ===== Direcao tecnologica (home) ==========================================
+   So visual. Medidas (container 1240, paddings, 260px, 300px, 40x40...)
+   continuam as mesmas. Grade tecnica de fundo, rotulos em monoespacado,
+   cards com brilho e elevacao ao passar o mouse, setas com aro. */
+.tech-band {
+  position: relative;
+  isolation: isolate;
+}
+
+/* grade full-width: o pseudo-elemento cobre a largura da tela inteira,
+   mesmo quando a secao tem max-width 1240 (medidas da secao nao mudam) */
+.tech-band::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 100vw;
+  transform: translateX(-50%);
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(0, 107, 225, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 107, 225, 0.045) 1px, transparent 1px);
+  background-size: 48px 48px;
+}
+
+.tech-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: ui-monospace, "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--navy);
+  margin-bottom: 10px;
+}
+
+.tech-label::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  background: var(--pink-600);
+  box-shadow: 0 0 10px var(--pink-600);
+}
+
+.carousel-item > div {
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.carousel-item:hover > div {
+  transform: translateY(-3px);
+  border-color: var(--pink-600) !important;
+  box-shadow: 0 0 0 1px var(--pink-600), 0 12px 28px rgba(252, 153, 211, 0.28) !important;
+}
+
+.category-showcase-photo {
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.category-showcase-item:hover .category-showcase-photo {
+  box-shadow: 0 0 0 2px var(--pink-600), 0 0 22px rgba(252, 153, 211, 0.45);
+  transform: translateY(-2px);
+}
+
+.tech-band .carousel-arrow {
+  border-color: var(--navy);
+  color: var(--navy);
+}
+
+.tech-band .carousel-arrow:hover {
+  background: var(--navy);
+  color: #ffffff;
+  box-shadow: 0 0 18px rgba(0, 107, 225, 0.4);
+}
+
+/* ===== Fundos animados (home setores e pagina produtos) ===================
+   Imagem de fundo em camada propria (::before), com opacidade e deriva lenta.
+   Opacidade: --fundo-opacidade em cada fundo abaixo. Respeita reduced-motion. */
+.fundo-animado {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+
+.fundo-animado::before {
+  content: "";
+  position: absolute;
+  inset: -2%;
+  z-index: -1;
+  pointer-events: none;
+  background-size: cover;
+  background-position: center top;
+  background-repeat: no-repeat;
+  opacity: var(--fundo-opacidade, 0.3);
+  animation: fundo-deriva 26s ease-in-out infinite alternate;
+  will-change: transform;
+}
+
+.fundo-home-setores::before {
+  background-image: url("/fundos/home-setores.png");
+  --fundo-opacidade: 0.32;
+}
+
+.fundo-pagina-produtos::before {
+  background-image: url("/fundos/pagina-produtos.jpg");
+  --fundo-opacidade: 0.22;
+}
+
+@keyframes fundo-deriva {
+  from { transform: translate3d(0, 0, 0) scale(1); }
+  to   { transform: translate3d(-14px, -22px, 0) scale(1.04); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fundo-animado::before { animation: none; }
+}
+
+/* ===== Orcamento: duas colunas (lista | dados do cliente) ================ */
+.orcamento-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+.orcamento-form { position: sticky; top: 96px; }
+
+.orc-cabecalho,
+.orc-linha {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 84px 104px 112px 64px;
+  gap: 10px;
+  align-items: center;
+}
+.orc-cabecalho {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ink-soft);
+  padding: 14px 0 8px;
+  border-bottom: 2px solid #000000;
+  margin-top: 14px;
+}
+.orc-linha { padding: 12px 0; border-top: 1px solid #000000; }
+.orc-rotulo { display: none; }
+
+.orc-totais {
+  margin-top: 20px;
+  padding-top: 14px;
+  border-top: 2px solid #000000;
+}
+.orc-totais-linha {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  font-size: 14px;
+  color: var(--ink-soft);
+  padding: 4px 0;
+}
+.orc-totais-linha strong { color: var(--navy); }
+.orc-totais-final { margin-top: 8px; font-size: 17px; color: var(--navy); }
+.orc-totais-final strong { font-size: 19px; }
+
+@media (max-width: 899px) {
+  .orcamento-layout { grid-template-columns: minmax(0, 1fr); }
+  .orcamento-form { position: static; }
+}
+
+@media (max-width: 599px) {
+  .orc-cabecalho { display: none; }
+  .orc-linha { grid-template-columns: minmax(0, 1fr) 84px 64px; }
+  .orc-nome { grid-column: 1; grid-row: 1; }
+  .orc-qtd { grid-column: 2; grid-row: 1; }
+  .orc-remover { grid-column: 3; grid-row: 1; text-align: right; }
+  .orc-unit,
+  .orc-sub {
+    grid-column: 1 / -1;
+    display: flex;
+    justify-content: space-between !important;
+  }
+  .orc-unit { grid-row: 2; }
+  .orc-sub { grid-row: 3; }
+  .orc-rotulo { display: inline; }
+}
+
+/* Orcamento: campos do cliente em 2 colunas (estilo "Endereco de entrega") */
+.orc-campos {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 0 12px;
+  margin-top: 4px;
+}
+.orc-campos > div { margin-top: 12px; }
+.orc-campo-cheio { grid-column: 1 / -1; }
+@media (max-width: 599px) {
+  .orc-campos { grid-template-columns: minmax(0, 1fr); }
+  .orc-campo-cheio { grid-column: auto; }
+}
+
+/* Formulario do cliente: linhas fixas (CEP|Rua|Numero, Complemento|Bairro|Cidade|UF, Nome|Telefone...) */
+.orc-grade { display: grid; gap: 0 12px; }
+.orc-cel { margin-top: 12px; min-width: 0; }
+.orc-g-cep { grid-template-columns: 130px minmax(0, 1fr) 96px; }
+.orc-g-local { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.2fr) 72px; }
+.orc-g-2 { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.orc-g-1 { grid-template-columns: minmax(0, 1fr); }
+@media (max-width: 599px) {
+  .orc-g-cep, .orc-g-local, .orc-g-2 { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* Rotulo dentro da caixa do campo (flutua para cima ao digitar) */
+.orc-flut { position: relative; }
+.orc-flut label {
+  position: absolute;
+  left: 13px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--navy);
+  pointer-events: none;
+  transition: top 0.15s, font-size 0.15s, transform 0.15s;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: calc(100% - 26px);
+}
+.orc-flut textarea + label { top: 14px; transform: none; }
+.orc-flut input:focus + label,
+.orc-flut input:not(:placeholder-shown) + label,
+.orc-flut textarea:focus + label,
+.orc-flut textarea:not(:placeholder-shown) + label {
+  top: 7px;
+  transform: none;
+  font-size: 10px;
+}
+.orc-g-nome-tel { grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); }
+@media (max-width: 599px) {
+  .orc-g-nome-tel { grid-template-columns: minmax(0, 1fr); }
 }

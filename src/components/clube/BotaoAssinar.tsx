@@ -19,7 +19,7 @@ export function BotaoAssinar({ planId, logado }: { planId: string; logado: boole
         style={{
           display: "block",
           textAlign: "center",
-          background: "var(--pink-600, #e084ac)",
+          background: "var(--pink-600, #FC99D3)",
           color: "var(--on-accent, #fff)",
           padding: "13px 20px",
           borderRadius: "var(--radius-control, 10px)",
@@ -52,7 +52,7 @@ export function BotaoAssinar({ planId, logado }: { planId: string; logado: boole
         }}
         style={{
           width: "100%",
-          background: "var(--pink-600, #e084ac)",
+          background: "var(--pink-600, #FC99D3)",
           color: "var(--on-accent, #fff)",
           padding: "13px 20px",
           border: "none",

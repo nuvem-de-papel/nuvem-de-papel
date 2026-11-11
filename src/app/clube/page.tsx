@@ -94,7 +94,7 @@ export default async function ClubePage() {
             <Link
               href="/conta/assinatura"
               style={{
-                background: "var(--pink-600, #e084ac)",
+                background: "var(--pink-600, #FC99D3)",
                 color: "#fff",
                 padding: "12px 24px",
                 borderRadius: "var(--radius-control, 10px)",

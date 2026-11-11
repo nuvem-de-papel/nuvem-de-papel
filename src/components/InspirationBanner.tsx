@@ -10,7 +10,17 @@ import { useRef } from "react";
 import type { VarejoProduct } from "@/lib/products";
 import { ProductCard } from "@/components/ProductCard";
 
-export function InspirationBanner({ produtos }: { produtos: VarejoProduct[] }) {
+export function InspirationBanner({
+  produtos,
+  titulo = "Papelaria criativa para alegrar sua rotina",
+  indice,
+  total,
+}: {
+  produtos: VarejoProduct[];
+  titulo?: string;
+  indice?: number;
+  total?: number;
+}) {
   const trilhoRef = useRef<HTMLDivElement | null>(null);
 
   function rolar(direcao: 1 | -1) {
@@ -20,11 +30,16 @@ export function InspirationBanner({ produtos }: { produtos: VarejoProduct[] }) {
   }
 
   return (
-    <section style={{ padding: "40px 0 72px" }}>
+    <section className="tech-band" style={{ padding: "40px 0 72px" }}>
       <div style={{ maxWidth: 1240, margin: "0 auto", padding: "0 32px" }}>
         <div style={{ textAlign: "center", marginBottom: 32 }}>
+          {indice && total && (
+            <div className="tech-label" style={{ justifyContent: "center" }}>
+              Setor {String(indice).padStart(2, "0")} / {String(total).padStart(2, "0")}
+            </div>
+          )}
           <h2 className="script-heading" style={{ fontSize: 40, margin: "0 auto", maxWidth: "none", whiteSpace: "nowrap" }}>
-            Papelaria criativa para alegrar sua rotina
+            {titulo}
           </h2>
           <div
             aria-hidden="true"

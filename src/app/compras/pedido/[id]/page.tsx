@@ -196,7 +196,7 @@ export default async function PedidoCompraPdf({
             border: "1px solid var(--border, #e3e7ef)",
             borderRadius: 10,
             background: "#fff",
-            color: "var(--navy, #0b2b3d)",
+            color: "var(--navy, #006BE1)",
             fontWeight: 800,
             fontSize: 13,
             padding: "8px 14px",
