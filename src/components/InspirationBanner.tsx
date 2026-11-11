@@ -1,64 +1,83 @@
-// Banner "Papelaria criativa" - pedido do Joaquim: reproduzir o estilo de
-// banner de referencia (titulo script rosa + subtitulo + fileira de fotos),
-// usando fotos reais do banco gratuito Pexels (busca "papelaria criativa",
-// https://www.pexels.com/pt-br/procurar/?q=papelaria%20criativa). Licenca
-// Pexels permite uso comercial livre, sem atribuicao obrigatoria.
-const FOTOS = [
-  {
-    id: 6193094,
-    alt: "Marcadores, lapis de cor e clipes organizados em tons pastel sobre a mesa",
-  },
-  {
-    id: 6969285,
-    alt: "Composicao flat lay com clipes de papel e canetinhas coloridas",
-  },
-  {
-    id: 35822002,
-    alt: "Materiais de artesanato e adesivos coloridos para projetos criativos",
-  },
-] as const;
+"use client";
 
-function fotoPexels(id: number, largura = 700) {
-  return `https://images.pexels.com/photos/${id}/pexels-photo-${id}.jpeg?auto=compress&cs=tinysrgb&w=${largura}`;
-}
+// Banner "Papelaria criativa" — 10/11/2026 (pedido do Joaquim): as fotos
+// decorativas do Pexels viraram carrossel de PRODUTO real (ProductCard
+// - imagem, categoria, nome, preco, estoque disponivel/indisponivel),
+// igual ao Destaques/Lapis-Lapiseira/Borrachas. Fundo com video full-bleed
+// removido em 10/11/2026 (o Joaquim avaliou e pediu pra tirar) - secao
+// fica com o fundo padrao da pagina.
+import { useRef } from "react";
+import type { VarejoProduct } from "@/lib/products";
+import { ProductCard } from "@/components/ProductCard";
 
-export function InspirationBanner() {
+export function InspirationBanner({
+  produtos,
+  titulo = "Papelaria criativa para alegrar sua rotina",
+  indice,
+  total,
+}: {
+  produtos: VarejoProduct[];
+  titulo?: string;
+  indice?: number;
+  total?: number;
+}) {
+  const trilhoRef = useRef<HTMLDivElement | null>(null);
+
+  function rolar(direcao: 1 | -1) {
+    const el = trilhoRef.current;
+    if (!el) return;
+    el.scrollBy({ left: direcao * Math.min(el.clientWidth * 0.9, 600), behavior: "smooth" });
+  }
+
   return (
-    <section style={{ maxWidth: 1240, margin: "0 auto", padding: "8px 32px 72px" }}>
-      <div style={{ textAlign: "center", marginBottom: 32 }}>
-        <h2 className="script-heading" style={{ fontSize: 40, margin: "0 auto", maxWidth: "none", whiteSpace: "nowrap" }}>
-          Papelaria criativa para alegrar sua rotina
-        </h2>
-        <p
-          style={{
-            fontSize: 19,
-            color: "#000000",
-            maxWidth: "none",
-            margin: "14px auto 0",
-            lineHeight: 1.6,
-            whiteSpace: "nowrap",
-          }}
-        >
-          Itens fofos e cheios de charme para organizar o dia a dia com cor, leveza e
-          criatividade - perfeitos para presentear ou se presentear.
-        </p>
-        <div
-          aria-hidden="true"
-          style={{ width: 64, height: 3, background: "var(--cta)", margin: "18px auto 0", borderRadius: 2, opacity: 0.6 }}
-        />
-      </div>
-
-      <div className="banner-photos">
-        {FOTOS.map((foto) => (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            key={foto.id}
-            src={fotoPexels(foto.id)}
-            alt={foto.alt}
-            loading="lazy"
-            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+    <section className="tech-band" style={{ padding: "40px 0 72px" }}>
+      <div style={{ maxWidth: 1240, margin: "0 auto", padding: "0 32px" }}>
+        <div style={{ textAlign: "center", marginBottom: 32 }}>
+          {indice && total && (
+            <div className="tech-label" style={{ justifyContent: "center" }}>
+              Setor {String(indice).padStart(2, "0")} / {String(total).padStart(2, "0")}
+            </div>
+          )}
+          <h2 className="script-heading" style={{ fontSize: 40, margin: "0 auto", maxWidth: "none", whiteSpace: "nowrap" }}>
+            {titulo}
+          </h2>
+          <div
+            aria-hidden="true"
+            style={{ width: 64, height: 3, background: "var(--cta)", margin: "18px auto 0", borderRadius: 2, opacity: 0.6 }}
           />
-        ))}
+        </div>
+
+        {produtos.length === 0 ? (
+          <p style={{ textAlign: "center", color: "var(--ink-soft)", fontSize: 18 }}>
+            Em breve, novidades nessa categoria.
+          </p>
+        ) : (
+          <div style={{ position: "relative" }}>
+            <button
+              type="button"
+              aria-label="Anterior"
+              className="carousel-arrow carousel-arrow-left"
+              onClick={() => rolar(-1)}
+            >
+              ‹
+            </button>
+            <div ref={trilhoRef} className="carousel-track">
+              {produtos.map((produto) => (
+                <div key={produto.id} className="carousel-item">
+                  <ProductCard produto={produto} />
+                </div>
+              ))}
+            </div>
+            <button
+              type="button"
+              aria-label="Próximo"
+              className="carousel-arrow carousel-arrow-right"
+              onClick={() => rolar(1)}
+            >
+              ›
+            </button>
+          </div>
+        )}
       </div>
     </section>
   );

@@ -81,6 +81,11 @@ const DEFAULT_ICON: ReactNode = (
 /* Mesma regra do servidor (cadastro/actions.ts:287): so https + extensao de
  * imagem. Aqui e defesa em profundidade - o banco ja tem o check da 0032. */
 const FOTO_REMOTA_OK = /^https:\/\/\S+\.(jpg|jpeg|png|webp)(\?\S*)?$/i;
+/* 0048: capa real do produto (item_images, position=0) vem como caminho
+ * LOCAL relativo (/produtos/catalogo/<sku>.jpg), servida pelo public/ do
+ * proprio Next.js - nao e URL de fornecedor. Restrita a esse prefixo, sem
+ * "..", pra nao virar caminho arbitrario. */
+const FOTO_LOCAL_OK = /^\/produtos\/catalogo\/[\w-]+\.(jpg|jpeg|png|webp)$/i;
 
 export function ProductImage({
   category,
@@ -102,7 +107,7 @@ export function ProductImage({
   const [falhouRemota, setFalhouRemota] = useState(false);
   const key = `${category ?? ""} ${name ?? ""}`.toLowerCase();
   const urlRemota = (fotoUrl ?? "").trim();
-  const usaRemota = !falhouRemota && FOTO_REMOTA_OK.test(urlRemota);
+  const usaRemota = !falhouRemota && (FOTO_REMOTA_OK.test(urlRemota) || FOTO_LOCAL_OK.test(urlRemota));
   const foto = usaRemota
     ? { src: urlRemota, alt: name || category || "Foto do produto" }
     : (FOTOS.find((f) => f.match.test(key)) ?? FOTO_PADRAO);
@@ -112,7 +117,7 @@ export function ProductImage({
     <div
       style={{
         borderRadius: 10,
-        background: "linear-gradient(145deg, #E6F0F4, #FFFFFF)",
+        background: "linear-gradient(145deg, #FBFBF7, #FFFFFF)",
         aspectRatio: "1",
         display: "flex",
         alignItems: "center",
@@ -128,7 +133,7 @@ export function ProductImage({
           height={iconSize}
           viewBox="0 0 24 24"
           fill="none"
-          stroke="#B4D4E0"
+          stroke="#0CCAFD"
           strokeWidth="1.3"
           strokeLinecap="round"
           strokeLinejoin="round"

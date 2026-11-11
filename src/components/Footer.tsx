@@ -18,9 +18,9 @@ const iconProps = {
 } as const;
 
 // Botão social do padrão da casa (pedido do cliente): circulo uniforme,
-// glifo claro, hover rosa. `rodape` = translucido sobre o fundo escuro do
-// rodape; `flutuante` = cinza solido (#4D4D4D = aparece igual ao do rodape)
-// para os icones continuarem legiveis sobre o fundo claro da loja.
+// hover rosa. `rodape` = translucido sobre o fundo escuro do rodape;
+// `flutuante` = fundo preto, icone e borda rosa (invertido em 10/11/2026 -
+// antes era fundo rosa/icone preto, o Joaquim pediu o oposto).
 function SocialButton({
   href,
   label,
@@ -34,7 +34,11 @@ function SocialButton({
   size?: number;
   variante?: "rodape" | "flutuante";
 }) {
-  const fundo = variante === "flutuante" ? "#4D4D4D" : "rgba(255,255,255,0.1)";
+  const flutuante = variante === "flutuante";
+  const fundo = flutuante ? "#000000" : "rgba(255,255,255,0.1)";
+  const fundoHover = flutuante ? "#1A1A1A" : "#FC99D3";
+  const borda = flutuante ? "1px solid var(--cta)" : "1px solid rgba(255,255,255,0.2)";
+  const cor = flutuante ? "var(--cta)" : "#FFFFFF";
   return (
     <a
       href={href}
@@ -42,20 +46,23 @@ function SocialButton({
       rel="noopener noreferrer"
       aria-label={label}
       title={label}
+      // 0048: na variante flutuante, tamanho sobe 2px em tela cheia e volta
+      // ao original no mobile - regra em globals.css (.social-btn-float).
+      className={flutuante ? "social-btn-float" : undefined}
       style={{
         width: size + 18,
         height: size + 18,
         borderRadius: 999,
         background: fundo,
-        border: "1px solid rgba(255,255,255,0.2)",
-        color: "#FFFFFF",
+        border: borda,
+        color: cor,
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
         transition: "background 0.2s, transform 0.2s",
       }}
       onMouseEnter={(e) => {
-        e.currentTarget.style.background = "#E084AC";
+        e.currentTarget.style.background = fundoHover;
         e.currentTarget.style.transform = "translateY(-3px)";
       }}
       onMouseLeave={(e) => {
@@ -63,7 +70,7 @@ function SocialButton({
         e.currentTarget.style.transform = "translateY(0)";
       }}
     >
-      <svg {...iconProps} width={size} height={size}>
+      <svg {...iconProps} width={size} height={size} className={flutuante ? "social-btn-float-icon" : undefined}>
         <path d={icon} />
       </svg>
     </a>
@@ -71,7 +78,10 @@ function SocialButton({
 }
 
 // WhatsApp no mesmo criterio dos demais: circulo verde com brilho suave.
-function WhatsappButton() {
+// 0048: `variante` so controla o tamanho em tela cheia vs mobile (CSS) - o
+// rodape fica do tamanho de sempre, so a flutuante cresce 2px no desktop.
+function WhatsappButton({ variante = "rodape" }: { variante?: "rodape" | "flutuante" }) {
+  const flutuante = variante === "flutuante";
   return (
     <a
       href={WHATSAPP_URL}
@@ -79,6 +89,7 @@ function WhatsappButton() {
       rel="noopener noreferrer"
       aria-label="WhatsApp"
       title="WhatsApp: +55 19 99363-1145"
+      className={flutuante ? "whatsapp-float" : undefined}
       style={{
         width: 36,
         height: 36,
@@ -98,7 +109,7 @@ function WhatsappButton() {
         e.currentTarget.style.transform = "translateY(0)";
       }}
     >
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" className={flutuante ? "whatsapp-float-icon" : undefined}>
         <path d="M17.5 14.4c-.3-.1-1.7-.8-2-.9-.3-.1-.5-.1-.7.1-.2.3-.7.9-.9 1.1-.2.2-.3.2-.6.1-1.7-.8-2.8-1.5-3.9-3.4-.3-.5.3-.5.8-1.5.1-.2 0-.4 0-.5s-.7-1.6-.9-2.2c-.2-.6-.5-.5-.7-.5h-.6c-.2 0-.5.1-.8.4-.3.3-1 1-1 2.5s1.1 2.9 1.2 3.1c.1.2 2.1 3.2 5.1 4.4 1.9.8 2.6.9 3.5.8.6-.1 1.7-.7 1.9-1.4.2-.7.2-1.2.2-1.4-.1-.1-.3-.2-.6-.4M12 2C6.5 2 2 6.5 2 12c0 1.8.5 3.5 1.3 4.9L2 22l5.3-1.4c1.4.8 3 1.2 4.7 1.2 5.5 0 10-4.5 10-10S17.5 2 12 2z" />
       </svg>
     </a>
@@ -123,9 +134,9 @@ export function FloatingSocial() {
       }}
     >
       {socialLinks.map((s) => (
-        <SocialButton key={s.label} {...s} variante="flutuante" />
+        <SocialButton key={s.label} {...s} size={20} variante="flutuante" />
       ))}
-      <WhatsappButton />
+      <WhatsappButton variante="flutuante" />
     </div>
   );
 }
@@ -155,14 +166,14 @@ export function Footer() {
             <svg width="22" height="22" viewBox="0 0 40 40" fill="none">
               <path
                 d="M10 27c-4.4 0-8-3.6-8-8 0-4.1 3.1-7.5 7.1-7.9C10.4 7 14.6 4 19.5 4c5.6 0 10.3 3.9 11.4 9.1 4.3.6 7.6 4.3 7.6 8.7 0 4.9-3.9 8.8-8.8 8.8H10z"
-                fill="#FFD166"
+                fill="#FECD01"
               />
             </svg>
             <span className="display" style={{ fontSize: 18, color: "#FFFFFF" }}>
               Nuvem de Papel
             </span>
           </div>
-          <p style={{ margin: 0, fontStyle: "italic", color: "#E084AC", fontSize: 14 }}>
+          <p style={{ margin: 0, fontStyle: "italic", color: "#FC99D3", fontSize: 14 }}>
             Organização e Criatividade que transforma a rotina
           </p>
           <p style={{ maxWidth: 240, lineHeight: 1.5, margin: "10px 0 0" }}>
@@ -262,15 +273,13 @@ export function Footer() {
           margin: "40px auto 0",
           paddingTop: 20,
           borderTop: "1px solid rgba(255,255,255,0.12)",
-          fontSize: 13,
+          fontSize: 14,
           color: "rgba(255,255,255,0.55)",
           textAlign: "center",
           lineHeight: 1.7,
         }}
       >
-        © 2026 Nuvem de Papel — CR Comércio e Exportação LTDA
-        <br />
-        CNPJ: 49.163.008/0001-68 — Nome fantasia: Nuvem de Papel
+        © 2026 Nuvem de Papel — CR Comércio e Exportação LTDA — CNPJ: 49.163.008/0001-68 — Nome fantasia: Nuvem de Papel
       </div>
     </footer>
   );

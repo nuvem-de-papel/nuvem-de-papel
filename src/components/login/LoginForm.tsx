@@ -104,7 +104,7 @@ export function LoginForm() {
       >
         <div
           style={{
-            background: "linear-gradient(180deg, #073B4C 0%, #0A4E63 100%)",
+            background: "linear-gradient(180deg, #006BE1 0%, #006BE1 100%)",
             padding: "28px 32px",
             display: "flex",
             alignItems: "center",
@@ -114,7 +114,7 @@ export function LoginForm() {
           <svg width="34" height="34" viewBox="0 0 40 40" fill="none" aria-hidden="true">
             <path
               d="M10 27c-4.4 0-8-3.6-8-8 0-4.1 3.1-7.5 7.1-7.9C10.4 7 14.6 4 19.5 4c5.6 0 10.3 3.9 11.4 9.1 4.3.6 7.6 4.3 7.6 8.7 0 4.9-3.9 8.8-8.8 8.8H10z"
-              fill="#FFD166"
+              fill="#FECD01"
             />
           </svg>
           <div>

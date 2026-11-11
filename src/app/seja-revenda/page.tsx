@@ -48,7 +48,7 @@ export default function SejaRevendaPage() {
       >
         <div
           style={{
-            background: "linear-gradient(180deg, #073B4C 0%, #0A4E63 100%)",
+            background: "linear-gradient(180deg, #006BE1 0%, #006BE1 100%)",
             padding: "28px 32px",
           }}
         >

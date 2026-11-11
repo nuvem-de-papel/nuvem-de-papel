@@ -1,67 +1,39 @@
-import { Fragment } from "react";
-import { getStoreProducts, type VarejoProduct } from "@/lib/products";
+import { Fragment, type ReactNode } from "react";
+import { getStoreProducts } from "@/lib/products";
+import { agruparPorSetor } from "@/lib/categoriasProdutos";
 import { BannerSlider } from "@/components/produtos/BannerSlider";
 import { CategoryCarousel } from "@/components/produtos/CategoryCarousel";
 import { PromoStrip, PROMO_ICONS } from "@/components/produtos/PromoStrip";
 import { PageHeader } from "@/components/admin/PageHeader";
 
-const GROUP_DEFS: { title: string; test: RegExp }[] = [
-  { title: "Cadernos & agendas", test: /caderno|agenda|planner|fichari|bloco|bloqu/ },
-  { title: "Papelaria criativa", test: /criativ|adesiv|papel|arma|cola|tesoura|artesan|presente|acessor/ },
-  { title: "Material escolar", test: /escolar|l[áa]pis|caneta|material/ },
-];
-
-type Group = { title: string; items: VarejoProduct[] };
-
-function groupProducts(produtos: VarejoProduct[]): Group[] {
-  const groups: Group[] = GROUP_DEFS.map((g) => ({ title: g.title, items: [] }));
-  const extras: Group[] = [];
-
-  for (const p of produtos) {
-    const key = (p.category ?? "").toLowerCase();
-    const idx = GROUP_DEFS.findIndex((g) => g.test.test(key));
-    if (idx >= 0) {
-      groups[idx].items.push(p);
-    } else {
-      let extra = extras.find((e) => e.title === (p.category ?? "Outros"));
-      if (!extra) {
-        extra = { title: p.category ?? "Outros", items: [] };
-        extras.push(extra);
-      }
-      extra.items.push(p);
-    }
-  }
-
-  return [...groups.filter((g) => g.items.length > 0), ...extras];
-}
-
 export default async function ProdutosPage() {
   const produtos = await getStoreProducts();
-  const groups = groupProducts(produtos);
+  const groups = agruparPorSetor(produtos);
 
-  const midBanners = [
-    {
-      variant: "pink" as const,
+  const midBanners: Record<number, { variant: "pink" | "green"; icon: ReactNode; imagem: string; title: string; text: string; tag: string }> = {
+    1: {
+      variant: "pink",
       icon: PROMO_ICONS.scissors,
+      imagem: "/banners/banner-criatividade.jpg",
       title: "Armaria & criatividade",
       text: "Cola, tesoura, papel colorido e muito mais.",
       tag: "Ver tudo",
     },
-    {
-      variant: "green" as const,
+    3: {
+      variant: "green",
       icon: PROMO_ICONS.backpack,
+      imagem: "/banners/banner-escolar.jpg",
       title: "Escolar 2027",
       text: "Tudo para o ano letivo com preços de lançamento.",
       tag: "40% OFF",
     },
-  ];
+  };
 
   return (
-    <main style={{ paddingBottom: 72 }}>
+    <main className="fundo-animado fundo-pagina-produtos" style={{ paddingBottom: 72 }}>
       <section style={{ maxWidth: 1240, margin: "0 auto", padding: "40px 32px 24px" }}>
         <PageHeader
           titulo="Produtos"
-          subtitulo={<>{produtos.length} produtos no catálogo — direto do banco de dados.</>}
           voltarPara="/"
         />
       </section>
@@ -71,24 +43,22 @@ export default async function ProdutosPage() {
         <BannerSlider />
       </div>
 
-      {groups.length === 0 && (
-        <p style={{ maxWidth: 1240, margin: "0 auto", padding: "34px 32px 0", color: "var(--ink-soft)" }}>
-          Nenhum produto encontrado.
-        </p>
-      )}
-
       {groups.map((group, i) => (
-        <Fragment key={group.title}>
+        <Fragment key={group.slug}>
           <div
+            id={group.slug}
             style={{
               maxWidth: 1240,
               margin: "0 auto",
               padding: i === 0 ? "34px 32px 0" : "18px 32px 0",
+              // cabecalho fica sticky (61px) - folga pro titulo da secao nao
+              // ficar colado/escondido quando chega via #ancora.
+              scrollMarginTop: 77,
             }}
           >
-            <CategoryCarousel title={group.title} products={group.items} />
+            <CategoryCarousel title={group.title} products={group.items} cor={group.cor} corTitulo={group.corTitulo} />
           </div>
-          {i < groups.length - 1 && midBanners[i] && (
+          {midBanners[i] && (
             <div style={{ maxWidth: 1240, margin: "0 auto", padding: "0 32px" }}>
               <PromoStrip {...midBanners[i]} />
             </div>
@@ -118,6 +88,7 @@ export default async function ProdutosPage() {
         <PromoStrip
           variant="navy"
           icon={PROMO_ICONS.truck}
+          imagem="/banners/banner-frete.jpg"
           title="Frete grátis acima de R$ 199,00"
           text="Para todo o Brasil, via Correios/PAC."
           tag="Aproveite"
@@ -125,6 +96,7 @@ export default async function ProdutosPage() {
         <PromoStrip
           variant="pink"
           icon={PROMO_ICONS.gift}
+          imagem="/banners/banner-clube.jpg"
           title="Clube Nuvem de Papel"
           text="Assinatura mensal com brindes e descontos exclusivos."
           tag="Assine já"
@@ -132,6 +104,7 @@ export default async function ProdutosPage() {
         <PromoStrip
           variant="light"
           icon={PROMO_ICONS.pencil}
+          imagem="/banners/banner-escolar.jpg"
           title="Coleção Escolar 2027"
           text="Cadernos, mochilas e material com até 40% off."
           tag="Ver coleção"

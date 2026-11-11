@@ -6,7 +6,7 @@ export type VarejoProduct = {
   name: string;
   category: string | null;
   price: number;
-  /** null = item sem controle de estoque (ilimitado); 0 = esgotado. */
+  /** Saldo do CD (0049). 0 = sob consulta: vitrine oferece pedido de orcamento. */
   estoque: number | null;
   /** Foto real do produto (0032, catalog_items.foto_url). null = sem foto. */
   fotoUrl: string | null;
@@ -25,7 +25,7 @@ type ItemPriceWithCatalogItem = {
     active: boolean;
     foto_url: string | null;
     description: string | null;
-    item_stock_public: { stock_available: number } | null;
+    item_images: { url: string; position: number }[] | null;
   };
 };
 
@@ -54,7 +54,7 @@ export async function getStoreProducts(): Promise<VarejoProduct[]> {
   const { data, error } = await supabase
     .from("item_prices")
     .select(
-      "price, min_quantity, valid_from, valid_until, catalog_items!inner(id, sku, name, category, active, foto_url, description, item_stock_public(stock_available))"
+      "price, min_quantity, valid_from, valid_until, catalog_items!inner(id, sku, name, category, active, foto_url, description, item_images(url, position))"
     )
     .eq("channel", channel)
     .eq("catalog_items.active", true)
@@ -69,6 +69,15 @@ export async function getStoreProducts(): Promise<VarejoProduct[]> {
     return [];
   }
 
+  // Saldo do CD (0049) e a unica fonte de venda da vitrine. Falha ou sem
+  // linha = 0 (sob consulta): fail-closed, nunca vende sem saldo confirmado.
+  const { data: cdRows, error: cdError } = await supabase
+    .from("item_stock_cd_public")
+    .select("item_id, stock_on_hand")
+    .returns<{ item_id: string; stock_on_hand: number }[]>();
+  if (cdError) console.error("getStoreProducts cd:", cdError.message);
+  const saldoCd = new Map((cdRows ?? []).map((r) => [r.item_id, Number(r.stock_on_hand)]));
+
   const porItem = new Map<string, VarejoProduct>();
   for (const row of data ?? []) {
     const item = row.catalog_items;
@@ -79,10 +88,13 @@ export async function getStoreProducts(): Promise<VarejoProduct[]> {
       name: item.name,
       category: item.category,
       price: Number(row.price),
-      estoque: item.item_stock_public
-        ? Number(item.item_stock_public.stock_available)
-        : null,
-      fotoUrl: item.foto_url,
+      estoque: saldoCd.get(item.id) ?? 0,
+      // 0048: capa real (item_images, position=0) tem prioridade sobre o
+      // foto_url antigo (URL do fornecedor, so pros produtos importados
+      // pela Busca Web).
+      fotoUrl:
+        (item.item_images ?? []).find((img) => img.position === 0)?.url ??
+        item.foto_url,
       description: item.description,
     });
   }

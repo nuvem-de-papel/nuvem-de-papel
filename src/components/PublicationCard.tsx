@@ -31,7 +31,7 @@ export function PublicationCard({ publicacao, index }: { publicacao: Publication
           height="52"
           viewBox="0 0 24 24"
           fill="none"
-          stroke="#073B4C"
+          stroke="#006BE1"
           strokeOpacity="0.3"
           strokeWidth="1.3"
           strokeLinecap="round"

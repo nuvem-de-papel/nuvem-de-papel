@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import type { VarejoProduct } from "@/lib/products";
+import { HeroVitrine } from "@/components/hero/HeroVitrine";
 
 const CLIPS = [
   "/videos/7744310-hd_1366_720_25fps.mp4",
@@ -14,106 +16,106 @@ function StaticScene() {
     <>
       <div style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
         <svg width="100%" height="100%" viewBox="0 0 1440 600" preserveAspectRatio="xMidYMax slice" fill="none">
-          <rect width="1440" height="600" fill="#0A4E63" />
-          <rect x="40" y="80" width="220" height="440" rx="4" fill="#0D5268" />
-          <rect x="50" y="90" width="200" height="80" rx="2" fill="#08414F" />
-          <rect x="50" y="180" width="200" height="80" rx="2" fill="#08414F" />
-          <rect x="50" y="270" width="200" height="80" rx="2" fill="#08414F" />
-          <rect x="50" y="360" width="200" height="80" rx="2" fill="#08414F" />
+          <rect width="1440" height="600" fill="#006BE1" />
+          <rect x="40" y="80" width="220" height="440" rx="4" fill="#006BE1" />
+          <rect x="50" y="90" width="200" height="80" rx="2" fill="#006BE1" />
+          <rect x="50" y="180" width="200" height="80" rx="2" fill="#006BE1" />
+          <rect x="50" y="270" width="200" height="80" rx="2" fill="#006BE1" />
+          <rect x="50" y="360" width="200" height="80" rx="2" fill="#006BE1" />
           {[0, 1, 2, 3].map((row) =>
             [0, 1, 2, 3, 4, 5, 6, 7].map((i) => (
-              <rect key={`el-${row}-${i}`} x={56 + i * 24} y={94 + row * 90} width={18 + (i % 3) * 4} height={68 - (i % 2) * 10} rx={2} fill={["#E084AC", "#FFD166", "#8FC9B8", "#C4A8FF", "#F2B8CE", "#B4D4E0", "#F6C2A7", "#9B7FDE"][i % 8]} opacity={0.7} />
+              <rect key={`el-${row}-${i}`} x={56 + i * 24} y={94 + row * 90} width={18 + (i % 3) * 4} height={68 - (i % 2) * 10} rx={2} fill={["#FC99D3", "#FECD01", "#8FC9B8", "#C4A8FF", "#FC99D3", "#0CCAFD", "#F6C2A7", "#9B7FDE"][i % 8]} opacity={0.7} />
             ))
           )}
-          <rect x="1180" y="60" width="220" height="460" rx="4" fill="#0D5268" />
-          <rect x="1190" y="70" width="200" height="85" rx="2" fill="#08414F" />
-          <rect x="1190" y="165" width="200" height="85" rx="2" fill="#08414F" />
-          <rect x="1190" y="260" width="200" height="85" rx="2" fill="#08414F" />
-          <rect x="1190" y="355" width="200" height="85" rx="2" fill="#08414F" />
+          <rect x="1180" y="60" width="220" height="460" rx="4" fill="#006BE1" />
+          <rect x="1190" y="70" width="200" height="85" rx="2" fill="#006BE1" />
+          <rect x="1190" y="165" width="200" height="85" rx="2" fill="#006BE1" />
+          <rect x="1190" y="260" width="200" height="85" rx="2" fill="#006BE1" />
+          <rect x="1190" y="355" width="200" height="85" rx="2" fill="#006BE1" />
           {[0, 1, 2, 3].map((row) =>
             [0, 1, 2, 3, 4, 5, 6, 7].map((i) => (
-              <rect key={`ed-${row}-${i}`} x={1196 + i * 24} y={74 + row * 95} width={18 + ((i + row) % 3) * 4} height={73 - (i % 2) * 12} rx={2} fill={["#FFD166", "#E084AC", "#C4A8FF", "#8FC9B8", "#F6C2A7", "#F2B8CE", "#9B7FDE", "#B4D4E0"][(i + row) % 8]} opacity={0.7} />
+              <rect key={`ed-${row}-${i}`} x={1196 + i * 24} y={74 + row * 95} width={18 + ((i + row) % 3) * 4} height={73 - (i % 2) * 12} rx={2} fill={["#FECD01", "#FC99D3", "#C4A8FF", "#8FC9B8", "#F6C2A7", "#FC99D3", "#9B7FDE", "#0CCAFD"][(i + row) % 8]} opacity={0.7} />
             ))
           )}
-          <rect x="360" y="140" width="180" height="360" rx="4" fill="#0B4A5C" />
-          <rect x="368" y="148" width="164" height="75" rx="2" fill="#083D4A" />
-          <rect x="368" y="233" width="164" height="75" rx="2" fill="#083D4A" />
-          <rect x="368" y="318" width="164" height="75" rx="2" fill="#083D4A" />
+          <rect x="360" y="140" width="180" height="360" rx="4" fill="#006BE1" />
+          <rect x="368" y="148" width="164" height="75" rx="2" fill="#006BE1" />
+          <rect x="368" y="233" width="164" height="75" rx="2" fill="#006BE1" />
+          <rect x="368" y="318" width="164" height="75" rx="2" fill="#006BE1" />
           {[0, 1, 2].map((row) =>
             [0, 1, 2, 3, 4, 5, 6].map((i) => (
-              <rect key={`ec-${row}-${i}`} x={374 + i * 23} y={152 + row * 85} width={17 + (i % 3) * 4} height={63 - (i % 2) * 8} rx={2} fill={["#8FC9B8", "#FFD166", "#E084AC", "#B4D4E0", "#C4A8FF", "#F6C2A7", "#F2B8CE"][i % 7]} opacity={0.6} />
+              <rect key={`ec-${row}-${i}`} x={374 + i * 23} y={152 + row * 85} width={17 + (i % 3) * 4} height={63 - (i % 2) * 8} rx={2} fill={["#8FC9B8", "#FECD01", "#FC99D3", "#0CCAFD", "#C4A8FF", "#F6C2A7", "#FC99D3"][i % 7]} opacity={0.6} />
             ))
           )}
-          <rect x="900" y="120" width="200" height="380" rx="4" fill="#0B4A5C" />
-          <rect x="908" y="128" width="184" height="80" rx="2" fill="#083D4A" />
-          <rect x="908" y="218" width="184" height="80" rx="2" fill="#083D4A" />
-          <rect x="908" y="308" width="184" height="80" rx="2" fill="#083D4A" />
+          <rect x="900" y="120" width="200" height="380" rx="4" fill="#006BE1" />
+          <rect x="908" y="128" width="184" height="80" rx="2" fill="#006BE1" />
+          <rect x="908" y="218" width="184" height="80" rx="2" fill="#006BE1" />
+          <rect x="908" y="308" width="184" height="80" rx="2" fill="#006BE1" />
           {[0, 1, 2].map((row) =>
             [0, 1, 2, 3, 4, 5, 6, 7].map((i) => (
-              <rect key={`ed2-${row}-${i}`} x={914 + i * 23} y={132 + row * 90} width={17 + ((i + row) % 3) * 4} height={68 - (i % 2) * 10} rx={2} fill={["#E084AC", "#C4A8FF", "#FFD166", "#8FC9B8", "#F2B8CE", "#B4D4E0", "#9B7FDE", "#F6C2A7"][(i + row) % 8]} opacity={0.6} />
+              <rect key={`ed2-${row}-${i}`} x={914 + i * 23} y={132 + row * 90} width={17 + ((i + row) % 3) * 4} height={68 - (i % 2) * 10} rx={2} fill={["#FC99D3", "#C4A8FF", "#FECD01", "#8FC9B8", "#FC99D3", "#0CCAFD", "#9B7FDE", "#F6C2A7"][(i + row) % 8]} opacity={0.6} />
             ))
           )}
-          <rect y="520" width="1440" height="80" fill="#062E3A" />
-          <rect y="520" width="1440" height="3" fill="#0D5268" />
+          <rect y="520" width="1440" height="80" fill="#006BE1" />
+          <rect y="520" width="1440" height="3" fill="#006BE1" />
         </svg>
       </div>
 
       <div style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
         <svg width="100%" height="100%" viewBox="0 0 1440 600" preserveAspectRatio="xMidYMax slice" fill="none">
           <g opacity="0.85">
-            <ellipse cx="280" cy="440" rx="22" ry="55" fill="#062E3A" />
-            <circle cx="280" cy="378" r="16" fill="#062E3A" />
-            <rect x="268" y="490" width="10" height="40" rx="4" fill="#062E3A" />
-            <rect x="284" y="490" width="10" height="40" rx="4" fill="#062E3A" />
+            <ellipse cx="280" cy="440" rx="22" ry="55" fill="#006BE1" />
+            <circle cx="280" cy="378" r="16" fill="#006BE1" />
+            <rect x="268" y="490" width="10" height="40" rx="4" fill="#006BE1" />
+            <rect x="284" y="490" width="10" height="40" rx="4" fill="#006BE1" />
           </g>
           <g opacity="0.75">
-            <ellipse cx="720" cy="435" rx="20" ry="52" fill="#062E3A" />
-            <circle cx="720" cy="376" r="15" fill="#062E3A" />
-            <rect x="709" y="482" width="9" height="42" rx="4" fill="#062E3A" />
-            <rect x="724" y="482" width="9" height="42" rx="4" fill="#062E3A" />
-            <rect x="738" y="415" width="28" height="6" rx="3" fill="#062E3A" />
-            <rect x="760" y="405" width="14" height="22" rx="2" fill="#E084AC" opacity="0.6" />
+            <ellipse cx="720" cy="435" rx="20" ry="52" fill="#006BE1" />
+            <circle cx="720" cy="376" r="15" fill="#006BE1" />
+            <rect x="709" y="482" width="9" height="42" rx="4" fill="#006BE1" />
+            <rect x="724" y="482" width="9" height="42" rx="4" fill="#006BE1" />
+            <rect x="738" y="415" width="28" height="6" rx="3" fill="#006BE1" />
+            <rect x="760" y="405" width="14" height="22" rx="2" fill="#FC99D3" opacity="0.6" />
           </g>
           <g opacity="0.8">
-            <ellipse cx="1100" cy="442" rx="21" ry="54" fill="#062E3A" />
-            <circle cx="1100" cy="380" r="15" fill="#062E3A" />
-            <rect x="1089" y="492" width="9" height="38" rx="4" fill="#062E3A" />
-            <rect x="1104" y="492" width="9" height="38" rx="4" fill="#062E3A" />
-            <rect x="1075" y="420" width="20" height="26" rx="2" fill="#FFD166" opacity="0.5" />
+            <ellipse cx="1100" cy="442" rx="21" ry="54" fill="#006BE1" />
+            <circle cx="1100" cy="380" r="15" fill="#006BE1" />
+            <rect x="1089" y="492" width="9" height="38" rx="4" fill="#006BE1" />
+            <rect x="1104" y="492" width="9" height="38" rx="4" fill="#006BE1" />
+            <rect x="1075" y="420" width="20" height="26" rx="2" fill="#FECD01" opacity="0.5" />
           </g>
           <g opacity="0.5">
-            <ellipse cx="500" cy="450" rx="16" ry="42" fill="#062E3A" />
-            <circle cx="500" cy="402" r="12" fill="#062E3A" />
-            <rect x="492" y="488" width="7" height="34" rx="3" fill="#062E3A" />
-            <rect x="504" y="488" width="7" height="34" rx="3" fill="#062E3A" />
+            <ellipse cx="500" cy="450" rx="16" ry="42" fill="#006BE1" />
+            <circle cx="500" cy="402" r="12" fill="#006BE1" />
+            <rect x="492" y="488" width="7" height="34" rx="3" fill="#006BE1" />
+            <rect x="504" y="488" width="7" height="34" rx="3" fill="#006BE1" />
           </g>
           <g opacity="0.7">
-            <rect x="620" y="460" width="200" height="10" rx="3" fill="#0A4150" />
-            <rect x="640" y="470" width="8" height="55" rx="3" fill="#0A4150" />
-            <rect x="792" y="470" width="8" height="55" rx="3" fill="#0A4150" />
-            <rect x="660" y="448" width="50" height="12" rx="2" fill="#E084AC" opacity="0.65" />
-            <rect x="655" y="436" width="56" height="12" rx="2" fill="#FFD166" opacity="0.65" />
+            <rect x="620" y="460" width="200" height="10" rx="3" fill="#006BE1" />
+            <rect x="640" y="470" width="8" height="55" rx="3" fill="#006BE1" />
+            <rect x="792" y="470" width="8" height="55" rx="3" fill="#006BE1" />
+            <rect x="660" y="448" width="50" height="12" rx="2" fill="#FC99D3" opacity="0.65" />
+            <rect x="655" y="436" width="56" height="12" rx="2" fill="#FECD01" opacity="0.65" />
             <rect x="662" y="424" width="48" height="12" rx="2" fill="#8FC9B8" opacity="0.65" />
             <rect x="730" y="448" width="45" height="12" rx="2" fill="#C4A8FF" opacity="0.6" />
-            <rect x="726" y="436" width="50" height="12" rx="2" fill="#F2B8CE" opacity="0.6" />
+            <rect x="726" y="436" width="50" height="12" rx="2" fill="#FC99D3" opacity="0.6" />
           </g>
         </svg>
       </div>
 
       <div style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
         <svg width="100%" height="100%" viewBox="0 0 1440 600" preserveAspectRatio="xMidYMax slice" fill="none">
-          <circle cx="200" cy="200" r="3" fill="#FFD166" opacity="0.5" />
-          <circle cx="450" cy="150" r="2" fill="#E084AC" opacity="0.4" />
-          <circle cx="680" cy="250" r="2.5" fill="#FFD166" opacity="0.35" />
+          <circle cx="200" cy="200" r="3" fill="#FECD01" opacity="0.5" />
+          <circle cx="450" cy="150" r="2" fill="#FC99D3" opacity="0.4" />
+          <circle cx="680" cy="250" r="2.5" fill="#FECD01" opacity="0.35" />
           <circle cx="900" cy="180" r="2" fill="#C4A8FF" opacity="0.4" />
-          <circle cx="1100" cy="220" r="3" fill="#E084AC" opacity="0.3" />
-          <circle cx="350" cy="320" r="1.5" fill="#FFD166" opacity="0.5" />
+          <circle cx="1100" cy="220" r="3" fill="#FC99D3" opacity="0.3" />
+          <circle cx="350" cy="320" r="1.5" fill="#FECD01" opacity="0.5" />
           <circle cx="1250" cy="300" r="2" fill="#8FC9B8" opacity="0.4" />
           <circle cx="150" cy="380" r="2" fill="#C4A8FF" opacity="0.3" />
-          <circle cx="550" cy="100" r="2.5" fill="#FFD166" opacity="0.45" />
-          <circle cx="1050" cy="120" r="1.5" fill="#E084AC" opacity="0.5" />
-          <path d="M300 170l2 6 6 2-6 2-2 6-2-6-6-2 6-2z" fill="#FFD166" opacity="0.3" />
-          <path d="M850 140l2 6 6 2-6 2-2 6-2-6-6-2 6-2z" fill="#E084AC" opacity="0.25" />
+          <circle cx="550" cy="100" r="2.5" fill="#FECD01" opacity="0.45" />
+          <circle cx="1050" cy="120" r="1.5" fill="#FC99D3" opacity="0.5" />
+          <path d="M300 170l2 6 6 2-6 2-2 6-2-6-6-2 6-2z" fill="#FECD01" opacity="0.3" />
+          <path d="M850 140l2 6 6 2-6 2-2 6-2-6-6-2 6-2z" fill="#FC99D3" opacity="0.25" />
           <path d="M1200 190l2 5 5 2-5 2-2 5-2-5-5-2 5-2z" fill="#C4A8FF" opacity="0.3" />
         </svg>
       </div>
@@ -121,7 +123,7 @@ function StaticScene() {
   );
 }
 
-export function Hero() {
+export function Hero({ vitrine = [] }: { vitrine?: VarejoProduct[] }) {
   const sectionRef = useRef<HTMLElement | null>(null);
   const contentRef = useRef<HTMLDivElement | null>(null);
   const indRef = useRef<HTMLDivElement | null>(null);
@@ -260,7 +262,7 @@ export function Hero() {
         position: "relative",
         overflow: "hidden",
         padding: "76px 32px 100px",
-        background: "linear-gradient(180deg, #073B4C 0%, #0A4E63 40%, var(--bg-cotton) 100%)",
+        background: "linear-gradient(180deg, #006BE1 0%, #006BE1 40%, var(--bg-cotton) 100%)",
         // `dvh` acompanha a altura visível real: janela redimensionada e barras móveis.
         // Os 61px correspondem ao cabeçalho sticky, mantendo o primeiro bloco na tela inteira.
         minHeight: "calc(100dvh - 61px)",
@@ -287,16 +289,6 @@ export function Hero() {
             preload="none"
             aria-hidden="true"
             style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", zIndex: 0, opacity: 0, transition: "opacity 0.9s ease" }}
-          />
-          <div
-            aria-hidden="true"
-            style={{
-              position: "absolute",
-              inset: 0,
-              zIndex: 1,
-              pointerEvents: "none",
-              background: "linear-gradient(180deg, rgba(7,59,76,0.78) 0%, rgba(7,59,76,0.52) 55%, rgba(7,59,76,0.80) 100%)",
-            }}
           />
         </>
       )}
@@ -328,7 +320,7 @@ export function Hero() {
               borderRadius: "var(--radius-chip)",
               fontSize: 13,
               fontWeight: 700,
-              color: "#FFD166",
+              color: "#FECD01",
               backdropFilter: "blur(4px)",
             }}
           >
@@ -340,16 +332,17 @@ export function Hero() {
 
           <h1
             className="display"
-            style={{ fontSize: 53, lineHeight: 1.14, margin: "22px 0 18px", color: "#FFFFFF" }}
+            style={{ fontSize: 53, lineHeight: 1.14, margin: "22px 0 18px", color: "#000000" }}
           >
             Sua papelaria favorita agora{" "}
-            <span style={{ color: "#FFD166" }}>na nuvem</span>
+            <span style={{ color: "#FECD01" }}>na nuvem</span>
           </h1>
 
           <p
             style={{
               fontSize: 18,
-              color: "rgba(255,255,255,0.75)",
+              color: "#000000",
+              fontWeight: 700,
               lineHeight: 1.6,
               maxWidth: 460,
               margin: "0 0 34px",
@@ -360,23 +353,26 @@ export function Hero() {
           </p>
 
           <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
-            <button
+            <a
+              href="/produtos"
               style={{
+                display: "inline-block",
+                textDecoration: "none",
                 background: "var(--cta)",
-                color: "#FFFFFF",
+                color: "#000000",
                 padding: "16px 32px",
                 borderRadius: "var(--radius-control)",
                 fontWeight: 700,
                 fontSize: 16,
-                boxShadow: "0 4px 16px rgba(224,132,172,0.35)",
+                boxShadow: "0 4px 16px rgba(252, 153, 211,0.35)",
               }}
             >
               Ver produtos
-            </button>
+            </a>
             <button
               style={{
                 background: "transparent",
-                color: "#FFFFFF",
+                color: "#000000",
                 padding: "14px 28px",
                 borderRadius: "var(--radius-control)",
                 fontWeight: 600,
@@ -398,59 +394,29 @@ export function Hero() {
             }}
           >
             <div>
-              <div className="display" style={{ fontSize: 22, color: "#FFFFFF" }}>
+              <div className="display" style={{ fontSize: 22, color: "#000000", fontWeight: 700 }}>
                 +12 mil
               </div>
-              <div style={{ fontSize: 12, color: "rgba(255,255,255,0.6)" }}>clientes ativos</div>
+              <div style={{ fontSize: 12, color: "#000000", fontWeight: 700 }}>clientes ativos</div>
             </div>
             <div>
-              <div className="display" style={{ fontSize: 22, color: "#FFFFFF" }}>
+              <div className="display" style={{ fontSize: 22, color: "#000000", fontWeight: 700 }}>
                 4,9 ★
               </div>
-              <div style={{ fontSize: 12, color: "rgba(255,255,255,0.6)" }}>avaliação média</div>
+              <div style={{ fontSize: 12, color: "#000000", fontWeight: 700 }}>avaliação média</div>
             </div>
             <div>
-              <div className="display" style={{ fontSize: 22, color: "#FFFFFF" }}>
+              <div className="display" style={{ fontSize: 22, color: "#000000", fontWeight: 700 }}>
                 48h
               </div>
-              <div style={{ fontSize: 12, color: "rgba(255,255,255,0.6)" }}>envio expresso</div>
+              <div style={{ fontSize: 12, color: "#000000", fontWeight: 700 }}>envio expresso</div>
             </div>
           </div>
         </div>
 
-        <div className="hero-showcase" style={{ position: "relative", height: 440 }}>
-          <div
-            style={{
-              position: "absolute",
-              top: 0,
-              right: 20,
-              width: 340,
-              height: 400,
-              borderRadius: "var(--radius-card)",
-              background: "rgba(255,255,255,0.08)",
-              border: "1px solid rgba(255,255,255,0.15)",
-              backdropFilter: "blur(12px)",
-              boxShadow: "0 16px 48px rgba(0,0,0,0.3)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <svg
-              width="120"
-              height="120"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="#FFD166"
-              strokeWidth="1.3"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <rect x="4" y="3" width="16" height="18" rx="2" />
-              <line x1="8" y1="3" x2="8" y2="21" />
-              <line x1="12" y1="8" x2="17" y2="8" />
-              <line x1="12" y1="12" x2="17" y2="12" />
-            </svg>
+        <div className="hero-showcase" style={{ position: "relative", height: 700 }}>
+          <div style={{ position: "absolute", top: 0, right: "min(calc(644px - 50vw), -8px)" }}>
+            <HeroVitrine produtos={vitrine} />
           </div>
           <div
             style={{
@@ -502,7 +468,7 @@ export function Hero() {
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                color: "#FFFFFF",
+                color: "#000000",
                 fontWeight: 700,
                 fontSize: 13,
               }}
@@ -529,8 +495,8 @@ export function Hero() {
           flexDirection: "column",
           alignItems: "center",
           gap: 4,
-          color: "rgba(255,255,255,0.7)",
-          fontSize: 11.5,
+          color: "#FECD01",
+          fontSize: 15,
           fontWeight: 700,
           letterSpacing: "0.1em",
           textTransform: "uppercase",

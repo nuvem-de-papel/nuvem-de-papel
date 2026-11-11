@@ -388,6 +388,8 @@ export type ProdutoCad = {
   lastAdjustedAt: string;
   // 0032: foto do produto (URL servida pelo fornecedor, ex. Reval /imagem/...)
   fotoUrl: string;
+  // 0048: galeria por produto (item_images) - position 0 = capa, 1-4 = secundarias.
+  fotos: { url: string; position: number }[];
   // 0038 (entrega 5 — Catálogo com IA): descrição pública da vitrine.
   // Gerada pela IA mas gravada só após aprovação do dono (salvarProduto).
   descricao: string;
@@ -577,9 +579,13 @@ export function CadastrosTelaUnica({
   }, [clientes]);
   const [extra, setExtra] = useState<Record<string, string>>({
     cliente: "obs",
-    produto: "obs",
+    produto: "foto",
     empresa: "danfe",
   });
+  // 0048: galeria de fotos do produto selecionado (item_images) - so leitura
+  // aqui; o vinculo em si e feito por migration/script, nao por esta tela.
+  const [fotosProduto, setFotosProduto] = useState<{ url: string; position: number }[]>([]);
+  const [fotoAtivaPos, setFotoAtivaPos] = useState(0);
   // Setores: a lista DERIVA dos produtos cadastrados (catalog_items.category,
   // page.tsx select) — não existe cadastro separado de setor. O que você digitar
   // aqui novo vai para category no Salvar e o router.refresh() pós-salvamento
@@ -857,6 +863,9 @@ export function CadastrosTelaUnica({
     // 0032: foto do produto (URL do fornecedor)
     setVal("ct-prod-foto", p?.fotoUrl ?? "");
     atualizarFotoPreview();
+    // 0048: galeria (item_images) - reinicia sempre na capa (position 0)
+    setFotosProduto(p?.fotos ?? []);
+    setFotoAtivaPos(0);
     // 0038 (entrega 5): descrição pública da vitrine (IA gera, dono aprova)
     setVal("ct-prod-descricao-vitrine", p?.descricao ?? "");
     setVal("ct-prod-cstpis", p?.cstPis ?? "");
@@ -1900,13 +1909,54 @@ export function CadastrosTelaUnica({
 
             <div className="ct-side-tabs" style={{ marginTop: 14 }}>
               <div className="ct-extra-tabs">
-                <button className={`ct-extra-tab${extra.produto === "obs" ? " on" : ""}`} onClick={() => mostrarExtra("produto", "obs")}>1. Observações</button>
-                <button className={`ct-extra-tab${extra.produto === "outros" ? " on" : ""}`} onClick={() => mostrarExtra("produto", "outros")}>2. Outros</button>
-                <button className={`ct-extra-tab${extra.produto === "detalhes" ? " on" : ""}`} onClick={() => mostrarExtra("produto", "detalhes")}>3. Descrição Produto</button>
-                <button className={`ct-extra-tab${extra.produto === "desc" ? " on" : ""}`} onClick={() => mostrarExtra("produto", "desc")}>4. Descrição IA</button>
+                <button className={`ct-extra-tab${extra.produto === "foto" ? " on" : ""}`} onClick={() => mostrarExtra("produto", "foto")}>1. Foto</button>
+                <button className={`ct-extra-tab${extra.produto === "obs" ? " on" : ""}`} onClick={() => mostrarExtra("produto", "obs")}>2. Observações</button>
+                <button className={`ct-extra-tab${extra.produto === "outros" ? " on" : ""}`} onClick={() => mostrarExtra("produto", "outros")}>3. Outros</button>
+                <button className={`ct-extra-tab${extra.produto === "detalhes" ? " on" : ""}`} onClick={() => mostrarExtra("produto", "detalhes")}>4. Descrição Produto</button>
+                <button className={`ct-extra-tab${extra.produto === "desc" ? " on" : ""}`} onClick={() => mostrarExtra("produto", "desc")}>5. Descrição IA</button>
               </div>
               <div className={`ct-extra-panel${extra.produto === "obs" ? " on" : ""}`}>
                 <div className="ct-field"><textarea id="ct-prod-observacoes" placeholder="Observações internas..." /></div>
+              </div>
+              <div className={`ct-extra-panel${extra.produto === "foto" ? " on" : ""}`}>
+                {fotosProduto.length === 0 ? (
+                  <div className="ct-status"><span>Nenhuma foto vinculada ainda para este produto.</span></div>
+                ) : (
+                  <>
+                    <img
+                      src={(fotosProduto.find((f) => f.position === fotoAtivaPos) ?? fotosProduto[0]).url}
+                      alt=""
+                      style={{ width: 220, height: 220, objectFit: "contain", borderRadius: 8, border: "1px solid var(--ct-border, #ddd)", background: "#fff" }}
+                    />
+                    {fotosProduto.length > 1 && (
+                      <div style={{ display: "flex", gap: 6, marginTop: 10, flexWrap: "wrap" }}>
+                        {fotosProduto.map((f) => (
+                          <img
+                            key={f.position}
+                            src={f.url}
+                            alt=""
+                            onClick={() => setFotoAtivaPos(f.position)}
+                            style={{
+                              width: 48,
+                              height: 48,
+                              objectFit: "cover",
+                              borderRadius: 6,
+                              cursor: "pointer",
+                              border: f.position === fotoAtivaPos ? "2px solid var(--cta, #2a8f6b)" : "1px solid var(--ct-border, #ddd)",
+                            }}
+                          />
+                        ))}
+                      </div>
+                    )}
+                    <div className="ct-status" style={{ marginTop: 8 }}>
+                      <span>
+                        {fotosProduto.length === 1
+                          ? "Só a foto principal cadastrada - as secundárias aparecem aqui quando forem vinculadas."
+                          : `${fotosProduto.length} fotos vinculadas - clique numa miniatura pra ver.`}
+                      </span>
+                    </div>
+                  </>
+                )}
               </div>
               <div className={`ct-extra-panel${extra.produto === "detalhes" ? " on" : ""}`}>
                 <div className="ct-field">
