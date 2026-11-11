@@ -415,7 +415,7 @@ export function Hero({ vitrine = [] }: { vitrine?: VarejoProduct[] }) {
         </div>
 
         <div className="hero-showcase" style={{ position: "relative", height: 700 }}>
-          <div style={{ position: "absolute", top: 0, right: "min(calc(644px - 50vw), -8px)" }}>
+          <div style={{ position: "absolute", top: 0, right: "min(calc(734px - 50vw), 82px)" }}>
             <HeroVitrine produtos={vitrine} />
           </div>
           <div

@@ -32,7 +32,15 @@ function iconeStyle(feito: boolean, apagado: boolean) {
 // [valor] [consulta*] ........ [icone orcamento] [icone carrinho]
 // *"consulta" so aparece com saldo zero. Os dois icones aparecem sempre.
 // Carrinho com saldo zero nao adiciona: mostra o aviso de sob consulta.
-export function ProductActions({ produto, grande = false }: { produto: VarejoProduct; grande?: boolean }) {
+export function ProductActions({
+  produto,
+  grande = false,
+  somenteBotoes = false,
+}: {
+  produto: VarejoProduct;
+  grande?: boolean;
+  somenteBotoes?: boolean;
+}) {
   const { addItem: addCarrinho } = useCart();
   const { addItem: addOrcamento } = useOrcamento();
   const semEstoque = produto.estoque === 0;
@@ -52,12 +60,14 @@ export function ProductActions({ produto, grande = false }: { produto: VarejoPro
   }
 
   return (
-    <div style={{ marginTop: 10 }}>
+    <div style={{ marginTop: somenteBotoes ? 0 : 10 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
-        <span className="display" style={{ fontSize: grande ? 22 : 16, whiteSpace: "nowrap" }}>
-          {formatPrice(produto.price)}
-        </span>
-        {semEstoque && (
+        {!somenteBotoes && (
+          <span className="display" style={{ fontSize: grande ? 22 : 16, whiteSpace: "nowrap" }}>
+            {formatPrice(produto.price)}
+          </span>
+        )}
+        {!somenteBotoes && semEstoque && (
           <span
             style={{
               fontSize: grande ? 12 : 10,
@@ -72,7 +82,7 @@ export function ProductActions({ produto, grande = false }: { produto: VarejoPro
             consulta
           </span>
         )}
-        <span style={{ flex: 1 }} />
+        {!somenteBotoes && <span style={{ flex: 1 }} />}
         <button
           type="button"
           aria-label={`Adicionar ${produto.name} ao orçamento`}
@@ -123,7 +133,28 @@ export function ProductActions({ produto, grande = false }: { produto: VarejoPro
         </button>
       </div>
       {aviso && (
-        <p role="status" style={{ fontSize: 12, fontWeight: 700, color: "var(--pink-600)", margin: "8px 0 0", lineHeight: 1.35 }}>
+        <p
+          role="status"
+          style={
+            somenteBotoes
+              ? {
+                  position: "absolute",
+                  left: 16,
+                  right: 16,
+                  bottom: 72,
+                  margin: 0,
+                  padding: "8px 12px",
+                  borderRadius: 12,
+                  background: "#FFFFFF",
+                  color: "#100D0D",
+                  fontSize: 13,
+                  fontWeight: 700,
+                  lineHeight: 1.35,
+                  boxShadow: "0 8px 20px rgba(0,0,0,0.2)",
+                }
+              : { fontSize: 12, fontWeight: 700, color: "var(--pink-600)", margin: "8px 0 0", lineHeight: 1.35 }
+          }
+        >
           {aviso}
         </p>
       )}
