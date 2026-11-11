@@ -95,7 +95,7 @@ export default async function MinhaAssinaturaPage({
         <h1 style={{ fontSize: 26, color: "var(--ink, #241c2b)", margin: 0 }}>
           Minha assinatura
         </h1>
-        <Link href="/conta/pedidos" style={{ fontSize: 14, color: "var(--pink-600, #e084ac)" }}>
+        <Link href="/conta/pedidos" style={{ fontSize: 14, color: "var(--pink-600, #FC99D3)" }}>
           Ver meus pedidos
         </Link>
       </div>
@@ -131,7 +131,7 @@ export default async function MinhaAssinaturaPage({
             href="/clube"
             style={{
               display: "inline-block",
-              background: "var(--pink-600, #e084ac)",
+              background: "var(--pink-600, #FC99D3)",
               color: "var(--on-accent, #fff)",
               padding: "13px 26px",
               borderRadius: "var(--radius-control, 10px)",

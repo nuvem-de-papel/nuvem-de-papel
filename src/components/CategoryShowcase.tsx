@@ -14,8 +14,11 @@ function fotoPexels(id: number, largura = 300) {
 
 export function CategoryShowcase() {
   return (
-    <section style={{ maxWidth: 1240, margin: "0 auto", padding: "32px 32px 72px" }}>
+    <section className="tech-band" style={{ maxWidth: 1240, margin: "0 auto", padding: "32px 32px 72px" }}>
       <div style={{ textAlign: "center", marginBottom: 40 }}>
+        <div className="tech-label" style={{ justifyContent: "center" }}>
+          Navegue por categoria · 07 setores
+        </div>
         <div
           aria-hidden="true"
           style={{ width: 64, height: 3, background: "var(--cta)", opacity: 0.6, margin: "0 auto", borderRadius: 2 }}

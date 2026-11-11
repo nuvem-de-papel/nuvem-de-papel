@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
+import { PROMO_ICONS } from "@/components/produtos/PromoStrip";
 
 type Slide = {
   tag: string;
@@ -12,6 +13,7 @@ type Slide = {
   tagBg: string;
   tagFg: string;
   icon: ReactNode;
+  imagem: string;
 };
 
 const SLIDES: Slide[] = [
@@ -19,38 +21,23 @@ const SLIDES: Slide[] = [
     tag: "Frete grátis",
     title: "Entrega grátis acima de R$ 199",
     text: "Seus materiais favoritos direto para casa, sem custo de frete.",
-    bg: "linear-gradient(120deg,#073B4C,#14607C)",
+    bg: "linear-gradient(120deg,#006BE1,#006BE1)",
     fg: "#FFFFFF",
-    tagBg: "#E084AC",
+    tagBg: "#FC99D3",
     tagFg: "#FFFFFF",
-    icon: (
-      <>
-        <path d="M1.5 5h11v10H1.5z" />
-        <path d="M12.5 8.5H17l3.5 3.5V15h-8z" />
-        <circle cx="6" cy="17.5" r="2" />
-        <circle cx="16.5" cy="17.5" r="2" />
-        <line x1="3.5" y1="17.5" x2="4" y2="17.5" />
-        <line x1="18.5" y1="17.5" x2="20" y2="17.5" />
-      </>
-    ),
+    icon: PROMO_ICONS.truck,
+    imagem: "/banners/banner-frete.jpg",
   },
   {
     tag: "Clube",
     title: "Clube Nuvem de Papel",
     text: "Assinatura mensal com brindes, cupons e novidades em primeira mão.",
-    bg: "linear-gradient(120deg,#E084AC,#D06A97)",
+    bg: "linear-gradient(120deg,#FC99D3,#E9761C)",
     fg: "#3A1526",
-    tagBg: "#073B4C",
+    tagBg: "#006BE1",
     tagFg: "#FFFFFF",
-    icon: (
-      <>
-        <path d="M20 12v9H4v-9" />
-        <rect x="2" y="7" width="20" height="5" />
-        <line x1="12" y1="21" x2="12" y2="7" />
-        <path d="M12 7a2.5 2.5 0 1 1 2.5-2.5A2.5 2.5 0 0 1 12 7Z" />
-        <path d="M12 7a2.5 2.5 0 1 0-2.5-2.5A2.5 2.5 0 0 0 12 7Z" />
-      </>
-    ),
+    icon: PROMO_ICONS.gift,
+    imagem: "/banners/banner-clube.jpg",
   },
   {
     tag: "Escolar 2027",
@@ -60,13 +47,8 @@ const SLIDES: Slide[] = [
     fg: "#FFFFFF",
     tagBg: "#FFFFFF",
     tagFg: "#2C9C48",
-    icon: (
-      <>
-        <path d="M6 10a6 6 0 0 1 12 0v9a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2v-9z" />
-        <path d="M9 10V7a3 3 0 0 1 6 0v3" />
-        <line x1="9.5" y1="15" x2="14.5" y2="15" />
-      </>
-    ),
+    icon: PROMO_ICONS.backpack,
+    imagem: "/banners/banner-escolar.jpg",
   },
 ];
 
@@ -98,30 +80,8 @@ export function BannerSlider() {
               borderRadius: 18,
             }}
           >
-            <div
-              style={{
-                maxWidth: 1240,
-                margin: "0 auto",
-                padding: "0 32px",
-                display: "flex",
-                alignItems: "center",
-                gap: 28,
-              }}
-            >
-              <svg
-                width="72"
-                height="72"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                style={{ flexShrink: 0, opacity: 0.85 }}
-                aria-hidden="true"
-              >
-                {s.icon}
-              </svg>
+            <div style={{ display: "flex", alignItems: "center", gap: 28 }}>
+              <img src={s.imagem} alt="" width={96} height={96} style={{ width: 96, height: 96, borderRadius: 18, objectFit: "cover", flexShrink: 0 }} />
               <div>
                 <span
                   style={{
@@ -168,7 +128,7 @@ export function BannerSlider() {
               borderRadius: "50%",
               border: "none",
               padding: 0,
-              background: i === slide ? "#E084AC" : "rgba(255,255,255,0.45)",
+              background: i === slide ? "#FC99D3" : "rgba(255,255,255,0.45)",
               cursor: "pointer",
             }}
           />

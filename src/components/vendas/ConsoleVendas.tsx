@@ -2199,7 +2199,7 @@ export function ConsoleVendas({
           style={{
             position: "fixed",
             inset: 0,
-            background: "rgba(7,59,76,0.55)",
+            background: "rgba(0, 107, 225,0.55)",
             zIndex: 60,
             display: "flex",
             alignItems: "flex-start",
@@ -2221,7 +2221,7 @@ export function ConsoleVendas({
               border: "1px solid var(--border)",
               width: "100%",
               maxWidth: 880,
-              boxShadow: "0 24px 60px rgba(7,59,76,0.35)",
+              boxShadow: "0 24px 60px rgba(0, 107, 225,0.35)",
             }}
           >
             <div
@@ -2480,7 +2480,7 @@ export function ConsoleVendas({
           style={{
             position: "fixed",
             inset: 0,
-            background: "rgba(7,59,76,0.55)",
+            background: "rgba(0, 107, 225,0.55)",
             zIndex: 60,
             display: "flex",
             alignItems: "flex-start",
@@ -2503,7 +2503,7 @@ export function ConsoleVendas({
               border: "1px solid var(--border)",
               width: "100%",
               maxWidth: 760,
-              boxShadow: "0 24px 60px rgba(7,59,76,0.35)",
+              boxShadow: "0 24px 60px rgba(0, 107, 225,0.35)",
             }}
           >
             <div

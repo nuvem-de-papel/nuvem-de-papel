@@ -1,14 +1,17 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useCart } from "@/components/carrinho/CartProvider";
+import { useOrcamento } from "@/components/orcamento/OrcamentoProvider";
 
 export function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [logado, setLogado] = useState(false);
   const [role, setRole] = useState<string | null>(null);
   const { totalItens } = useCart();
+  const { totalQuantidade } = useOrcamento();
 
   useEffect(() => {
     const supabase = createClient();
@@ -68,12 +71,14 @@ export function Header() {
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <svg width="32" height="32" viewBox="0 0 40 40" fill="none">
-            <path
-              d="M10 27c-4.4 0-8-3.6-8-8 0-4.1 3.1-7.5 7.1-7.9C10.4 7 14.6 4 19.5 4c5.6 0 10.3 3.9 11.4 9.1 4.3.6 7.6 4.3 7.6 8.7 0 4.9-3.9 8.8-8.8 8.8H10z"
-              fill="#FFD166"
-            />
-          </svg>
+          <Image
+            src="/logo/nuvem-de-papel.png"
+            alt="Nuvem de Papel"
+            width={400}
+            height={267}
+            priority
+            style={{ height: 52, width: "auto" }}
+          />
           <span className="display" style={{ fontSize: 20, color: "#FFFFFF" }}>
             Nuvem de Papel
           </span>
@@ -119,7 +124,7 @@ export function Header() {
                 alignItems: "center",
                 gap: 4,
               }}
-              onMouseEnter={(e) => (e.currentTarget.style.color = "#FFD166")}
+              onMouseEnter={(e) => (e.currentTarget.style.color = "#FECD01")}
               onMouseLeave={(e) => (e.currentTarget.style.color = "#FFFFFF")}
             >
               {link.label}
@@ -147,7 +152,7 @@ export function Header() {
                   position: "absolute",
                   top: -6,
                   right: -8,
-                  background: "#E084AC",
+                  background: "#FC99D3",
                   color: "#FFFFFF",
                   fontSize: 9,
                   fontWeight: 700,
@@ -164,16 +169,45 @@ export function Header() {
               </span>
             )}
           </a>
+          <a href="/orcamento" aria-label={`Orçamento com ${totalQuantidade} itens`} title="Orçamento" style={{ position: "relative", display: "flex", padding: 4 }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="8" y="2" width="8" height="4" rx="1" />
+              <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+              <path d="M9 12h6M9 16h4" />
+            </svg>
+            {totalQuantidade > 0 && (
+              <span
+                style={{
+                  position: "absolute",
+                  top: -6,
+                  right: -8,
+                  background: "#FC99D3",
+                  color: "#FFFFFF",
+                  fontSize: 9,
+                  fontWeight: 700,
+                  minWidth: 14,
+                  height: 14,
+                  padding: "0 3px",
+                  borderRadius: 999,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                {totalQuantidade}
+              </span>
+            )}
+          </a>
           <a
             href={destinoPainel}
             style={{
-              background: "#E084AC",
+              background: "#FC99D3",
               color: "#FFFFFF",
               padding: "10px 18px",
               borderRadius: "var(--radius-control)",
               fontWeight: 700,
               fontSize: 13,
-              boxShadow: "0 2px 8px rgba(224,132,172,0.35)",
+              boxShadow: "0 2px 8px rgba(252, 153, 211,0.35)",
               textDecoration: "none",
               whiteSpace: "nowrap",
             }}
@@ -193,7 +227,7 @@ export function Header() {
             gap: 12,
             padding: "12px 24px 20px",
             borderTop: "1px solid rgba(255,255,255,0.1)",
-            background: "#073B4C",
+            background: "#006BE1",
           }}
         >
           {navLinks.map((link) => (
@@ -218,7 +252,7 @@ export function Header() {
             style={{
               fontWeight: 700,
               fontSize: 16,
-              color: "#E084AC",
+              color: "#FC99D3",
               padding: "8px 0",
               textDecoration: "none",
             }}
