@@ -504,3 +504,15 @@ upgrade pra Pro.
    preview em 14/11/2026.
 6. Pendente: o botão "Entrar / Criar Conta" do cabeçalho (deslogado) ainda
    leva ao `/login` da equipe, que recusa clientes.
+7. **Frete PAC/Sedex (14/11/2026)**: `cotarInterno` usa como origem
+   `tenant_company.endereco.cep` e procura `freight_tabelas.origem_cep` igual.
+   Staging não tinha linha em `tenant_company` (copiada de produção: CEP
+   `13405404`, Piracicaba) e as duas tabelas de frete tinham origem `09850730`
+   — nenhum CEP batia ("CEP da loja não configurado para frete").
+   `scripts/importar-frete-correios.cjs` cotava sempre de
+   `FRETE_CEP_ORIGEM || "09850-730"` mesmo gravando outra origem; agora cota e
+   grava com o CEP de `tenant_company` e para com erro se ele estiver vazio.
+   Staging reimportado com origem `13405404`. **Produção ainda tem a tabela
+   antiga** (origem `09850730`) — reimportar antes de abrir o checkout lá.
+   Pedido `8177066E` (PAC R$ 23,30) conferido no banco. `/conta/pedidos`
+   passou a mostrar as linhas Frete e Desconto (antes só itens e total).
