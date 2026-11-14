@@ -12,6 +12,14 @@ export type VarejoProduct = {
   fotoUrl: string | null;
   /** Descrição pública (0038, catalog_items.description). null = sem descrição. */
   description: string | null;
+  /** Grade (0051): SKU do produto pai. null = item sem grade. */
+  grupoPai: string | null;
+  /** Grade (0051): rótulo da variante (ex.: Modelo 2). */
+  cor: string | null;
+  /** Oferta (0053): aparece no banner de Ofertas. */
+  emOferta: boolean;
+  /** Destaque (0053): aparece no banner de Destaques. */
+  emDestaque: boolean;
 };
 
 type ItemPriceWithCatalogItem = {
@@ -25,6 +33,10 @@ type ItemPriceWithCatalogItem = {
     active: boolean;
     foto_url: string | null;
     description: string | null;
+    grupo_pai: string | null;
+    cor: string | null;
+    em_oferta: boolean;
+    em_destaque: boolean;
     item_images: { url: string; position: number }[] | null;
   };
 };
@@ -54,7 +66,7 @@ export async function getStoreProducts(): Promise<VarejoProduct[]> {
   const { data, error } = await supabase
     .from("item_prices")
     .select(
-      "price, min_quantity, valid_from, valid_until, catalog_items!inner(id, sku, name, category, active, foto_url, description, item_images(url, position))"
+      "price, min_quantity, valid_from, valid_until, catalog_items!inner(id, sku, name, category, active, foto_url, description, grupo_pai, cor, em_oferta, em_destaque, item_images(url, position))"
     )
     .eq("channel", channel)
     .eq("catalog_items.active", true)
@@ -81,6 +93,9 @@ export async function getStoreProducts(): Promise<VarejoProduct[]> {
   const porItem = new Map<string, VarejoProduct>();
   for (const row of data ?? []) {
     const item = row.catalog_items;
+    // Grade (0051): variante (ex.: BLT38A) nao vira card proprio - aparece
+    // na pagina do produto principal (BLT38).
+    if (item.grupo_pai && item.grupo_pai !== item.sku) continue;
     if (porItem.has(item.id)) continue; // ordenado: primeira linha é a base
     porItem.set(item.id, {
       id: item.id,
@@ -96,6 +111,10 @@ export async function getStoreProducts(): Promise<VarejoProduct[]> {
         (item.item_images ?? []).find((img) => img.position === 0)?.url ??
         item.foto_url,
       description: item.description,
+      grupoPai: item.grupo_pai,
+      cor: item.cor,
+      emOferta: item.em_oferta,
+      emDestaque: item.em_destaque,
     });
   }
   return [...porItem.values()];
