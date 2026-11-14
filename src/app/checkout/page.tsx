@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { checkoutAberto } from "@/lib/checkout";
 import { CheckoutForm } from "@/components/checkout/CheckoutForm";
+import { CadastroBasicoForm } from "@/components/checkout/CadastroBasicoForm";
 
 export const dynamic = "force-dynamic";
 
@@ -29,7 +30,11 @@ export default async function CheckoutPage() {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) redirect("/login?next=/checkout");
+
+  // Visitante sem login: mostrar form de cadastro básico (Opção C)
+  if (!user) {
+    return <CadastroBasicoForm />;
+  }
 
   if (!checkoutAberto()) {
     return (
