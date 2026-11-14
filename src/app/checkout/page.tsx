@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { checkoutAberto } from "@/lib/checkout";
 import { CheckoutForm } from "@/components/checkout/CheckoutForm";
@@ -74,7 +73,7 @@ export default async function CheckoutPage() {
   return (
     <CheckoutForm
       enderecos={(enderecos ?? []) as EnderecoSalvo[]}
-      nomePadrao={perfil?.full_name ?? ""}
+      nomePadrao={perfil?.full_name ?? (user.user_metadata?.full_name as string | undefined) ?? ""}
       email={user.email ?? ""}
     />
   );

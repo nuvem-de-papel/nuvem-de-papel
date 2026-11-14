@@ -25,8 +25,7 @@ export function CadastroBasicoForm() {
         setErro(resultado.erro);
         return;
       }
-      // Sucesso: redirecionar para login com next=/checkout
-      window.location.href = resultado.loginUrl;
+      window.location.href = resultado.destino;
     });
   };
 
