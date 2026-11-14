@@ -550,7 +550,15 @@ export function CadastrosTelaUnica({
   useEffect(() => {
     setFeedback(null);
     if (tela === "produto") {
-      carregarProduto(produtos.find((x) => x.id === prodId) ?? produtos[0] ?? null);
+      // ?sku= vem do catálogo administrativo e abre direto o produto escolhido
+      const skuUrl = params?.get("sku");
+      const alvo =
+        (skuUrl ? produtos.find((x) => x.sku === skuUrl) : undefined) ??
+        produtos.find((x) => x.id === prodId) ??
+        produtos[0] ??
+        null;
+      if (alvo) setProdId(alvo.id);
+      carregarProduto(alvo);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tela]);
