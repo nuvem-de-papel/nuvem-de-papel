@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import type { VarejoProduct } from "@/lib/products";
 import { useCart } from "@/components/carrinho/CartProvider";
-import { useOrcamento } from "@/components/orcamento/OrcamentoProvider";
 
 function formatPrice(value: number) {
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
@@ -42,11 +41,10 @@ export function ProductActions({
   somenteBotoes?: boolean;
 }) {
   const { addItem: addCarrinho } = useCart();
-  const { addItem: addOrcamento } = useOrcamento();
   const semEstoque = produto.estoque === 0;
   const [aviso, setAviso] = useState<string | null>(null);
-  const [feitoOrcamento, setFeitoOrcamento] = useState(false);
   const [feitoCarrinho, setFeitoCarrinho] = useState(false);
+  const [qtd, setQtd] = useState(1);
 
   useEffect(() => {
     if (!aviso) return;
@@ -57,6 +55,67 @@ export function ProductActions({
   function marcarFeito(setter: (v: boolean) => void) {
     setter(true);
     window.setTimeout(() => setter(false), 1200);
+  }
+
+  if (grande && !somenteBotoes) {
+    const qtdBtn = {
+      width: 38,
+      height: 42,
+      border: "none",
+      background: "transparent",
+      fontSize: 20,
+      fontWeight: 700,
+      cursor: "pointer",
+      color: "var(--ink)",
+    } as const;
+    return (
+      <div style={{ marginTop: 6 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 16 }}>
+          {semEstoque && (
+            <span style={{ fontSize: 12, fontWeight: 700, color: "#FFFFFF", background: "var(--pink-600)", borderRadius: 999, padding: "3px 10px" }}>
+              sob consulta
+            </span>
+          )}
+        </div>
+        <div style={{ display: "flex", gap: 12, alignItems: "stretch" }}>
+          <div style={{ display: "flex", alignItems: "center", border: "1.5px solid var(--ink-faint)", borderRadius: 999, background: "#FFFFFF", overflow: "hidden" }}>
+            <button type="button" aria-label="Diminuir quantidade" onClick={() => setQtd(Math.max(1, qtd - 1))} style={qtdBtn}>−</button>
+            <span style={{ minWidth: 36, textAlign: "center", fontWeight: 700 }}>{qtd}</span>
+            <button type="button" aria-label="Aumentar quantidade" onClick={() => setQtd(Math.min(99, qtd + 1))} style={qtdBtn}>+</button>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              if (semEstoque) {
+                setAviso(AVISO_SOB_CONSULTA);
+                return;
+              }
+              addCarrinho({ id: produto.id, sku: produto.sku, name: produto.name, price: produto.price }, qtd);
+              marcarFeito(setFeitoCarrinho);
+            }}
+            style={{
+              flex: 1,
+              height: 46,
+              borderRadius: 999,
+              border: "1.5px solid var(--ink)",
+              background: semEstoque ? "var(--ink-faint)" : "linear-gradient(90deg, #F7C6E3, #DCCDF5)",
+              color: "var(--ink)",
+              fontWeight: 700,
+              fontSize: 15,
+              cursor: "pointer",
+            }}
+          >
+            {semEstoque ? "Fazer orçamento" : feitoCarrinho ? "Adicionado" : "Adicionar ao carrinho"}
+          </button>
+        </div>
+        <p style={{ margin: "10px 0 0", fontSize: 13, color: "var(--ink-soft)" }}>{formatPrice(produto.price)} por unidade</p>
+        {aviso && (
+          <p role="status" style={{ fontSize: 12, fontWeight: 700, color: "var(--pink-600)", margin: "8px 0 0", lineHeight: 1.35 }}>
+            {aviso}
+          </p>
+        )}
+      </div>
+    );
   }
 
   return (
@@ -83,28 +142,7 @@ export function ProductActions({
           </span>
         )}
         {!somenteBotoes && <span style={{ flex: 1 }} />}
-        <button
-          type="button"
-          aria-label={`Adicionar ${produto.name} ao orçamento`}
-          title="Orçamento"
-          onClick={() => {
-            addOrcamento({ id: produto.id, sku: produto.sku, name: produto.name });
-            marcarFeito(setFeitoOrcamento);
-          }}
-          style={iconeStyle(feitoOrcamento, false)}
-        >
-          {feitoOrcamento ? (
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="20 6 9 17 4 12" />
-            </svg>
-          ) : (
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="8" y="2" width="8" height="4" rx="1" />
-              <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
-              <path d="M9 12h6M9 16h4" />
-            </svg>
-          )}
-        </button>
+        <span aria-hidden="true" style={{ ...iconeStyle(false, false), visibility: "hidden" }} />
         <button
           type="button"
           aria-label={semEstoque ? `${produto.name}: produto sob consulta` : `Adicionar ${produto.name} ao carrinho`}

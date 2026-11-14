@@ -385,6 +385,10 @@ export type ProdutoCad = {
   masterPeso: number;
   sourceUrl: string;
   hidePriceTable: boolean;
+  emOferta: boolean;
+  emDestaque: boolean;
+  grupoPai: string | null;
+  cor: string | null;
   lastAdjustedAt: string;
   // 0032: foto do produto (URL servida pelo fornecedor, ex. Reval /imagem/...)
   fotoUrl: string;
@@ -856,6 +860,12 @@ export function CadastrosTelaUnica({
     recalcEstoqueTotal();
     const inativo = g<HTMLInputElement>("ct-prod-inativo");
     if (inativo) inativo.checked = p ? !p.ativo : false;
+    setVal("ct-prod-grupo-pai", p?.grupoPai ?? "");
+    setVal("ct-prod-cor", p?.cor ?? "");
+    const ofertaEl = g<HTMLInputElement>("ct-prod-oferta");
+    if (ofertaEl) ofertaEl.checked = p?.emOferta ?? false;
+    const destaqueEl = g<HTMLInputElement>("ct-prod-destaque");
+    if (destaqueEl) destaqueEl.checked = p?.emDestaque ?? false;
     // Bloco 2 (0031): campos novos que agora gravam de verdade.
     setVal("ct-prod-fabricante", p?.fabricante ?? "");
     setVal("ct-prod-observacoes", p?.observacoes ?? "");
@@ -949,6 +959,10 @@ export function CadastrosTelaUnica({
       masterPeso: val("ct-prod-mst-peso"),
       sourceUrl: val("ct-prod-link"),
       hidePriceTable: g<HTMLInputElement>("ct-prod-oculta-preco")?.checked ?? false,
+      grupoPai: val("ct-prod-grupo-pai"),
+      cor: val("ct-prod-cor"),
+      emOferta: g<HTMLInputElement>("ct-prod-oferta")?.checked ?? false,
+      emDestaque: g<HTMLInputElement>("ct-prod-destaque")?.checked ?? false,
       lastAdjustedAt: val("ct-prod-reajuste"),
       fotoUrl: val("ct-prod-foto"),
       descricaoVitrine: val("ct-prod-descricao-vitrine"),
@@ -1864,8 +1878,16 @@ export function CadastrosTelaUnica({
             </div>
 
             <div className="ct-row ct-r2">
+              <div className="ct-field"><label>Grade <span className="ct-hint">código do principal; vazio = produto único</span></label><input id="ct-prod-grupo-pai" placeholder="ex.: BLT38" /></div>
+              <div className="ct-field"><label>Cor / modelo <span className="ct-hint">rótulo no seletor da página</span></label><input id="ct-prod-cor" placeholder="ex.: Modelo 2" /></div>
+            </div>
+            <div className="ct-row ct-r2" style={{ display: "flex", alignItems: "center", gap: 18, flexWrap: "wrap" }}>
               <label className="ct-checkline"><input type="checkbox" id="ct-prod-oculta-preco" />Não imprimir na tabela de preços</label>
               <label className="ct-checkline"><input type="checkbox" id="ct-prod-inativo" />Inativo</label>
+              <div style={{ display: "flex", gap: 18, marginLeft: "auto" }}>
+                <label className="ct-checkline"><input type="checkbox" id="ct-prod-oferta" />Oferta</label>
+                <label className="ct-checkline"><input type="checkbox" id="ct-prod-destaque" />Destaque</label>
+              </div>
             </div>
           </div>
 
