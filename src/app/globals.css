@@ -272,23 +272,23 @@ a {
    mobile mantém o tamanho original (regra acima). */
 @media (min-width: 769px) {
   .social-btn-float {
+    width: 42px !important;
+    height: 42px !important;
+  }
+
+  .social-btn-float-icon {
+    width: 24px !important;
+    height: 24px !important;
+  }
+
+  .whatsapp-float {
     width: 40px !important;
     height: 40px !important;
   }
 
-  .social-btn-float-icon {
+  .whatsapp-float-icon {
     width: 22px !important;
     height: 22px !important;
-  }
-
-  .whatsapp-float {
-    width: 38px !important;
-    height: 38px !important;
-  }
-
-  .whatsapp-float-icon {
-    width: 20px !important;
-    height: 20px !important;
   }
 }
 a:hover {
@@ -637,25 +637,34 @@ body:has(.admin-shell) .floating-social {
   color: var(--ink-soft);
 }
 
+.barra-setores .page-header {
+  margin: 0;
+  align-items: center;
+  width: 100%;
+}
+
 .page-header-back {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 7px;
-  padding: 8px 16px;
-  border-radius: 999px;
-  border: 1.5px solid var(--border);
-  background: #ffffff;
-  color: var(--navy);
-  font-size: 13.5px;
+  width: 184px;
+  height: 40px;
+  box-sizing: border-box;
+  padding: 0;
+  border-radius: var(--radius-control);
+  border: none;
+  background: var(--cta);
+  color: #000000;
+  font-size: 13px;
   font-weight: 700;
   cursor: pointer;
   white-space: nowrap;
-  transition: background 0.15s, border-color 0.15s;
+  transition: background 0.15s;
 }
 
 .page-header-back:hover {
-  background: var(--bg-cloud);
-  border-color: var(--navy);
+  background: var(--cta-hover);
 }
 
 @media (max-width: 900px) {
@@ -1546,4 +1555,18 @@ body:has(.admin-shell) .floating-social {
 .orc-g-nome-tel { grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); }
 @media (max-width: 599px) {
   .orc-g-nome-tel { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* Busca do topo (BuscaProdutos): borda rosa do CTA, texto preto dentro da caixa */
+.busca-campo {
+  color: #000000;
+  border: 1px solid var(--cta);
+  background: #FFFFFF;
+}
+.busca-campo::placeholder {
+  color: #000000;
+  opacity: 1;
+}
+.busca-campo:focus {
+  box-shadow: 0 0 0 2px rgba(255, 158, 208, 0.35);
 }

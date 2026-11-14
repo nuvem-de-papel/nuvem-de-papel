@@ -4,14 +4,14 @@ import Image from "next/image";
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useCart } from "@/components/carrinho/CartProvider";
-import { useOrcamento } from "@/components/orcamento/OrcamentoProvider";
+import { BuscaProdutos } from "@/components/busca/BuscaProdutos";
 
 export function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [logado, setLogado] = useState(false);
   const [role, setRole] = useState<string | null>(null);
+  const [buscaAberta, setBuscaAberta] = useState(false);
   const { totalItens } = useCart();
-  const { totalQuantidade } = useOrcamento();
 
   useEffect(() => {
     const supabase = createClient();
@@ -55,8 +55,8 @@ export function Header() {
         position: "sticky",
         top: 0,
         zIndex: 50,
-        background: "#3D3D3D",
-        borderBottom: "1px solid rgba(255,255,255,0.1)",
+        background: "linear-gradient(90deg, #F4C7D8 0%, #D9C8F2 100%)",
+        borderBottom: "1px solid rgba(61,61,61,0.12)",
       }}
     >
       <div
@@ -79,7 +79,7 @@ export function Header() {
             priority
             style={{ height: 52, width: "auto" }}
           />
-          <span className="display" style={{ fontSize: 20, color: "#FFFFFF" }}>
+          <span className="display" style={{ fontSize: 20, color: "#3D3D3D" }}>
             Nuvem de Papel
           </span>
         </div>
@@ -95,7 +95,7 @@ export function Header() {
           className="menu-toggle"
           aria-label="Abrir menu"
         >
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="2">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#3D3D3D" strokeWidth="2">
             <line x1="3" y1="6" x2="21" y2="6" />
             <line x1="3" y1="12" x2="21" y2="12" />
             <line x1="3" y1="18" x2="21" y2="18" />
@@ -117,15 +117,15 @@ export function Header() {
               href={link.href}
               style={{
                 fontWeight: link.bold ? 700 : 600,
-                fontSize: 14,
-                color: "#FFFFFF",
+                fontSize: 16,
+                color: "#3D3D3D",
                 textDecoration: "none",
                 display: "flex",
                 alignItems: "center",
                 gap: 4,
               }}
-              onMouseEnter={(e) => (e.currentTarget.style.color = "#FECD01")}
-              onMouseLeave={(e) => (e.currentTarget.style.color = "#FFFFFF")}
+              onMouseEnter={(e) => (e.currentTarget.style.color = "#E084AC")}
+              onMouseLeave={(e) => (e.currentTarget.style.color = "#3D3D3D")}
             >
               {link.label}
             </a>
@@ -133,15 +133,23 @@ export function Header() {
         </nav>
 
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="11" cy="11" r="7" />
-            <line x1="21" y1="21" x2="16.65" y2="16.65" />
-          </svg>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <button
+            type="button"
+            onClick={() => setBuscaAberta((v) => !v)}
+            aria-label="Buscar produto"
+            aria-expanded={buscaAberta}
+            style={{ display: "flex", padding: 4, background: "none", border: "none", cursor: "pointer" }}
+          >
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#3D3D3D" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="11" cy="11" r="7" />
+              <line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+          </button>
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#3D3D3D" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
             <path d="M20.8 8.6a5.5 5.5 0 0 0-9.8-3.4 5.5 5.5 0 0 0-9.8 3.4c0 6 9.8 11.4 9.8 11.4s9.8-5.4 9.8-11.4Z" />
           </svg>
           <a href="/carrinho" aria-label={`Carrinho com ${totalItens} itens`} style={{ position: "relative", display: "flex", padding: 4 }}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#3D3D3D" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="9" cy="21" r="1.4" />
               <circle cx="18" cy="21" r="1.4" />
               <path d="M2.5 3h2l2.6 12.6a2 2 0 0 0 2 1.6h8.2a2 2 0 0 0 2-1.6L21 7.5H6" />
@@ -152,8 +160,8 @@ export function Header() {
                   position: "absolute",
                   top: -6,
                   right: -8,
-                  background: "#FC99D3",
-                  color: "#FFFFFF",
+                  background: "#FFF9FC",
+                  color: "#3D3D3D",
                   fontSize: 9,
                   fontWeight: 700,
                   minWidth: 14,
@@ -169,47 +177,27 @@ export function Header() {
               </span>
             )}
           </a>
-          <a href="/orcamento" aria-label={`Orçamento com ${totalQuantidade} itens`} title="Orçamento" style={{ position: "relative", display: "flex", padding: 4 }}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="8" y="2" width="8" height="4" rx="1" />
-              <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
-              <path d="M9 12h6M9 16h4" />
-            </svg>
-            {totalQuantidade > 0 && (
-              <span
-                style={{
-                  position: "absolute",
-                  top: -6,
-                  right: -8,
-                  background: "#FC99D3",
-                  color: "#FFFFFF",
-                  fontSize: 9,
-                  fontWeight: 700,
-                  minWidth: 14,
-                  height: 14,
-                  padding: "0 3px",
-                  borderRadius: 999,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                {totalQuantidade}
-              </span>
-            )}
-          </a>
+          <span aria-hidden="true" style={{ display: "flex", padding: 4, width: 27, height: 27 }} />
           <a
             href={destinoPainel}
             style={{
-              background: "#FC99D3",
-              color: "#FFFFFF",
-              padding: "10px 18px",
+              background: "var(--cta)",
+              border: "none",
+              color: "#000000",
+              width: 184,
+              height: 40,
+              boxSizing: "border-box",
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: 0,
               borderRadius: "var(--radius-control)",
               fontWeight: 700,
               fontSize: 13,
-              boxShadow: "0 2px 8px rgba(252, 153, 211,0.35)",
+              boxShadow: "none",
               textDecoration: "none",
               whiteSpace: "nowrap",
+              textAlign: "center",
             }}
             className="cta-button"
           >
@@ -217,6 +205,26 @@ export function Header() {
           </a>
         </div>
       </div>
+
+      {buscaAberta && (
+        <div
+          style={{
+            position: "absolute",
+            left: 0,
+            right: 0,
+            top: "100%",
+            background: "#FFFFFF",
+            borderTop: "1px solid rgba(61,61,61,0.12)",
+            boxShadow: "0 12px 30px rgba(0,0,0,0.12)",
+            padding: "16px 24px 20px",
+            zIndex: 60,
+          }}
+        >
+          <div style={{ maxWidth: 1240, margin: "0 auto" }}>
+            <BuscaProdutos aoEscolher={() => setBuscaAberta(false)} />
+          </div>
+        </div>
+      )}
 
       {menuOpen && (
         <div
@@ -226,8 +234,8 @@ export function Header() {
             flexDirection: "column",
             gap: 12,
             padding: "12px 24px 20px",
-            borderTop: "1px solid rgba(255,255,255,0.1)",
-            background: "#006BE1",
+            borderTop: "1px solid rgba(61,61,61,0.12)",
+            background: "linear-gradient(90deg, #F4C7D8 0%, #D9C8F2 100%)",
           }}
         >
           {navLinks.map((link) => (
@@ -238,7 +246,7 @@ export function Header() {
               style={{
                 fontWeight: link.bold ? 700 : 600,
                 fontSize: 16,
-                color: "#FFFFFF",
+                color: "#3D3D3D",
                 padding: "8px 0",
                 textDecoration: "none",
               }}
@@ -252,7 +260,7 @@ export function Header() {
             style={{
               fontWeight: 700,
               fontSize: 16,
-              color: "#FC99D3",
+              color: "#B5507F",
               padding: "8px 0",
               textDecoration: "none",
             }}
