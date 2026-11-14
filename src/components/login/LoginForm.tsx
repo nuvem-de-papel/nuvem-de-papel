@@ -19,6 +19,16 @@ function destinoParaPapel(role: string): string {
   return destinoPadrao();
 }
 
+// Cliente da loja (conta criada no checkout) nao tem linha em profiles. Antes
+// este form o deslogava com "Perfil sem acesso" e ele nunca mais entrava
+// (14/11/2026). Agora vai para a area dele; o ?next= so vale se for da loja —
+// as areas da equipe seguem barradas pelo middleware (exige profile ativo).
+function destinoCliente(): string {
+  const raw = new URLSearchParams(window.location.search).get("next");
+  if (raw && (raw.startsWith("/conta") || raw.startsWith("/checkout"))) return raw;
+  return "/conta/pedidos";
+}
+
 export function LoginForm() {
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
@@ -35,8 +45,11 @@ export function LoginForm() {
         .select("role, status")
         .eq("id", user.id)
         .maybeSingle();
+      if (!profile) {
+        window.location.replace(destinoCliente());
+        return;
+      }
       if (
-        profile &&
         profile.status === "ativo" &&
         PAPEIS.includes(profile.role)
       ) {
@@ -71,7 +84,12 @@ export function LoginForm() {
       return;
     }
 
-    if (!profile || profile.status !== "ativo" || !PAPEIS.includes(profile.role)) {
+    if (!profile) {
+      window.location.replace(destinoCliente());
+      return;
+    }
+
+    if (profile.status !== "ativo" || !PAPEIS.includes(profile.role)) {
       await supabase.auth.signOut();
       setErro("Perfil sem acesso a esta área.");
       setCarregando(false);
@@ -123,7 +141,7 @@ export function LoginForm() {
               Nuvem de Papel
             </div>
             <div style={{ color: "rgba(255,255,255,0.65)", fontSize: 12 }}>
-              Área restrita — acesso operacional
+              Clientes e equipe
             </div>
           </div>
         </div>
@@ -237,7 +255,7 @@ export function LoginForm() {
           </button>
 
           <p style={{ fontSize: 12, color: "var(--ink-soft)", textAlign: "center", margin: "18px 0 0" }}>
-            Acesso exclusivo da equipe Nuvem de Papel.
+            Ainda não tem conta? Ela é criada ao finalizar sua primeira compra.
           </p>
         </form>
       </div>

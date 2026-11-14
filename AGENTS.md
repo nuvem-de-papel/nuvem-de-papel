@@ -502,8 +502,12 @@ upgrade pra Pro.
    (env Preview, branch `staging`, criada 14/11/2026; produção NÃO tem e segue
    fechada até ter `MERCADOPAGO_ACCESS_TOKEN`). Pedido `96505B07` feito pelo
    preview em 14/11/2026.
-6. Pendente: o botão "Entrar / Criar Conta" do cabeçalho (deslogado) ainda
-   leva ao `/login` da equipe, que recusa clientes.
+6. **Login do cliente (14/11/2026)**: `/login` é único para clientes e equipe.
+   Conta SEM linha em `profiles` = cliente da loja → `LoginForm` manda para
+   `/conta/pedidos` (ou `?next=` se começar com `/conta` ou `/checkout`).
+   Antes deslogava com "Perfil sem acesso" e o cliente nunca mais entrava.
+   Profile inativo/pendente continua bloqueado (E2E `f2.cjs` E2) e as áreas da
+   equipe seguem barradas pelo middleware (exige profile ativo).
 7. **Frete PAC/Sedex (14/11/2026)**: `cotarInterno` usa como origem
    `tenant_company.endereco.cep` e procura `freight_tabelas.origem_cep` igual.
    Staging não tinha linha em `tenant_company` (copiada de produção: CEP
