@@ -6,6 +6,79 @@ import { CategoryCarousel } from "@/components/produtos/CategoryCarousel";
 import { PromoStrip, PROMO_ICONS } from "@/components/produtos/PromoStrip";
 import { SetoresMenu } from "@/components/produtos/SetoresMenu";
 import { PageHeader } from "@/components/admin/PageHeader";
+import { podeVerPainel } from "@/lib/painel";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { CatalogoAdmin, type ItemCatalogoAdmin } from "@/components/catalogo/CatalogoAdmin";
+
+type LinhaCatalogo = {
+  id: string;
+  sku: string;
+  name: string;
+  category: string | null;
+  active: boolean;
+  grupo_pai: string | null;
+  em_oferta: boolean;
+  em_destaque: boolean;
+  foto_url: string | null;
+  item_stock: unknown;
+  item_commercial_data: unknown;
+  item_prices: unknown;
+  item_images: unknown;
+};
+
+function primeiro<T>(v: unknown): T | null {
+  return Array.isArray(v) ? ((v[0] ?? null) as T | null) : ((v ?? null) as T | null);
+}
+
+// Catálogo do painel: inclui inativos (a loja filtra; o admin vê tudo).
+async function carregarCatalogoAdmin(): Promise<ItemCatalogoAdmin[]> {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("catalog_items")
+    .select(
+      "id, sku, name, category, active, grupo_pai, em_oferta, em_destaque, foto_url, item_stock(stock_available, stock_on_hand), item_commercial_data(min_stock), item_prices(price, min_quantity, valid_from, valid_until, channel), item_images(url, position)"
+    )
+    .order("sku", { ascending: true });
+  if (error) throw new Error(`Catálogo: ${error.message}`);
+  const agora = Date.now();
+  const linhas = (data ?? []) as unknown as LinhaCatalogo[];
+  return linhas.map((r) => {
+    const est = primeiro<{ stock_available: number; stock_on_hand: number }>(r.item_stock);
+    const com = primeiro<{ min_stock: number }>(r.item_commercial_data);
+    const imagens = (Array.isArray(r.item_images) ? r.item_images : []) as { url: string; position: number }[];
+    const precos = (Array.isArray(r.item_prices) ? r.item_prices : []) as {
+      price: number | string;
+      min_quantity: number;
+      valid_from: string;
+      valid_until: string | null;
+      channel: string;
+    }[];
+    const vigentes = precos
+      .filter(
+        (p) =>
+          p.channel === "varejo" &&
+          new Date(p.valid_from).getTime() <= agora &&
+          (!p.valid_until || new Date(p.valid_until).getTime() > agora)
+      )
+      .sort((a, b) => a.min_quantity - b.min_quantity);
+    return {
+      id: r.id,
+      sku: r.sku,
+      nome: r.name,
+      categoria: r.category,
+      ativo: r.active,
+      grupoPai: r.grupo_pai,
+      emOferta: r.em_oferta,
+      emDestaque: r.em_destaque,
+      foto: r.foto_url ?? imagens.find((i) => i.position === 0)?.url ?? null,
+      minimo: com ? Number(com.min_stock) : 0,
+      fisico: est ? Number(est.stock_on_hand) : null,
+      disponivel: est ? Number(est.stock_available) : null,
+      venda: vigentes[0] ? Number(vigentes[0].price) : null,
+    };
+  });
+}
+
 // Blocos de ponta a ponta da tela (banner, setores e faixas de promocao)
 const PONTA_A_PONTA = {
   width: "100vw",
@@ -18,6 +91,11 @@ const PONTA_A_PONTA = {
 const OFFSET_SECAO = 151;
 
 export default async function ProdutosPage() {
+  // Operacional logado vê o catálogo administrativo dentro do menu lateral do painel;
+  // visitante e revenda seguem na loja.
+  if (await podeVerPainel()) {
+    return <CatalogoAdmin itens={await carregarCatalogoAdmin()} />;
+  }
   const produtos = await getStoreProducts();
   const groups = agruparPorSetor(produtos);
   const setores = CATEGORIAS_PRODUTOS.map((c) => ({ slug: c.slug, titulo: c.titulo }));
