@@ -9,7 +9,8 @@ import { BuscaProdutos } from "@/components/busca/BuscaProdutos";
 export function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [logado, setLogado] = useState(false);
-  const [role, setRole] = useState<string | null>(null);
+  // undefined = ainda carregando; null = logado sem profile (cliente da loja)
+  const [role, setRole] = useState<string | null | undefined>(undefined);
   const [buscaAberta, setBuscaAberta] = useState(false);
   const { totalItens } = useCart();
 
@@ -27,20 +28,25 @@ export function Header() {
           .maybeSingle()
           .then(({ data }) => setRole(data?.role ?? null));
       } else {
-        setRole(null);
+        setRole(undefined);
       }
     });
     return () => subscription.unsubscribe();
   }, []);
 
+  const cliente = logado && role === null;
+
   // Cada papel entra pela propria area: revenda compra, fornecedor ao portal.
-  const destinoPainel = logado
-    ? role === "revenda"
-      ? "/produtos"
-      : role === "fornecedor"
-        ? "/portal/fornecedor"
-        : "/crm"
-    : "/login";
+  const destinoPainel = !logado
+    ? "/login"
+    : cliente
+      ? "/conta/pedidos"
+      : role === "revenda"
+        ? "/produtos"
+        : role === "fornecedor"
+          ? "/portal/fornecedor"
+          : "/crm";
+  const rotuloPainel = !logado ? "Entrar / Criar Conta" : cliente ? "Minha conta" : "Painel";
 
   const navLinks = [
     { href: "/", label: "Home", bold: true },
@@ -201,7 +207,7 @@ export function Header() {
             }}
             className="cta-button"
           >
-            {logado ? "Painel" : "Entrar / Criar Conta"}
+            {rotuloPainel}
           </a>
         </div>
       </div>
@@ -265,7 +271,7 @@ export function Header() {
               textDecoration: "none",
             }}
           >
-            {logado ? "Painel" : "Entrar / Criar Conta"}
+            {rotuloPainel}
           </a>
         </div>
       )}

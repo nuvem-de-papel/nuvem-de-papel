@@ -470,3 +470,30 @@ senha contra HaveIBeenPwned) só existe no plano Pro do Supabase. A org
 `nuvem-de-papel's Org` está no plano FREE — toggle aparece desabilitado.
 Não é erro de configuração, é limite de plano. Revisitar se/quando fizer
 upgrade pra Pro.
+
+## Checkout sem login prévio — cadastro básico (Opção C, 14/11/2026)
+
+1. `/checkout` sem sessão mostra `CadastroBasicoForm`; a action
+   `cadastrarBasicoParaCompra` (`src/app/checkout/cadastro-actions.ts`) cria
+   Auth user (`email_confirm: true`) + `customers` e **abre a sessão no
+   servidor** (`signInWithPassword` com o client de `@/lib/supabase/server`),
+   devolvendo `/checkout` — mesmo padrão de `src/app/orcamento/actions.ts`.
+2. **Cliente da loja NÃO tem linha em `profiles`.** `profiles` é só equipe
+   (`profiles_role_check` recusa `cliente`), e o `/login` (`LoginForm.tsx`)
+   desloga quem não tem profile ativo — por isso o cliente nunca passa por ele.
+3. Vínculo cliente↔login = `customers.auth_user_id` (0050). Colunas reais:
+   `telefone`/`ativo` (0029), não `phone`/`active`. `audit_log` usa
+   `action`/`actor_user_id`/`entity`/`entity_id`/`after`.
+4. **Cliente com cadastro** entra pelo próprio form do checkout ("Já tem
+   cadastro? Entrar aqui" → `entrarParaCompra`, sessão no servidor), não pelo
+   `/login`. **Cabeçalho** (`Header.tsx`): logado sem profile = "Minha conta"
+   → `/conta/pedidos`; com profile = "Painel" (destino por papel).
+   E-mail já cadastrado ao criar conta: o Auth devolve `code: "email_exists"`
+   (422; o texto da mensagem não serve para comparar) → o form avisa e troca
+   sozinho para "entrar", mantendo o e-mail.
+5. Smoke `e2e/cadastro-basico-smoke-simple.cjs` (lê `.env.local`, recusa rodar
+   fora do Supabase de staging, apaga o usuário de teste no fim): **26/26** em
+   14/11/2026 contra `npm run start` local. Teste manual do Joaquim: pedido
+   `9B1BC50A` criado com conta nova (retirada, frete 0; MP não testado — `mp=0`).
+6. Pendente: o botão "Entrar / Criar Conta" do cabeçalho (deslogado) ainda
+   leva ao `/login` da equipe, que recusa clientes.
