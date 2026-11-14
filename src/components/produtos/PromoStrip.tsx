@@ -1,12 +1,13 @@
 import type { ReactNode } from "react";
+import { claro } from "@/lib/cores";
 
 type Variant = "navy" | "pink" | "light" | "green";
 
 const VARIANTS: Record<Variant, { bg: string; fg: string; text: string; tagBg: string; tagFg: string }> = {
-  navy: { bg: "linear-gradient(120deg,#006BE1,#006BE1)", fg: "#FFFFFF", text: "rgba(255,255,255,0.9)", tagBg: "#FC99D3", tagFg: "#FFFFFF" },
-  pink: { bg: "linear-gradient(120deg,#FC99D3,#FC99D3)", fg: "#3A1526", text: "rgba(58,21,38,0.85)", tagBg: "#006BE1", tagFg: "#FFFFFF" },
+  navy: { bg: `linear-gradient(120deg,${claro("#006BE1", 50)},${claro("#006BE1", 50)})`, fg: "#0B2A4A", text: "rgba(11,42,74,0.85)", tagBg: "#FC99D3", tagFg: "#FFFFFF" },
+  pink: { bg: `linear-gradient(120deg,${claro("#FC99D3", 45)},${claro("#FC99D3", 45)})`, fg: "#3A1526", text: "rgba(58,21,38,0.85)", tagBg: "#006BE1", tagFg: "#FFFFFF" },
   light: { bg: "#FFE9B1", fg: "#006BE1", text: "#100D0D", tagBg: "#FC99D3", tagFg: "#FFFFFF" },
-  green: { bg: "linear-gradient(120deg,#2C9C48,#8FC9B8)", fg: "#FFFFFF", text: "rgba(255,255,255,0.92)", tagBg: "#FFFFFF", tagFg: "#2C9C48" },
+  green: { bg: `linear-gradient(120deg,${claro("#2C9C48", 50)},${claro("#8FC9B8", 55)})`, fg: "#0F3B1E", text: "rgba(15,59,30,0.85)", tagBg: "#FFFFFF", tagFg: "#2C9C48" },
 };
 
 export function PromoStrip({
@@ -28,7 +29,7 @@ export function PromoStrip({
   const v = VARIANTS[variant];
 
   return (
-    <div style={{ background: v.bg, color: v.fg, padding: "26px 32px", borderRadius: 18, boxShadow: "0 6px 20px rgba(0, 107, 225,0.10)" }}>
+    <div style={{ background: v.bg, color: v.fg, padding: "52px 48px", borderRadius: 18, boxShadow: "0 6px 20px rgba(0, 107, 225,0.10)" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 28 }}>
         {imagem ? (
           <img src={imagem} alt="" width={88} height={88} style={{ width: 88, height: 88, borderRadius: 16, objectFit: "cover", flexShrink: 0 }} />

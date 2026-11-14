@@ -6,19 +6,7 @@ import { agruparPorSetor } from "@/lib/categoriasProdutos";
 
 // Normaliza texto (minusculo, sem acento) pra filtrar categoria sem
 // depender de grafia exata (ex.: "Lápis" vs "lapis").
-function normaliza(texto: string) {
-  return texto
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .toLowerCase();
-}
 
-function porCategoria(produtos: VarejoProduct[], termos: string[]) {
-  return produtos.filter((p) => {
-    const categoria = normaliza(p.category ?? "");
-    return termos.some((termo) => categoria.includes(normaliza(termo)));
-  });
-}
 
 // Vitrine do Hero em loop: 1o produto de cada setor, depois o 2o de cada, etc.
 function ordemLoop(setores: { items: VarejoProduct[] }[]): VarejoProduct[] {
@@ -34,8 +22,8 @@ function ordemLoop(setores: { items: VarejoProduct[] }[]): VarejoProduct[] {
 
 export default async function HomePage() {
   const produtos = await getStoreProducts();
-  const destaque = produtos.slice(0, 8);
-  const lapisELapiseiras = porCategoria(produtos, ["lapis", "lapiseira"]);
+  const destaque = produtos.filter((p) => p.emDestaque);
+  const ofertas = produtos.filter((p) => p.emOferta);
   const setores = agruparPorSetor(produtos);
 
   return (
@@ -44,22 +32,26 @@ export default async function HomePage() {
       <CategoryShowcase />
 
       <section className="fundo-animado fundo-home-setores">
-        <div style={{ maxWidth: 1240, margin: "0 auto", padding: "34px 32px 0" }}>
+        <div style={{ width: "100vw", marginLeft: "calc(50% - 50vw)", padding: "34px 56px 0", boxSizing: "border-box" }}>
           {setores.map((setor) => (
             <div key={setor.slug} style={{ marginBottom: 18 }}>
-              <CategoryCarousel title={setor.title} products={setor.items} cor={setor.cor} corTitulo={setor.corTitulo} />
+              <CategoryCarousel title={setor.title} products={setor.items} cor={setor.cor} corTitulo={setor.corTitulo} intensidadeCor={10} encaixar />
             </div>
           ))}
         </div>
       </section>
 
-      <div style={{ maxWidth: 1240, margin: "0 auto", padding: "18px 32px 0" }}>
-        <CategoryCarousel title="Destaques" products={destaque} />
-      </div>
+      {destaque.length > 0 && (
+        <div style={{ width: "100vw", marginLeft: "calc(50% - 50vw)", padding: "18px 56px 0", boxSizing: "border-box" }}>
+          <CategoryCarousel title="Destaques" products={destaque} intensidadeCor={10} encaixar />
+        </div>
+      )}
 
-      <div style={{ maxWidth: 1240, margin: "0 auto", padding: "18px 32px 72px" }}>
-        <CategoryCarousel title="Lápis ou Lapiseira?" products={lapisELapiseiras} />
-      </div>
+      {ofertas.length > 0 && (
+        <div style={{ width: "100vw", marginLeft: "calc(50% - 50vw)", padding: "18px 56px 72px", boxSizing: "border-box" }}>
+          <CategoryCarousel title="Ofertas" products={ofertas} intensidadeCor={10} encaixar />
+        </div>
+      )}
     </main>
   );
 }
