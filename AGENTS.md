@@ -488,8 +488,11 @@ upgrade pra Pro.
    cadastro? Entrar aqui" → `entrarParaCompra`, sessão no servidor), não pelo
    `/login`. **Cabeçalho** (`Header.tsx`): logado sem profile = "Minha conta"
    → `/conta/pedidos`; com profile = "Painel" (destino por papel).
+   E-mail já cadastrado ao criar conta: o Auth devolve `code: "email_exists"`
+   (422; o texto da mensagem não serve para comparar) → o form avisa e troca
+   sozinho para "entrar", mantendo o e-mail.
 5. Smoke `e2e/cadastro-basico-smoke-simple.cjs` (lê `.env.local`, recusa rodar
-   fora do Supabase de staging, apaga o usuário de teste no fim): **23/23** em
+   fora do Supabase de staging, apaga o usuário de teste no fim): **26/26** em
    14/11/2026 contra `npm run start` local. Teste manual do Joaquim: pedido
    `9B1BC50A` criado com conta nova (retirada, frete 0; MP não testado — `mp=0`).
 6. Pendente: o botão "Entrar / Criar Conta" do cabeçalho (deslogado) ainda

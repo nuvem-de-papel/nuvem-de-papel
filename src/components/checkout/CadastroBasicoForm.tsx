@@ -27,6 +27,10 @@ export function CadastroBasicoForm() {
           ? await entrarParaCompra({ email, senha })
           : await cadastrarBasicoParaCompra({ nome, email, telefone, senha });
       if (!resultado.ok) {
+        if (resultado.jaCadastrado) {
+          setModo("entrar");
+          setSenha("");
+        }
         setErro(resultado.erro);
         return;
       }

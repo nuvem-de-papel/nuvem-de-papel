@@ -12,7 +12,7 @@ import { NUVEM_DE_PAPEL_TENANT_ID } from "@/lib/tenant";
 
 export type ResultadoCadastroBasico =
   | { ok: true; destino: string }
-  | { ok: false; erro: string };
+  | { ok: false; erro: string; jaCadastrado?: true };
 
 export async function entrarParaCompra(input: {
   email: string;
@@ -68,8 +68,13 @@ export async function cadastrarBasicoParaCompra(input: {
   });
 
   if (authError || !authData.user) {
-    if (authError?.message?.includes("already registered")) {
-      return { ok: false, erro: "Este e-mail já está cadastrado. Faça login para continuar." };
+    // Supabase devolve code "email_exists" (422); o texto da mensagem varia.
+    if (authError?.code === "email_exists" || /already (been )?registered/i.test(authError?.message ?? "")) {
+      return {
+        ok: false,
+        jaCadastrado: true,
+        erro: "Este e-mail já tem cadastro. Digite sua senha para entrar.",
+      };
     }
     console.error("Erro ao criar usuário:", authError);
     return { ok: false, erro: "Não foi possível criar sua conta agora. Tente novamente." };

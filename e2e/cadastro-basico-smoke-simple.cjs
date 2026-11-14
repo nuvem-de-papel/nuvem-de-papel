@@ -140,6 +140,20 @@ async function main() {
     await context.clearCookies();
     await page.goto(`${BASE}/checkout`);
     await page.getByRole("heading", { name: "Finalize sua compra" }).waitFor({ timeout: 15000 });
+
+    // 9a. Criar conta com e-mail que já existe: avisa e troca para "entrar"
+    await page.locator("input#nome").fill(NOME);
+    await page.locator("input#email").fill(EMAIL);
+    await page.locator("input#telefone").fill(TELEFONE);
+    await page.locator("input#senha").fill(SENHA);
+    await page.getByRole("button", { name: "Criar conta e continuar" }).click();
+    await page.getByText("Este e-mail já tem cadastro. Digite sua senha para entrar.").waitFor({ timeout: 15000 });
+    check(true, "E-mail repetido: mostra 'já tem cadastro'");
+    check(await page.getByRole("button", { name: "Entrar e continuar" }).count() === 1, "E-mail repetido: form trocou para entrar");
+    check(await page.locator("input#email").inputValue() === EMAIL, "E-mail repetido: e-mail mantido");
+
+    await page.reload();
+    await page.getByRole("heading", { name: "Finalize sua compra" }).waitFor({ timeout: 15000 });
     await page.getByRole("button", { name: "Entrar aqui" }).click();
     check(await page.locator("input#nome").count() === 0, "Modo entrar: sem campo nome");
     check(await page.locator("input#telefone").count() === 0, "Modo entrar: sem campo telefone");
