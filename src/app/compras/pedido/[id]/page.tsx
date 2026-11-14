@@ -193,13 +193,19 @@ export default async function PedidoCompraPdf({
         <a
           href="/compras"
           style={{
-            border: "1px solid var(--border, #e3e7ef)",
-            borderRadius: 10,
-            background: "#fff",
-            color: "var(--navy, #006BE1)",
-            fontWeight: 800,
+            border: "1px solid #000000",
+            borderRadius: 999,
+            background: "#FECD01",
+            color: "#000000",
+            width: 184,
+            height: 40,
+            boxSizing: "border-box",
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontWeight: 700,
             fontSize: 13,
-            padding: "8px 14px",
+            padding: 0,
             textDecoration: "none",
           }}
         >
