@@ -484,8 +484,13 @@ upgrade pra Pro.
 3. Vínculo cliente↔login = `customers.auth_user_id` (0050). Colunas reais:
    `telefone`/`ativo` (0029), não `phone`/`active`. `audit_log` usa
    `action`/`actor_user_id`/`entity`/`entity_id`/`after`.
-4. Smoke `e2e/cadastro-basico-smoke-simple.cjs` (lê `.env.local`, recusa rodar
-   fora do Supabase de staging, apaga o usuário de teste no fim): **17/17** em
-   14/11/2026 contra `next dev` local.
-5. Pendente: o link "Já tem cadastro? Faça login aqui" do form aponta para o
-   `/login` da equipe, que recusa clientes.
+4. **Cliente com cadastro** entra pelo próprio form do checkout ("Já tem
+   cadastro? Entrar aqui" → `entrarParaCompra`, sessão no servidor), não pelo
+   `/login`. **Cabeçalho** (`Header.tsx`): logado sem profile = "Minha conta"
+   → `/conta/pedidos`; com profile = "Painel" (destino por papel).
+5. Smoke `e2e/cadastro-basico-smoke-simple.cjs` (lê `.env.local`, recusa rodar
+   fora do Supabase de staging, apaga o usuário de teste no fim): **23/23** em
+   14/11/2026 contra `npm run start` local. Teste manual do Joaquim: pedido
+   `9B1BC50A` criado com conta nova (retirada, frete 0; MP não testado — `mp=0`).
+6. Pendente: o botão "Entrar / Criar Conta" do cabeçalho (deslogado) ainda
+   leva ao `/login` da equipe, que recusa clientes.

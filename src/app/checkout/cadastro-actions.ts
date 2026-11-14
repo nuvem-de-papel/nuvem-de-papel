@@ -14,6 +14,25 @@ export type ResultadoCadastroBasico =
   | { ok: true; destino: string }
   | { ok: false; erro: string };
 
+export async function entrarParaCompra(input: {
+  email: string;
+  senha: string;
+}): Promise<ResultadoCadastroBasico> {
+  const email = (input.email ?? "").toLowerCase().trim();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return { ok: false, erro: "E-mail inválido." };
+  }
+  if (!input.senha) {
+    return { ok: false, erro: "Informe sua senha." };
+  }
+  const supa = createClient();
+  const { error } = await supa.auth.signInWithPassword({ email, password: input.senha });
+  if (error) {
+    return { ok: false, erro: "E-mail ou senha incorretos." };
+  }
+  return { ok: true, destino: "/checkout" };
+}
+
 export async function cadastrarBasicoParaCompra(input: {
   nome: string;
   email: string;

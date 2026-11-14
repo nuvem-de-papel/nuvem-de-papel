@@ -1,13 +1,15 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { cadastrarBasicoParaCompra } from "@/app/checkout/cadastro-actions";
+import { cadastrarBasicoParaCompra, entrarParaCompra } from "@/app/checkout/cadastro-actions";
 
 /**
  * Form de cadastro básico para compra (visitante vira cliente).
- * Aparece no /checkout quando não há sessão ativa.
+ * Aparece no /checkout quando não há sessão ativa. O modo "entrar" existe
+ * porque o /login é da equipe e recusa cliente sem profile.
  */
 export function CadastroBasicoForm() {
+  const [modo, setModo] = useState<"criar" | "entrar">("criar");
   const [nome, setNome] = useState("");
   const [email, setEmail] = useState("");
   const [telefone, setTelefone] = useState("");
@@ -20,7 +22,10 @@ export function CadastroBasicoForm() {
     setErro(null);
 
     startTransition(async () => {
-      const resultado = await cadastrarBasicoParaCompra({ nome, email, telefone, senha });
+      const resultado =
+        modo === "entrar"
+          ? await entrarParaCompra({ email, senha })
+          : await cadastrarBasicoParaCompra({ nome, email, telefone, senha });
       if (!resultado.ok) {
         setErro(resultado.erro);
         return;
@@ -51,7 +56,13 @@ export function CadastroBasicoForm() {
     marginBottom: 20,
   };
 
-  const submitDisabled = isPending || !nome || !email || !telefone || !senha;
+  const entrando = modo === "entrar";
+  const submitDisabled = isPending || !email || !senha || (!entrando && (!nome || !telefone));
+
+  const trocarModo = () => {
+    setErro(null);
+    setModo(entrando ? "criar" : "entrar");
+  };
 
   return (
     <main
@@ -74,10 +85,13 @@ export function CadastroBasicoForm() {
           Finalize sua compra
         </h1>
         <p style={{ color: "var(--ink-soft)", marginBottom: 28, fontSize: 15 }}>
-          Crie uma conta rápida para continuar. Você poderá acompanhar seu pedido e comprar mais vezes.
+          {entrando
+            ? "Entre com o e-mail e a senha do seu cadastro para continuar."
+            : "Crie uma conta rápida para continuar. Você poderá acompanhar seu pedido e comprar mais vezes."}
         </p>
 
         <form onSubmit={handleSubmit}>
+          {!entrando && (
           <div style={formGroupStyle}>
             <label htmlFor="nome" style={labelStyle}>
               Nome completo
@@ -94,6 +108,7 @@ export function CadastroBasicoForm() {
               required
             />
           </div>
+          )}
 
           <div style={formGroupStyle}>
             <label htmlFor="email" style={labelStyle}>
@@ -112,6 +127,7 @@ export function CadastroBasicoForm() {
             />
           </div>
 
+          {!entrando && (
           <div style={formGroupStyle}>
             <label htmlFor="telefone" style={labelStyle}>
               Telefone
@@ -128,6 +144,7 @@ export function CadastroBasicoForm() {
               required
             />
           </div>
+          )}
 
           <div style={formGroupStyle}>
             <label htmlFor="senha" style={labelStyle}>
@@ -138,16 +155,18 @@ export function CadastroBasicoForm() {
               id="senha"
               value={senha}
               onChange={(e) => setSenha(e.target.value)}
-              placeholder="Mínimo 6 caracteres"
+              placeholder={entrando ? "Sua senha" : "Mínimo 6 caracteres"}
               disabled={isPending}
               style={inputStyle}
-              autoComplete="new-password"
-              minLength={6}
+              autoComplete={entrando ? "current-password" : "new-password"}
+              minLength={entrando ? undefined : 6}
               required
             />
-            <div style={{ fontSize: 12, color: "var(--ink-soft)", marginTop: 6 }}>
-              Você usará esta senha para acessar sua conta depois.
-            </div>
+            {!entrando && (
+              <div style={{ fontSize: 12, color: "var(--ink-soft)", marginTop: 6 }}>
+                Você usará esta senha para acessar sua conta depois.
+              </div>
+            )}
           </div>
 
           {erro && (
@@ -181,7 +200,13 @@ export function CadastroBasicoForm() {
               transition: "background 0.2s",
             }}
           >
-            {isPending ? "Criando conta..." : "Criar conta e continuar"}
+            {isPending
+              ? entrando
+                ? "Entrando..."
+                : "Criando conta..."
+              : entrando
+                ? "Entrar e continuar"
+                : "Criar conta e continuar"}
           </button>
 
           <div
@@ -194,17 +219,24 @@ export function CadastroBasicoForm() {
               color: "var(--ink)",
             }}
           >
-            <strong>Já tem cadastro?</strong>{" "}
-            <a
-              href="/login?next=/checkout"
+            <strong>{entrando ? "Ainda não tem cadastro?" : "Já tem cadastro?"}</strong>{" "}
+            <button
+              type="button"
+              onClick={trocarModo}
+              disabled={isPending}
               style={{
+                background: "none",
+                border: "none",
+                padding: 0,
+                font: "inherit",
                 color: "var(--blue-600)",
                 textDecoration: "underline",
                 fontWeight: 700,
+                cursor: "pointer",
               }}
             >
-              Faça login aqui
-            </a>
+              {entrando ? "Criar conta" : "Entrar aqui"}
+            </button>
           </div>
         </form>
       </div>

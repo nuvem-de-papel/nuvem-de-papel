@@ -128,6 +128,33 @@ async function main() {
     check(await page.getByRole("heading", { name: "Finalize sua compra" }).count() === 0, "Form de cadastro sumiu");
     check(await logado.count() > 0, "Checkout logado (endereço ou 'em breve') presente");
 
+    // 8. Cabeçalho do cliente: "Minha conta" -> /conta/pedidos (nunca "Painel")
+    log("8. Conferindo cabeçalho do cliente...");
+    const minhaConta = page.getByRole("link", { name: "Minha conta" }).first();
+    await minhaConta.waitFor({ state: "attached", timeout: 10000 });
+    check(await minhaConta.getAttribute("href") === "/conta/pedidos", "Cabeçalho: 'Minha conta' -> /conta/pedidos");
+    check(await page.getByRole("link", { name: "Painel" }).count() === 0, "Cabeçalho: sem botão 'Painel'");
+
+    // 9. Sair e voltar como cliente que já tem cadastro
+    log("9. Entrando com cadastro existente pelo checkout...");
+    await context.clearCookies();
+    await page.goto(`${BASE}/checkout`);
+    await page.getByRole("heading", { name: "Finalize sua compra" }).waitFor({ timeout: 15000 });
+    await page.getByRole("button", { name: "Entrar aqui" }).click();
+    check(await page.locator("input#nome").count() === 0, "Modo entrar: sem campo nome");
+    check(await page.locator("input#telefone").count() === 0, "Modo entrar: sem campo telefone");
+
+    await page.locator("input#email").fill(EMAIL);
+    await page.locator("input#senha").fill("senha-errada-123");
+    await page.getByRole("button", { name: "Entrar e continuar" }).click();
+    await page.getByText("E-mail ou senha incorretos.").waitFor({ timeout: 15000 });
+    check(true, "Senha errada: mostra 'E-mail ou senha incorretos.'");
+
+    await page.locator("input#senha").fill(SENHA);
+    await page.getByRole("button", { name: "Entrar e continuar" }).click();
+    await logado.first().waitFor({ timeout: 20000 });
+    check(new URL(page.url()).pathname === "/checkout", "Entrou e continua em /checkout");
+
     // 11. Validar banco (se key disponível)
     if (SUPABASE_KEY) {
       log("10. Validando banco...");
