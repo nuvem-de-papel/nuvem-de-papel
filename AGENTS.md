@@ -491,9 +491,16 @@ upgrade pra Pro.
    E-mail já cadastrado ao criar conta: o Auth devolve `code: "email_exists"`
    (422; o texto da mensagem não serve para comparar) → o form avisa e troca
    sozinho para "entrar", mantendo o e-mail.
+   **Sair do cliente**: botão "Sair" em `/conta/pedidos`
+   (`src/components/conta/SairButton.tsx`, `signOut` + volta para `/`). Antes
+   não existia saída para cliente — só o `AdminShell` da equipe tinha.
 5. Smoke `e2e/cadastro-basico-smoke-simple.cjs` (lê `.env.local`, recusa rodar
    fora do Supabase de staging, apaga o usuário de teste no fim): **26/26** em
    14/11/2026 contra `npm run start` local. Teste manual do Joaquim: pedido
    `9B1BC50A` criado com conta nova (retirada, frete 0; MP não testado — `mp=0`).
+   No preview Vercel de staging o checkout só abre com `CHECKOUT_LIBERADO=1`
+   (env Preview, branch `staging`, criada 14/11/2026; produção NÃO tem e segue
+   fechada até ter `MERCADOPAGO_ACCESS_TOKEN`). Pedido `96505B07` feito pelo
+   preview em 14/11/2026.
 6. Pendente: o botão "Entrar / Criar Conta" do cabeçalho (deslogado) ainda
    leva ao `/login` da equipe, que recusa clientes.

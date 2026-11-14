@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { SairButton } from "@/components/conta/SairButton";
 
 export const dynamic = "force-dynamic";
 
@@ -71,12 +72,26 @@ export default async function MeusPedidosPage({
 
   return (
     <main style={{ maxWidth: 980, margin: "0 auto", padding: "48px 32px 72px" }}>
-      <h1 className="display" style={{ fontSize: 32, marginBottom: 6 }}>
-        Meus pedidos
-      </h1>
-      <p style={{ color: "var(--ink-soft)", fontSize: 14, marginBottom: 24 }}>
-        {pedidos.length} {pedidos.length === 1 ? "pedido" : "pedidos"} · {user.email}
-      </p>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "flex-start",
+          gap: 12,
+          flexWrap: "wrap",
+          marginBottom: 24,
+        }}
+      >
+        <div>
+          <h1 className="display" style={{ fontSize: 32, marginBottom: 6 }}>
+            Meus pedidos
+          </h1>
+          <p style={{ color: "var(--ink-soft)", fontSize: 14, margin: 0 }}>
+            {pedidos.length} {pedidos.length === 1 ? "pedido" : "pedidos"} · {user.email}
+          </p>
+        </div>
+        <SairButton />
+      </div>
 
       {searchParams.novo && (
         <p
