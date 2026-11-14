@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { PROMO_ICONS } from "@/components/produtos/PromoStrip";
+import { claro } from "@/lib/cores";
 
 type Slide = {
   tag: string;
@@ -21,8 +22,8 @@ const SLIDES: Slide[] = [
     tag: "Frete grátis",
     title: "Entrega grátis acima de R$ 199",
     text: "Seus materiais favoritos direto para casa, sem custo de frete.",
-    bg: "linear-gradient(120deg,#006BE1,#006BE1)",
-    fg: "#FFFFFF",
+    bg: `linear-gradient(120deg,${claro("#006BE1", 50)},${claro("#006BE1", 50)})`,
+    fg: "#0B2A4A",
     tagBg: "#FC99D3",
     tagFg: "#FFFFFF",
     icon: PROMO_ICONS.truck,
@@ -32,7 +33,7 @@ const SLIDES: Slide[] = [
     tag: "Clube",
     title: "Clube Nuvem de Papel",
     text: "Assinatura mensal com brindes, cupons e novidades em primeira mão.",
-    bg: "linear-gradient(120deg,#FC99D3,#E9761C)",
+    bg: `linear-gradient(120deg,${claro("#FC99D3", 55)},${claro("#E9761C", 55)})`,
     fg: "#3A1526",
     tagBg: "#006BE1",
     tagFg: "#FFFFFF",
@@ -43,8 +44,8 @@ const SLIDES: Slide[] = [
     tag: "Escolar 2027",
     title: "Coleção escolar completa",
     text: "Cadernos, canetas, mochilas e tudo para o ano letivo começar bem.",
-    bg: "linear-gradient(120deg,#2C9C48,#8FC9B8)",
-    fg: "#FFFFFF",
+    bg: `linear-gradient(120deg,${claro("#2C9C48", 50)},${claro("#8FC9B8", 55)})`,
+    fg: "#0F3B1E",
     tagBg: "#FFFFFF",
     tagFg: "#2C9C48",
     icon: PROMO_ICONS.backpack,
@@ -76,7 +77,7 @@ export function BannerSlider() {
               minWidth: "100%",
               background: s.bg,
               color: s.fg,
-              padding: "52px 32px",
+              padding: "104px 64px",
               borderRadius: 18,
             }}
           >

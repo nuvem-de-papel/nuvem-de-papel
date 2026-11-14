@@ -124,7 +124,7 @@ export function FloatingSocial() {
       className="floating-social"
       style={{
         position: "fixed",
-        left: 16,
+        right: 16,
         top: "50%",
         transform: "translateY(-50%)",
         zIndex: 40,

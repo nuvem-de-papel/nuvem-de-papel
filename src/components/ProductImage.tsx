@@ -85,7 +85,7 @@ const FOTO_REMOTA_OK = /^https:\/\/\S+\.(jpg|jpeg|png|webp)(\?\S*)?$/i;
  * LOCAL relativo (/produtos/catalogo/<sku>.jpg), servida pelo public/ do
  * proprio Next.js - nao e URL de fornecedor. Restrita a esse prefixo, sem
  * "..", pra nao virar caminho arbitrario. */
-const FOTO_LOCAL_OK = /^\/produtos\/catalogo\/[\w-]+\.(jpg|jpeg|png|webp)$/i;
+const FOTO_LOCAL_OK = /^\/produtos\/(catalogo|teste_blt38)\/[\w-]+\.(jpg|jpeg|png|webp)$/i;
 
 export function ProductImage({
   category,

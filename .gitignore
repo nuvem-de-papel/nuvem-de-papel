@@ -9,3 +9,4 @@ supabase/.temp/
 tsconfig.tsbuildinfo
 .env*
 _prompts/
+supabase/backups/

@@ -9,11 +9,14 @@ export function PageHeader({
   titulo,
   subtitulo,
   voltarPara = "/crm",
+  meio,
 }: {
   titulo: string;
   // opcional: sem subtítulo o h1 fica só com o título (sem " - " sobrando)
   subtitulo?: React.ReactNode;
   voltarPara?: string;
+  // opcional: conteudo no meio da linha (ex.: menu de setores), entre o titulo e o Voltar
+  meio?: React.ReactNode;
 }) {
   function voltar() {
     if (window.history.length > 1) window.history.back();
@@ -26,6 +29,7 @@ export function PageHeader({
         {titulo}
         {subtitulo ? <span className="page-header-sub"> - {subtitulo}</span> : null}
       </h1>
+      {meio}
       <button type="button" className="page-header-back" onClick={voltar}>
         <svg
           width={15}
