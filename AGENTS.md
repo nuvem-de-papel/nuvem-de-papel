@@ -15,18 +15,26 @@ O desenvolvedor lendo isso tem TDAH. Formate TODAS as respostas para que um cér
 
 | Ambiente | Pasta local | Branch git | Banco/Backend | Deploy |
 |---|---|---|---|---|
-| Produção | `F:\Projetos\nuvem-de-papel` | `main` | Supabase `cbnmnpnpioukbzircmzn` (nuvem-de-papel) | Vercel Production — dispara em push/merge em `main` |
-| Staging/dev | `F:\Projetos\nuvem-de-papel-staging` | `staging` (ou qualquer branch != `main`) | Supabase `urlfwxeflxpdmmxkuuur` (nuvem-de-papel-staging) | Vercel Preview — dispara em push de qualquer branch != `main` |
+| Produção | `F:\Projetos\nuvem-de-papel` | `main` | Supabase `urlfwxeflxpdmmxkuuur` (nuvem-de-papel-staging-produção) | Vercel Production — dispara em push/merge em `main` |
+| Staging/dev | `F:\Projetos\nuvem-de-papel-staging` | `staging` (ou qualquer branch != `main`) | Supabase `cwfvxthfwbvpfjhsxpmc` (nuvem-de-papel-staging-staging) | Vercel Preview — dispara em push de qualquer branch != `main` |
 
 Repositório único: https://github.com/nuvem-de-papel/nuvem-de-papel
 
 Migrations aplicadas via Management API do Supabase com o helper da sessão
 30/09/2026: `& "C:\Users\joaqu\AppData\Local\Temp\opencode\supabase-query-pat.ps1" -ProjectRef <ref> -SqlFile <arquivo>`
-(staging `urlfwxeflxpdmmxkuuur`, produção `cbnmnpnpioukbzircmzn`). O token do
+(staging `cwfvxthfwbvpfjhsxpmc`, produção `urlfwxeflxpdmmxkuuur`). O token do
 Supabase CLI no CredMan está **sem escopo `database_read`** (403) — usar o
 helper de PAT (`sbp_…` salvo em `sbp-token.txt` no temp da sessão), não o
 `supabase-query.ps1` original. Antes de criar a próxima, conferir a numeração
 real em `supabase/migrations/`.
+
+### Mapa confirmado dos projetos Supabase (confirmado pelo Joaquim em 13/11/2026 — não perguntar de novo)
+
+- **PRODUÇÃO:** `urlfwxeflxpdmmxkuuur` (nome no painel: `nuvem-de-papel-staging-produção`) — https://urlfwxeflxpdmmxkuuur.supabase.co
+- **TESTE / STAGING:** `cwfvxthfwbvpfjhsxpmc` (nome no painel: `nuvem-de-papel-staging-staging`) — https://cwfvxthfwbvpfjhsxpmc.supabase.co
+- Projeto `cbnmnpnpioukbzircmzn` (`nuvem-de-papel-pausado`, INACTIVE): NÃO é usado pelo código atual. Não escrever nele.
+- Chaves (publishable, service role, senha do banco) ficam APENAS no `.env.local` da pasta de staging e nunca no chat, no Git ou em documentos. A senha do banco entra por `[YOUR-PASSWORD]` no comando de conexão.
+- Regra: a pasta de staging (`.env.local`) aponta para `cwfvxthfwbvpfjhsxpmc`. Qualquer migration, SQL de escrita ou teste começa aí. Produção (`urlfwxeflxpdmmxkuuur`) só recebe migration depois de validada no teste.
 
 ## Fluxo obrigatório para qualquer mudança de código ou de banco
 
@@ -35,7 +43,7 @@ real em `supabase/migrations/`.
 1. Trabalhar sempre na pasta de staging/dev (`nuvem-de-papel-staging`), nunca editar direto na pasta de produção.
 2. Validar local primeiro (`npm run type-check` → `npm run lint` → `npm run build` → `npm run e2e`).
 3. Commit + push na branch `staging`, nunca direto em `main`.
-4. Mudança em migrations — aplicar/testar primeiro no banco de staging (`urlfwxeflxpdmmxkuuur`), e **sempre aplicar em produção (preflight → migration → pgTAP) ANTES do merge** que deploya. Query API de apoio ao ritual: `supabase-query-pat.ps1` precisa rodar no **pwsh 7** (`pwsh -File …`) — no Windows PowerShell 5.1 o `ConvertTo-Json` serializa o SQL como objeto `{"value":…}` e a API responde 400, e o header tem de ser parâmetro `-ContentType`, não hashtable.
+4. Mudança em migrations — aplicar/testar primeiro no banco de staging (`cwfvxthfwbvpfjhsxpmc`), e **sempre aplicar em produção (preflight → migration → pgTAP) ANTES do merge** que deploya. Query API de apoio ao ritual: `supabase-query-pat.ps1` precisa rodar no **pwsh 7** (`pwsh -File …`) — no Windows PowerShell 5.1 o `ConvertTo-Json` serializa o SQL como objeto `{"value":…}` e a API responde 400, e o header tem de ser parâmetro `-ContentType`, não hashtable.
 5. Só depois de validado (staging ok), fazer merge em `main` — esse é o único gatilho que deve tocar produção de verdade.
 
 Push ao GitHub: `gh` está logado na conta **`nuvem-de-papel`** (admin do repo) — device flow `gh auth login --hostname github.com --git-protocol https --web` + `gh auth setup-git` (helper `credential.https://github.com` = `!gh auth git-credential`), feito em 07/10/2026; se o login expirar, refazer o device flow no navegador logado na mesma conta. A conta antiga `connection-cyber-so` (só leitura) foi removida do credential manager (`cmdkey /delete:LegacyGeneric:target=git:https://github.com`). Repos antigos `satcyber003-sketch/nuvem-de-papel` são obsoletos.
@@ -383,7 +391,7 @@ correspondentes por número — mesmo padrão de governança documentado no pare
    $vol  = Get-Volume -FileSystemLabel "BACKUP"
    $dest = "$($vol.DriveLetter):\bk-nuvem-de-papel\<staging|producao>\<data>"
    New-Item -ItemType Directory -Path $dest -Force
-   supabase link --project-ref <ref-do-projeto>   # urlfwxeflxpdmmxkuuur (staging) / cbnmnpnpioukbzircmzn (producao)
+   supabase link --project-ref <ref-do-projeto>   # cwfvxthfwbvpfjhsxpmc (staging) / urlfwxeflxpdmmxkuuur (producao)
    supabase db dump -f "$dest\schema.sql"
    supabase db dump --data-only -f "$dest\data.sql"
    ```
@@ -391,7 +399,7 @@ correspondentes por número — mesmo padrão de governança documentado no pare
 4. Checksum obrigatorio logo apos o dump: `Get-FileHash *.sql -Algorithm SHA256`,
    gravar em `checksums.sha256.txt` ao lado dos arquivos.
 5. **IMPORTANTE — voltar o link pra staging depois do dump de producao**
-   (`supabase link --project-ref urlfwxeflxpdmmxkuuur`) pra nao arriscar rodar
+   (`supabase link --project-ref cwfvxthfwbvpfjhsxpmc`) pra nao arriscar rodar
    outro comando (migration etc.) apontando pra producao sem querer.
 
 ### Teste de restore (validado 08/11/2026, dump de staging de 08/11/2026)

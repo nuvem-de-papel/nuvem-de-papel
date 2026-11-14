@@ -24,6 +24,7 @@ export function LoginForm() {
   const [senha, setSenha] = useState("");
   const [erro, setErro] = useState<string | null>(null);
   const [carregando, setCarregando] = useState(false);
+  const [mostrarSenha, setMostrarSenha] = useState(false);
 
   useEffect(() => {
     const supabase = createClient();
@@ -159,24 +160,46 @@ export function LoginForm() {
           >
             Senha
           </label>
-          <input
-            id="senha"
-            type="password"
-            required
-            autoComplete="current-password"
-            value={senha}
-            onChange={(e) => setSenha(e.target.value)}
-            style={{
-              width: "100%",
-              padding: "12px 14px",
-              border: "1.5px solid var(--border)",
-              borderRadius: 10,
-              fontSize: 15,
-              fontFamily: "'Open Sans', sans-serif",
-              marginBottom: 18,
-              outline: "none",
-            }}
-          />
+          <div style={{ position: "relative", marginBottom: 18 }}>
+            <input
+              id="senha"
+              type={mostrarSenha ? "text" : "password"}
+              required
+              autoComplete="current-password"
+              value={senha}
+              onChange={(e) => setSenha(e.target.value)}
+              style={{
+                width: "100%",
+                padding: "12px 64px 12px 14px",
+                border: "1.5px solid var(--border)",
+                borderRadius: 10,
+                fontSize: 15,
+                fontFamily: "'Open Sans', sans-serif",
+                outline: "none",
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => setMostrarSenha((v) => !v)}
+              aria-label={mostrarSenha ? "Ocultar senha" : "Mostrar senha"}
+              aria-pressed={mostrarSenha}
+              style={{
+                position: "absolute",
+                right: 8,
+                top: "50%",
+                transform: "translateY(-50%)",
+                background: "none",
+                border: "none",
+                padding: "6px 8px",
+                cursor: "pointer",
+                color: "var(--navy)",
+                fontSize: 13,
+                fontWeight: 700,
+              }}
+            >
+              {mostrarSenha ? "Ocultar" : "Mostrar"}
+            </button>
+          </div>
 
           {erro && (
             <p
