@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { CATEGORIAS_PRODUTOS } from "@/lib/categoriasProdutos";
 
 export type VarejoProduct = {
   id: string;
@@ -118,4 +119,132 @@ export async function getStoreProducts(): Promise<VarejoProduct[]> {
     });
   }
   return [...porItem.values()];
+}
+
+// ---------- Pagina do produto (grade, 0051) ----------
+export type PaginaProduto = {
+  principal: VarejoProduct;
+  selecionado: VarejoProduct;
+  variantes: VarejoProduct[];
+  /** Info/detalhes do produto principal: item_images position 1-4. */
+  galeria: string[];
+};
+
+type ItemPagina = {
+  id: string;
+  sku: string;
+  name: string;
+  category: string | null;
+  active: boolean;
+  foto_url: string | null;
+  description: string | null;
+  grupo_pai: string | null;
+  cor: string | null;
+  em_oferta: boolean;
+  em_destaque: boolean;
+  item_images: { url: string; position: number }[] | null;
+  item_prices:
+    | { price: number | string; min_quantity: number; valid_from: string; valid_until: string | null; channel: string }[]
+    | null;
+};
+
+// Pagina do produto: SKU pedido pode ser o principal ou uma variante.
+// Grade = principal (sku = grupo) + variantes (grupo_pai = grupo).
+// Preco e saldo sao de varejo/CD (mesma fonte da vitrine: fail-closed).
+export async function getPaginaProduto(
+  sku: string,
+  varianteSku?: string | null
+): Promise<PaginaProduto | null> {
+  const supabase = createClient();
+
+  const { data: base } = await supabase
+    .from("catalog_items")
+    .select("sku, grupo_pai, active")
+    .eq("sku", sku)
+    .maybeSingle();
+  if (!base || !base.active) return null;
+  const grupo = base.grupo_pai ?? base.sku;
+
+  const { data, error } = await supabase
+    .from("catalog_items")
+    .select(
+      "id, sku, name, category, active, foto_url, description, grupo_pai, cor, em_oferta, em_destaque, item_images(url, position), item_prices(price, min_quantity, valid_from, valid_until, channel)"
+    )
+    .or(`sku.eq.${grupo},grupo_pai.eq.${grupo}`)
+    .eq("active", true)
+    .returns<ItemPagina[]>();
+  if (error) {
+    console.error("getPaginaProduto:", error.message);
+    return null;
+  }
+  if (!data || data.length === 0) return null;
+
+  const { data: cdRows, error: cdError } = await supabase
+    .from("item_stock_cd_public")
+    .select("item_id, stock_on_hand")
+    .in("item_id", data.map((i) => i.id))
+    .returns<{ item_id: string; stock_on_hand: number }[]>();
+  if (cdError) console.error("getPaginaProduto cd:", cdError.message);
+  const saldoCd = new Map((cdRows ?? []).map((r) => [r.item_id, Number(r.stock_on_hand)]));
+
+  const agora = Date.now();
+  const paraProduto = (item: ItemPagina): VarejoProduct => {
+    const vigentes = (item.item_prices ?? [])
+      .filter(
+        (p) =>
+          p.channel === "varejo" &&
+          new Date(p.valid_from).getTime() <= agora &&
+          (!p.valid_until || new Date(p.valid_until).getTime() > agora)
+      )
+      .sort((a, b) => a.min_quantity - b.min_quantity);
+    return {
+      id: item.id,
+      sku: item.sku,
+      name: item.name,
+      category: item.category,
+      price: vigentes[0] ? Number(vigentes[0].price) : 0,
+      estoque: saldoCd.get(item.id) ?? 0,
+      fotoUrl:
+        (item.item_images ?? []).find((img) => img.position === 0)?.url ?? item.foto_url,
+      description: item.description,
+      grupoPai: item.grupo_pai,
+      cor: item.cor,
+      emOferta: item.em_oferta,
+      emDestaque: item.em_destaque,
+    };
+  };
+
+  const principalRaw = data.find((i) => i.sku === grupo);
+  if (!principalRaw) return null;
+  const principal = paraProduto(principalRaw);
+  const variantes = data
+    .map(paraProduto)
+    .sort((a, b) => (a.sku === grupo ? -1 : b.sku === grupo ? 1 : a.sku.localeCompare(b.sku)));
+  const selecionado =
+    (varianteSku ? variantes.find((v) => v.sku === varianteSku) : undefined) ?? principal;
+  const galeria = (principalRaw.item_images ?? [])
+    .filter((img) => img.position >= 1 && img.position <= 4)
+    .sort((a, b) => a.position - b.position)
+    .map((img) => img.url);
+
+  return { principal, selecionado, variantes, galeria };
+}
+
+// ---------- "Combina com" (pagina do produto) ----------
+// Sorteio a cada carregamento: produtos dos 7 setores atuais, em ordem
+// aleatoria, sem o proprio produto, sem inativos (getStoreProducts ja filtra)
+// e sem produtos sem estoque. Nao depende do setor do produto clicado.
+export async function getCombinaCom(excluirSku: string): Promise<VarejoProduct[]> {
+  const todos = await getStoreProducts();
+  const elegiveis = todos.filter(
+    (p) =>
+      p.sku !== excluirSku &&
+      !!p.category &&
+      CATEGORIAS_PRODUTOS.some((c) => c.match.test(p.category!.toLowerCase()))
+  );
+  for (let i = elegiveis.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [elegiveis[i], elegiveis[j]] = [elegiveis[j], elegiveis[i]];
+  }
+  return elegiveis;
 }
