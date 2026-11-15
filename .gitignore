@@ -9,3 +9,9 @@ supabase/.temp/
 tsconfig.tsbuildinfo
 .env*
 _prompts/
+supabase/backups/
+# Saidas de teste do desagrupador de fotos (scripts/processar_grades_blt.py)
+public/produtos/catalogo_teste*/
+public/produtos/catalogo-novo/
+public/produtos/catalogo_processado_blt/
+public/produtos/teste_blt38/

@@ -69,11 +69,14 @@ function dataPostagem() {
   return String(d.getDate()).padStart(2, "0") + "/" + String(d.getMonth() + 1).padStart(2, "0") + "/" + d.getFullYear();
 }
 
-function corpo(cepDestino, peso, [alt, larg, comp], servicoCod) {
+// cepOrigem = o MESMO CEP gravado em freight_tabelas.origem_cep (tenant_company).
+// Antes vinha de env.FRETE_CEP_ORIGEM || "09850-730" e podia cotar de um CEP e
+// gravar com outro (tabela com preco de origem errada).
+function corpo(cepOrigem, cepDestino, peso, [alt, larg, comp], servicoCod) {
   const d = new URLSearchParams();
   d.set("data", dataPostagem());
   d.set("dataAtual", dataPostagem());
-  d.set("cepOrigem", env.FRETE_CEP_ORIGEM || "09850-730");
+  d.set("cepOrigem", cepOrigem.slice(0, 5) + "-" + cepOrigem.slice(5));
   d.set("cepDestino", cepDestino.slice(0, 5) + "-" + cepDestino.slice(5));
   d.set("servico", servicoCod);
   d.set("Formato", "1");
@@ -94,7 +97,7 @@ function corpo(cepDestino, peso, [alt, larg, comp], servicoCod) {
   return d.toString();
 }
 
-async function cotar(cepDestino, peso, dims, servicoCod) {
+async function cotar(cepOrigem, cepDestino, peso, dims, servicoCod) {
   const resp = await fetch("https://www2.correios.com.br/sistemas/precosPrazos/prazos.cfm", {
     method: "POST",
     headers: {
@@ -104,7 +107,7 @@ async function cotar(cepDestino, peso, dims, servicoCod) {
       "Accept-Language": "pt-BR,pt;q=0.9",
       Referer: "https://www2.correios.com.br/sistemas/precosPrazos/prazos.cfm",
     },
-    body: corpo(cepDestino, peso, dims, servicoCod),
+    body: corpo(cepOrigem, cepDestino, peso, dims, servicoCod),
     signal: AbortSignal.timeout(45000),
   });
   if (resp.status === 403) throw new Error("RATE_LIMIT_403");
@@ -143,8 +146,9 @@ async function cotar(cepDestino, peso, dims, servicoCod) {
     .select("endereco")
     .eq("tenant_id", tenantId)
     .maybeSingle();
-  const cepOrigem = String(empresa?.endereco?.cep ?? "09850-730").replace(/\D/g, "");
-  if (cepOrigem.length !== 8) throw new Error(`CEP de origem invalido: ${cepOrigem}`);
+  // sem CEP da loja = para (antes caia em 09850-730 e o checkout nunca achava a tabela)
+  const cepOrigem = String(empresa?.endereco?.cep ?? "").replace(/\D/g, "");
+  if (cepOrigem.length !== 8) throw new Error(`CEP da loja (tenant_company.endereco.cep) invalido ou vazio: "${cepOrigem}"`);
 
   // checkpoint: pula o que ja esta no banco (importacao retomavel apos 403)
   const { data: existentes } = await admin
@@ -178,7 +182,7 @@ async function cotar(cepDestino, peso, dims, servicoCod) {
   for (let idx = 0; idx < pendentes.length; idx++) {
     const { reg, faixa, svc } = pendentes[idx];
     const tentar = async () => {
-      const r = await cotar(reg.cep, faixa.peso, faixa.dims, svc.cod);
+      const r = await cotar(cepOrigem, reg.cep, faixa.peso, faixa.dims, svc.cod);
       linhas.push({
         tenant_id: tenantId,
         origem_cep: cepOrigem,

@@ -19,11 +19,22 @@ function destinoParaPapel(role: string): string {
   return destinoPadrao();
 }
 
+// Cliente da loja (conta criada no checkout) nao tem linha em profiles. Antes
+// este form o deslogava com "Perfil sem acesso" e ele nunca mais entrava
+// (14/11/2026). Agora vai para a area dele; o ?next= so vale se for da loja —
+// as areas da equipe seguem barradas pelo middleware (exige profile ativo).
+function destinoCliente(): string {
+  const raw = new URLSearchParams(window.location.search).get("next");
+  if (raw && (raw.startsWith("/conta") || raw.startsWith("/checkout"))) return raw;
+  return "/conta/pedidos";
+}
+
 export function LoginForm() {
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
   const [erro, setErro] = useState<string | null>(null);
   const [carregando, setCarregando] = useState(false);
+  const [mostrarSenha, setMostrarSenha] = useState(false);
 
   useEffect(() => {
     const supabase = createClient();
@@ -34,8 +45,11 @@ export function LoginForm() {
         .select("role, status")
         .eq("id", user.id)
         .maybeSingle();
+      if (!profile) {
+        window.location.replace(destinoCliente());
+        return;
+      }
       if (
-        profile &&
         profile.status === "ativo" &&
         PAPEIS.includes(profile.role)
       ) {
@@ -70,7 +84,12 @@ export function LoginForm() {
       return;
     }
 
-    if (!profile || profile.status !== "ativo" || !PAPEIS.includes(profile.role)) {
+    if (!profile) {
+      window.location.replace(destinoCliente());
+      return;
+    }
+
+    if (profile.status !== "ativo" || !PAPEIS.includes(profile.role)) {
       await supabase.auth.signOut();
       setErro("Perfil sem acesso a esta área.");
       setCarregando(false);
@@ -122,7 +141,7 @@ export function LoginForm() {
               Nuvem de Papel
             </div>
             <div style={{ color: "rgba(255,255,255,0.65)", fontSize: 12 }}>
-              Área restrita — acesso operacional
+              Clientes e equipe
             </div>
           </div>
         </div>
@@ -159,24 +178,46 @@ export function LoginForm() {
           >
             Senha
           </label>
-          <input
-            id="senha"
-            type="password"
-            required
-            autoComplete="current-password"
-            value={senha}
-            onChange={(e) => setSenha(e.target.value)}
-            style={{
-              width: "100%",
-              padding: "12px 14px",
-              border: "1.5px solid var(--border)",
-              borderRadius: 10,
-              fontSize: 15,
-              fontFamily: "'Open Sans', sans-serif",
-              marginBottom: 18,
-              outline: "none",
-            }}
-          />
+          <div style={{ position: "relative", marginBottom: 18 }}>
+            <input
+              id="senha"
+              type={mostrarSenha ? "text" : "password"}
+              required
+              autoComplete="current-password"
+              value={senha}
+              onChange={(e) => setSenha(e.target.value)}
+              style={{
+                width: "100%",
+                padding: "12px 64px 12px 14px",
+                border: "1.5px solid var(--border)",
+                borderRadius: 10,
+                fontSize: 15,
+                fontFamily: "'Open Sans', sans-serif",
+                outline: "none",
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => setMostrarSenha((v) => !v)}
+              aria-label={mostrarSenha ? "Ocultar senha" : "Mostrar senha"}
+              aria-pressed={mostrarSenha}
+              style={{
+                position: "absolute",
+                right: 8,
+                top: "50%",
+                transform: "translateY(-50%)",
+                background: "none",
+                border: "none",
+                padding: "6px 8px",
+                cursor: "pointer",
+                color: "var(--navy)",
+                fontSize: 13,
+                fontWeight: 700,
+              }}
+            >
+              {mostrarSenha ? "Ocultar" : "Mostrar"}
+            </button>
+          </div>
 
           {erro && (
             <p
@@ -214,7 +255,7 @@ export function LoginForm() {
           </button>
 
           <p style={{ fontSize: 12, color: "var(--ink-soft)", textAlign: "center", margin: "18px 0 0" }}>
-            Acesso exclusivo da equipe Nuvem de Papel.
+            Ainda não tem conta? Ela é criada ao finalizar sua primeira compra.
           </p>
         </form>
       </div>

@@ -3,7 +3,7 @@ import { LoginForm } from "@/components/login/LoginForm";
 
 export const metadata: Metadata = {
   title: "Entrar — Nuvem de Papel",
-  description: "Área restrita — acesso operacional Nuvem de Papel.",
+  description: "Entrar na sua conta Nuvem de Papel.",
 };
 
 export default function LoginPage() {

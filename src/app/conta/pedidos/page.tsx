@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { SairButton } from "@/components/conta/SairButton";
 
 export const dynamic = "force-dynamic";
 
@@ -43,6 +44,8 @@ type LinhaPedido = {
   id: string;
   status: string;
   total_amount: number | string;
+  frete: number | string | null;
+  discount_amount: number | string | null;
   payment_method: string | null;
   created_at: string;
   address_snapshot: { cidade?: string; uf?: string } | null;
@@ -63,7 +66,7 @@ export default async function MeusPedidosPage({
   const { data } = await supabase
     .from("orders")
     .select(
-      "id, status, total_amount, payment_method, created_at, address_snapshot, order_items(sku, name, unit_price, quantity, total)"
+      "id, status, total_amount, frete, discount_amount, payment_method, created_at, address_snapshot, order_items(sku, name, unit_price, quantity, total)"
     )
     .order("created_at", { ascending: false });
 
@@ -71,12 +74,26 @@ export default async function MeusPedidosPage({
 
   return (
     <main style={{ maxWidth: 980, margin: "0 auto", padding: "48px 32px 72px" }}>
-      <h1 className="display" style={{ fontSize: 32, marginBottom: 6 }}>
-        Meus pedidos
-      </h1>
-      <p style={{ color: "var(--ink-soft)", fontSize: 14, marginBottom: 24 }}>
-        {pedidos.length} {pedidos.length === 1 ? "pedido" : "pedidos"} · {user.email}
-      </p>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "flex-start",
+          gap: 12,
+          flexWrap: "wrap",
+          marginBottom: 24,
+        }}
+      >
+        <div>
+          <h1 className="display" style={{ fontSize: 32, marginBottom: 6 }}>
+            Meus pedidos
+          </h1>
+          <p style={{ color: "var(--ink-soft)", fontSize: 14, margin: 0 }}>
+            {pedidos.length} {pedidos.length === 1 ? "pedido" : "pedidos"} · {user.email}
+          </p>
+        </div>
+        <SairButton />
+      </div>
 
       {searchParams.novo && (
         <p
@@ -187,6 +204,24 @@ export default async function MeusPedidosPage({
                   ))}
                 </tbody>
                 <tfoot>
+                  {/* frete e desconto explicam a diferenca entre itens e total
+                      (antes o cliente via R$ 15,60 de item e R$ 38,90 de total) */}
+                  {Number(p.frete ?? 0) > 0 && (
+                    <tr style={{ borderTop: "1px solid var(--border)" }}>
+                      <td style={{ padding: "9px 0", color: "var(--ink-soft)" }}>Frete</td>
+                      <td style={{ padding: "9px 0", textAlign: "right", fontWeight: 600 }}>
+                        {brl(Number(p.frete))}
+                      </td>
+                    </tr>
+                  )}
+                  {Number(p.discount_amount ?? 0) > 0 && (
+                    <tr style={{ borderTop: "1px solid var(--border)" }}>
+                      <td style={{ padding: "9px 0", color: "var(--ink-soft)" }}>Desconto</td>
+                      <td style={{ padding: "9px 0", textAlign: "right", fontWeight: 600 }}>
+                        − {brl(Number(p.discount_amount))}
+                      </td>
+                    </tr>
+                  )}
                   <tr>
                     <td style={{ paddingTop: 12, fontWeight: 700 }}>Total</td>
                     <td style={{ paddingTop: 12, textAlign: "right", fontWeight: 700 }}>

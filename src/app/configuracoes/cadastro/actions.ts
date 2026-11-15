@@ -255,6 +255,10 @@ export type ProdutoInput = {
   masterPeso: string;
   sourceUrl: string;
   hidePriceTable: boolean;
+  emOferta: boolean;
+  emDestaque: boolean;
+  grupoPai: string;
+  cor: string;
   lastAdjustedAt: string;
   // 0032: foto do produto (URL servida pelo fornecedor, ex. Reval /imagem/...)
   fotoUrl: string;
@@ -292,6 +296,10 @@ export async function salvarProduto(input: ProdutoInput): Promise<ResultadoAcao 
   const gtinTrib = digitos(input.gtinTributavel ?? "");
   const icmsBase = cf(input.icmsBasePct, 0, 100);
   const hidePriceTable = input.hidePriceTable === true;
+  const emOferta = input.emOferta === true;
+  const emDestaque = input.emDestaque === true;
+  const grupoPai = (input.grupoPai ?? "").trim().toUpperCase() || null;
+  const cor = (input.cor ?? "").trim() || null;
   const lastAdj = (input.lastAdjustedAt ?? "").trim();
   if (lastAdj && !/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(lastAdj)) {
     return { ok: false, erro: "Data do último reajuste inválida." };
@@ -377,6 +385,10 @@ export async function salvarProduto(input: ProdutoInput): Promise<ResultadoAcao 
         fabricante: fabricante || null, notes: observacoes || null,
         detalhes_produto: detalhesProduto || null,
         hide_price_table: hidePriceTable,
+        em_oferta: emOferta,
+        em_destaque: emDestaque,
+        grupo_pai: grupoPai,
+        cor: cor,
         last_adjusted_at: lastAdj || null,
         foto_url: fotoUrl || null,
         description: descricao || null,
@@ -401,6 +413,10 @@ export async function salvarProduto(input: ProdutoInput): Promise<ResultadoAcao 
         notes: observacoes || null,
         detalhes_produto: detalhesProduto || null,
         hide_price_table: hidePriceTable,
+        em_oferta: emOferta,
+        em_destaque: emDestaque,
+        grupo_pai: grupoPai,
+        cor: cor,
         last_adjusted_at: lastAdj || null,
         foto_url: fotoUrl || null,
         description: descricao || null,

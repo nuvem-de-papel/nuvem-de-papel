@@ -15,18 +15,26 @@ O desenvolvedor lendo isso tem TDAH. Formate TODAS as respostas para que um cér
 
 | Ambiente | Pasta local | Branch git | Banco/Backend | Deploy |
 |---|---|---|---|---|
-| Produção | `F:\Projetos\nuvem-de-papel` | `main` | Supabase `cbnmnpnpioukbzircmzn` (nuvem-de-papel) | Vercel Production — dispara em push/merge em `main` |
-| Staging/dev | `F:\Projetos\nuvem-de-papel-staging` | `staging` (ou qualquer branch != `main`) | Supabase `urlfwxeflxpdmmxkuuur` (nuvem-de-papel-staging) | Vercel Preview — dispara em push de qualquer branch != `main` |
+| Produção | `F:\Projetos\nuvem-de-papel` | `main` | Supabase `urlfwxeflxpdmmxkuuur` (nuvem-de-papel-staging-produção) | Vercel Production — dispara em push/merge em `main` |
+| Staging/dev | `F:\Projetos\nuvem-de-papel-staging` | `staging` (ou qualquer branch != `main`) | Supabase `cwfvxthfwbvpfjhsxpmc` (nuvem-de-papel-staging-staging) | Vercel Preview — dispara em push de qualquer branch != `main` |
 
 Repositório único: https://github.com/nuvem-de-papel/nuvem-de-papel
 
 Migrations aplicadas via Management API do Supabase com o helper da sessão
 30/09/2026: `& "C:\Users\joaqu\AppData\Local\Temp\opencode\supabase-query-pat.ps1" -ProjectRef <ref> -SqlFile <arquivo>`
-(staging `urlfwxeflxpdmmxkuuur`, produção `cbnmnpnpioukbzircmzn`). O token do
+(staging `cwfvxthfwbvpfjhsxpmc`, produção `urlfwxeflxpdmmxkuuur`). O token do
 Supabase CLI no CredMan está **sem escopo `database_read`** (403) — usar o
 helper de PAT (`sbp_…` salvo em `sbp-token.txt` no temp da sessão), não o
 `supabase-query.ps1` original. Antes de criar a próxima, conferir a numeração
 real em `supabase/migrations/`.
+
+### Mapa confirmado dos projetos Supabase (confirmado pelo Joaquim em 13/11/2026 — não perguntar de novo)
+
+- **PRODUÇÃO:** `urlfwxeflxpdmmxkuuur` (nome no painel: `nuvem-de-papel-staging-produção`) — https://urlfwxeflxpdmmxkuuur.supabase.co
+- **TESTE / STAGING:** `cwfvxthfwbvpfjhsxpmc` (nome no painel: `nuvem-de-papel-staging-staging`) — https://cwfvxthfwbvpfjhsxpmc.supabase.co
+- Projeto `cbnmnpnpioukbzircmzn` (`nuvem-de-papel-pausado`, INACTIVE): NÃO é usado pelo código atual. Não escrever nele.
+- Chaves (publishable, service role, senha do banco) ficam APENAS no `.env.local` da pasta de staging e nunca no chat, no Git ou em documentos. A senha do banco entra por `[YOUR-PASSWORD]` no comando de conexão.
+- Regra: a pasta de staging (`.env.local`) aponta para `cwfvxthfwbvpfjhsxpmc`. Qualquer migration, SQL de escrita ou teste começa aí. Produção (`urlfwxeflxpdmmxkuuur`) só recebe migration depois de validada no teste.
 
 ## Fluxo obrigatório para qualquer mudança de código ou de banco
 
@@ -35,7 +43,7 @@ real em `supabase/migrations/`.
 1. Trabalhar sempre na pasta de staging/dev (`nuvem-de-papel-staging`), nunca editar direto na pasta de produção.
 2. Validar local primeiro (`npm run type-check` → `npm run lint` → `npm run build` → `npm run e2e`).
 3. Commit + push na branch `staging`, nunca direto em `main`.
-4. Mudança em migrations — aplicar/testar primeiro no banco de staging (`urlfwxeflxpdmmxkuuur`), e **sempre aplicar em produção (preflight → migration → pgTAP) ANTES do merge** que deploya. Query API de apoio ao ritual: `supabase-query-pat.ps1` precisa rodar no **pwsh 7** (`pwsh -File …`) — no Windows PowerShell 5.1 o `ConvertTo-Json` serializa o SQL como objeto `{"value":…}` e a API responde 400, e o header tem de ser parâmetro `-ContentType`, não hashtable.
+4. Mudança em migrations — aplicar/testar primeiro no banco de staging (`cwfvxthfwbvpfjhsxpmc`), e **sempre aplicar em produção (preflight → migration → pgTAP) ANTES do merge** que deploya. Query API de apoio ao ritual: `supabase-query-pat.ps1` precisa rodar no **pwsh 7** (`pwsh -File …`) — no Windows PowerShell 5.1 o `ConvertTo-Json` serializa o SQL como objeto `{"value":…}` e a API responde 400, e o header tem de ser parâmetro `-ContentType`, não hashtable.
 5. Só depois de validado (staging ok), fazer merge em `main` — esse é o único gatilho que deve tocar produção de verdade.
 
 Push ao GitHub: `gh` está logado na conta **`nuvem-de-papel`** (admin do repo) — device flow `gh auth login --hostname github.com --git-protocol https --web` + `gh auth setup-git` (helper `credential.https://github.com` = `!gh auth git-credential`), feito em 07/10/2026; se o login expirar, refazer o device flow no navegador logado na mesma conta. A conta antiga `connection-cyber-so` (só leitura) foi removida do credential manager (`cmdkey /delete:LegacyGeneric:target=git:https://github.com`). Repos antigos `satcyber003-sketch/nuvem-de-papel` são obsoletos.
@@ -383,7 +391,7 @@ correspondentes por número — mesmo padrão de governança documentado no pare
    $vol  = Get-Volume -FileSystemLabel "BACKUP"
    $dest = "$($vol.DriveLetter):\bk-nuvem-de-papel\<staging|producao>\<data>"
    New-Item -ItemType Directory -Path $dest -Force
-   supabase link --project-ref <ref-do-projeto>   # urlfwxeflxpdmmxkuuur (staging) / cbnmnpnpioukbzircmzn (producao)
+   supabase link --project-ref <ref-do-projeto>   # cwfvxthfwbvpfjhsxpmc (staging) / urlfwxeflxpdmmxkuuur (producao)
    supabase db dump -f "$dest\schema.sql"
    supabase db dump --data-only -f "$dest\data.sql"
    ```
@@ -391,7 +399,7 @@ correspondentes por número — mesmo padrão de governança documentado no pare
 4. Checksum obrigatorio logo apos o dump: `Get-FileHash *.sql -Algorithm SHA256`,
    gravar em `checksums.sha256.txt` ao lado dos arquivos.
 5. **IMPORTANTE — voltar o link pra staging depois do dump de producao**
-   (`supabase link --project-ref urlfwxeflxpdmmxkuuur`) pra nao arriscar rodar
+   (`supabase link --project-ref cwfvxthfwbvpfjhsxpmc`) pra nao arriscar rodar
    outro comando (migration etc.) apontando pra producao sem querer.
 
 ### Teste de restore (validado 08/11/2026, dump de staging de 08/11/2026)
@@ -462,3 +470,77 @@ senha contra HaveIBeenPwned) só existe no plano Pro do Supabase. A org
 `nuvem-de-papel's Org` está no plano FREE — toggle aparece desabilitado.
 Não é erro de configuração, é limite de plano. Revisitar se/quando fizer
 upgrade pra Pro.
+
+## Checkout sem login prévio — cadastro básico (Opção C, 14/11/2026)
+
+1. `/checkout` sem sessão mostra `CadastroBasicoForm`; a action
+   `cadastrarBasicoParaCompra` (`src/app/checkout/cadastro-actions.ts`) cria
+   Auth user (`email_confirm: true`) + `customers` e **abre a sessão no
+   servidor** (`signInWithPassword` com o client de `@/lib/supabase/server`),
+   devolvendo `/checkout` — mesmo padrão de `src/app/orcamento/actions.ts`.
+2. **Cliente da loja NÃO tem linha em `profiles`.** `profiles` é só equipe
+   (`profiles_role_check` recusa `cliente`), e o `/login` (`LoginForm.tsx`)
+   desloga quem não tem profile ativo — por isso o cliente nunca passa por ele.
+3. Vínculo cliente↔login = `customers.auth_user_id` (0050). Colunas reais:
+   `telefone`/`ativo` (0029), não `phone`/`active`. `audit_log` usa
+   `action`/`actor_user_id`/`entity`/`entity_id`/`after`.
+4. **Cliente com cadastro** entra pelo próprio form do checkout ("Já tem
+   cadastro? Entrar aqui" → `entrarParaCompra`, sessão no servidor), não pelo
+   `/login`. **Cabeçalho** (`Header.tsx`): logado sem profile = "Minha conta"
+   → `/conta/pedidos`; com profile = "Painel" (destino por papel).
+   E-mail já cadastrado ao criar conta: o Auth devolve `code: "email_exists"`
+   (422; o texto da mensagem não serve para comparar) → o form avisa e troca
+   sozinho para "entrar", mantendo o e-mail.
+   **Sair do cliente**: botão "Sair" em `/conta/pedidos`
+   (`src/components/conta/SairButton.tsx`, `signOut` + volta para `/`). Antes
+   não existia saída para cliente — só o `AdminShell` da equipe tinha.
+5. Smoke `e2e/cadastro-basico-smoke-simple.cjs` (lê `.env.local`, recusa rodar
+   fora do Supabase de staging, apaga o usuário de teste no fim): **26/26** em
+   14/11/2026 contra `npm run start` local. Teste manual do Joaquim: pedido
+   `9B1BC50A` criado com conta nova (retirada, frete 0; MP não testado — `mp=0`).
+   No preview Vercel de staging o checkout só abre com `CHECKOUT_LIBERADO=1`
+   (env Preview, branch `staging`, criada 14/11/2026; produção NÃO tem e segue
+   fechada até ter `MERCADOPAGO_ACCESS_TOKEN`). Pedido `96505B07` feito pelo
+   preview em 14/11/2026.
+6. **Login do cliente (14/11/2026)**: `/login` é único para clientes e equipe.
+   Conta SEM linha em `profiles` = cliente da loja → `LoginForm` manda para
+   `/conta/pedidos` (ou `?next=` se começar com `/conta` ou `/checkout`).
+   Antes deslogava com "Perfil sem acesso" e o cliente nunca mais entrava.
+   Profile inativo/pendente continua bloqueado (E2E `f2.cjs` E2) e as áreas da
+   equipe seguem barradas pelo middleware (exige profile ativo).
+7. **Frete PAC/Sedex (14/11/2026)**: `cotarInterno` usa como origem
+   `tenant_company.endereco.cep` e procura `freight_tabelas.origem_cep` igual.
+   Staging não tinha linha em `tenant_company` (copiada de produção: CEP
+   `13405404`, Piracicaba) e as duas tabelas de frete tinham origem `09850730`
+   — nenhum CEP batia ("CEP da loja não configurado para frete").
+   `scripts/importar-frete-correios.cjs` cotava sempre de
+   `FRETE_CEP_ORIGEM || "09850-730"` mesmo gravando outra origem; agora cota e
+   grava com o CEP de `tenant_company` e para com erro se ele estiver vazio.
+   Staging reimportado com origem `13405404`. **Produção ainda tem a tabela
+   antiga** (origem `09850730`) — reimportar antes de abrir o checkout lá.
+   Pedido `8177066E` (PAC R$ 23,30) conferido no banco. `/conta/pedidos`
+   passou a mostrar as linhas Frete e Desconto (antes só itens e total).
+   Em 14/11/2026 as 160 linhas antigas (origem `09850730`) foram apagadas do
+   staging, que ficou só com `13405404` (80 PAC + 80 Sedex).
+
+## Desagrupador de fotos de produto (grade BLT — 14/11/2026)
+
+1. `scripts/processar_grades_blt.py` (Python 3 + Pillow) lê a foto em
+   `public/produtos/catalogo/`, detecta vários produtos lado a lado pela
+   proporção largura/altura (> 1,8 = 2; > 3,0 = 4) ou por > 70% de branco,
+   recorta em partes iguais (quadradas, fundo branco), aplica a marca d'água
+   `public/logo-nuvem.png` no centro com 30% de opacidade e grava em
+   `public/produtos/catalogo_processado_blt/` com o nome da grade:
+   `SKU.jpg` (principal), `SKUA.jpg`, `SKUB.jpg`… + `_relatorio.json`.
+2. Uso (na raiz do repo): `Get-Content scripts/lote1-blt.txt | python scripts/processar_grades_blt.py`
+   ou `python scripts/processar_grades_blt.py BLT38.jpg`. `lote1-blt.txt` é a
+   lista do primeiro lote (10 fotos) que o cliente validou.
+3. As fotos originais (WhatsApp) ficam FORA do repo em
+   `F:\Projetos\nuvem-de-papel-produtos` (`ORGANIZADO_POR_GRUPO` e `site`).
+4. As pastas de saída/teste (`catalogo_teste*`, `catalogo-novo`,
+   `catalogo_processado_blt`, `teste_blt38`) estão no `.gitignore` — não
+   sobem no deploy. Foto aprovada vai para `public/produtos/catalogo/` e entra
+   por commit. O banco não aponta para essas pastas (BLT38/A/B/C com
+   `foto_url` nula no staging).
+5. A migration `0052_grade_blt38_teste.sql` é teste só de staging e NÃO entra
+   no repo nem em produção sem aprovação explícita.

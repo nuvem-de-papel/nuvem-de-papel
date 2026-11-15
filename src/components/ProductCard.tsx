@@ -1,4 +1,5 @@
 import type { CSSProperties } from "react";
+import Link from "next/link";
 import type { VarejoProduct } from "@/lib/products";
 import { ProductImage } from "@/components/ProductImage";
 import { ProductActions } from "@/components/produtos/ProductActions";
@@ -29,12 +30,14 @@ export function ProductCard({ produto, grande = false }: { produto: VarejoProduc
         ...estiloCard,
       }}
     >
-      <ProductImage
-        category={produto.category}
-        name={produto.name}
-        fotoUrl={produto.fotoUrl}
-        style={{ aspectRatio: "auto", height: grande ? 400 : 300 }}
-      />
+      <Link href={`/produtos/${produto.sku}`} style={{ display: "block" }}>
+        <ProductImage
+          category={produto.category}
+          name={produto.name}
+          fotoUrl={produto.fotoUrl}
+          style={{ aspectRatio: "auto", height: grande ? 400 : 300 }}
+        />
+      </Link>
       {produto.category && (
         <span
           style={{
@@ -60,7 +63,9 @@ export function ProductCard({ produto, grande = false }: { produto: VarejoProduc
           color: "var(--ink)",
         }}
       >
-        {produto.name}
+        <Link href={`/produtos/${produto.sku}`} style={{ color: "inherit", textDecoration: "none" }}>
+          {produto.name}
+        </Link>
       </h3>
       <ProductActions produto={produto} grande={grande} />
       {produto.estoque !== null && produto.estoque > 0 && produto.estoque <= 5 && (
