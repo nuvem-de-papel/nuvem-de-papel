@@ -520,3 +520,27 @@ upgrade pra Pro.
    antiga** (origem `09850730`) — reimportar antes de abrir o checkout lá.
    Pedido `8177066E` (PAC R$ 23,30) conferido no banco. `/conta/pedidos`
    passou a mostrar as linhas Frete e Desconto (antes só itens e total).
+   Em 14/11/2026 as 160 linhas antigas (origem `09850730`) foram apagadas do
+   staging, que ficou só com `13405404` (80 PAC + 80 Sedex).
+
+## Desagrupador de fotos de produto (grade BLT — 14/11/2026)
+
+1. `scripts/processar_grades_blt.py` (Python 3 + Pillow) lê a foto em
+   `public/produtos/catalogo/`, detecta vários produtos lado a lado pela
+   proporção largura/altura (> 1,8 = 2; > 3,0 = 4) ou por > 70% de branco,
+   recorta em partes iguais (quadradas, fundo branco), aplica a marca d'água
+   `public/logo-nuvem.png` no centro com 30% de opacidade e grava em
+   `public/produtos/catalogo_processado_blt/` com o nome da grade:
+   `SKU.jpg` (principal), `SKUA.jpg`, `SKUB.jpg`… + `_relatorio.json`.
+2. Uso (na raiz do repo): `Get-Content scripts/lote1-blt.txt | python scripts/processar_grades_blt.py`
+   ou `python scripts/processar_grades_blt.py BLT38.jpg`. `lote1-blt.txt` é a
+   lista do primeiro lote (10 fotos) que o cliente validou.
+3. As fotos originais (WhatsApp) ficam FORA do repo em
+   `F:\Projetos\nuvem-de-papel-produtos` (`ORGANIZADO_POR_GRUPO` e `site`).
+4. As pastas de saída/teste (`catalogo_teste*`, `catalogo-novo`,
+   `catalogo_processado_blt`, `teste_blt38`) estão no `.gitignore` — não
+   sobem no deploy. Foto aprovada vai para `public/produtos/catalogo/` e entra
+   por commit. O banco não aponta para essas pastas (BLT38/A/B/C com
+   `foto_url` nula no staging).
+5. A migration `0052_grade_blt38_teste.sql` é teste só de staging e NÃO entra
+   no repo nem em produção sem aprovação explícita.
