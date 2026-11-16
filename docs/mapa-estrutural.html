@@ -163,7 +163,7 @@
     </svg>
     <h1>Nuvem de Papel<small>Mapa estrutural do sistema</small></h1>
     <span class="badge-gov">Documento de governança</span>
-    <span class="versao">v1.1 · atualizado em 20/10/2026</span>
+    <span class="versao">v1.2 · atualizado em 15/11/2026</span>
   </div>
   <p class="regra">
     <b>Regra:</b> este mapa é atualizado <b>sempre que houver mudança estrutural</b> — rota nova ou
@@ -327,7 +327,8 @@
         <div class="ramos">
           <ul class="folhas">
             <li><span class="rota">/</span> <span class="folha-nome">Home da loja</span><span class="desc">rodapé + flutuante (fora do painel, por padrão).</span></li>
-            <li><span class="rota">/produtos</span> <span class="folha-nome">Catálogo</span></li>
+            <li><span class="rota">/produtos</span> <span class="folha-nome">Catálogo</span><span class="desc">vitrine pública; para a equipe vira o catálogo admin (filtro Grade: todos / só grades / só únicos).</span></li>
+            <li><span class="rota">/produtos/[sku]</span> <span class="folha-nome">Página do produto</span><span class="desc">grade: seletor de cor/modelo das variantes via <code>?v=SKU</code>, galeria do principal, “Combina com”.</span></li>
             <li><span class="rota">/publicacoes</span> <span class="folha-nome">Publicações</span></li>
             <li><span class="rota">/clube</span> <span class="folha-nome">Clube de assinantes</span><span class="desc">planos, checkout de assinatura e painel da conta.</span></li>
             <li><span class="rota">/seja-revenda</span> <span class="folha-nome">Seja revenda</span></li>
@@ -521,6 +522,8 @@
         <summary><span class="seta"></span><span class="titulo">Catálogo e estoque</span></summary>
         <div class="ramos"><ul class="folhas">
           <li><span class="tabela">catalog_items</span> <span class="tabela">item_fiscal_data</span> <span class="tabela">item_commercial_data</span> <span class="tabela">item_prices</span> <span class="tabela">item_supplier_data</span></li>
+          <li><span class="folha-nome">Grade (0051)</span><span class="desc"><code>catalog_items.grupo_pai</code> (SKU do principal; nulo = produto único) + <code>catalog_items.cor</code> (rótulo da variante). Cada variante é um item completo (preço, estoque, fotos). Ver AGENTS.md “Grade de produto”.</span></li>
+          <li><span class="tabela">item_images</span> <span class="desc">galeria por produto (0048): posição 0 = capa, 1-4 = detalhes.</span></li>
           <li><span class="tabela">item_stock</span> <span class="tabela">stock_movements</span> <span class="desc">ledger <b>imutável</b> (trigger) · <span class="tabela">item_stock_public</span> (saldo público).</span></li>
           <li><span class="tabela">publications</span> <span class="tabela">suppliers</span></li>
         </ul></div>
@@ -682,6 +685,8 @@
         <tr><th style="width:70px">Versão</th><th style="width:110px">Data</th><th>Mudança estrutural</th></tr>
       </thead>
       <tbody>
+        <tr><td class="v">v1.2</td><td>15/11/2026</td>
+          <td>Grade de produto: rota <span class="rota">/produtos/[sku]</span> (seletor de variantes), catálogo admin em <span class="rota">/produtos</span>, colunas <code>grupo_pai</code>/<code>cor</code> (0051) e tabela <span class="tabela">item_images</span> (0048).</td></tr>
         <tr><td class="v">v1.1</td><td>20/10/2026</td>
           <td>Home do painel simplificada a pedido do cliente: h1 passou a ser só <b>CRM</b> (sem subtítulo) e a faixa de ações rápidas foi removida do <span class="rota">/crm</span>.</td></tr>
         <tr><td class="v">v1.0</td><td>20/10/2026</td>

@@ -544,3 +544,55 @@ upgrade pra Pro.
    `foto_url` nula no staging).
 5. A migration `0052_grade_blt38_teste.sql` é teste só de staging e NÃO entra
    no repo nem em produção sem aprovação explícita.
+
+## Grade de produto — principal + variantes (0051 — documentado em 15/11/2026)
+
+Documento único da grade. Código entrou pelos PRs #29 (schema + vitrine),
+#30 (página do produto + cadastro), #31 (catálogo admin) e #37 (fotos); em
+produção desde o PR #38.
+
+1. **Modelo (migration `0051_grade_variantes.sql`)**: sem tabela nova — a
+   grade mora em `catalog_items`: `grupo_pai text` (SKU do principal),
+   `cor text` (rótulo da variante no seletor) e índice parcial
+   `idx_catalog_items_grupo_pai`. Convenção:
+   - **principal**: `grupo_pai` = o próprio SKU (ex.: `BLT38` → `BLT38`);
+   - **variante**: `grupo_pai` = SKU do principal (`BLT38A/B/C` → `BLT38`);
+   - **produto único**: `grupo_pai` nulo.
+   Cada variante é um item completo (preço em `item_prices`, fiscal, estoque
+   por local, fotos em `item_images` da 0048): vende, entra no carrinho e
+   baixa estoque como qualquer item — não existe "estoque da grade".
+2. **Cadastro**: `/configuracoes/cadastro?tela=produto`, logo abaixo do
+   estoque — campo **Grade** (`#ct-prod-grupo-pai`, "código do principal;
+   vazio = produto único") e **Cor / modelo** (`#ct-prod-cor`). `salvarProduto`
+   (`src/app/configuracoes/cadastro/actions.ts`) faz `trim().toUpperCase()`
+   no `grupo_pai` e grava `null` quando vazio. Para montar uma grade: cadastre
+   o principal com Grade = o próprio SKU, depois cada variante com Grade = SKU
+   do principal e um rótulo em Cor / modelo (o principal também leva rótulo,
+   ex.: "Modelo 1", senão o seletor mostra o SKU).
+3. **Vitrine e página do produto** (`src/lib/products.ts`):
+   `getStoreProducts` **pula variantes** (só o principal vira card);
+   `getPaginaProduto(sku, ?v)` busca `sku = grupo OR grupo_pai = grupo`
+   (só ativos), põe o principal primeiro e as variantes por SKU.
+   `/produtos/[sku]` mostra o seletor **Cor** (miniatura + `cor ?? sku`) só com
+   2+ itens; a variante escolhida vai na URL `?v=SKU`
+   (`/produtos/BLT38?v=BLT38A`) e troca foto, preço, SKU e o item do carrinho.
+   A galeria (posições 1-4 de `item_images`) é sempre a do **principal**.
+4. **Catálogo admin** (`/produtos` para a equipe,
+   `src/components/catalogo/CatalogoAdmin.tsx`): filtro **Grade**
+   (Todos / Só grades / Só únicos), etiqueta `grade · N` no principal e
+   linha expansível com as variantes.
+5. **Armadilhas**:
+   - o cadastro **não valida** se o SKU digitado em Grade existe. Variante
+     apontando para SKU inexistente/inativo some da vitrine (é pulada) e a
+     página dela dá 404 (sem principal). Conferir com
+     `select sku, grupo_pai from catalog_items where grupo_pai is not null and grupo_pai not in (select sku from catalog_items where active)`;
+   - principal com `grupo_pai` nulo também funciona (vitrine, página e
+     catálogo admin agrupam pelas variantes que apontam para ele), mas a
+     convenção é o principal apontar para si mesmo, como na BLT38 do staging.
+6. **Estado dos bancos (conferido em 15/11/2026, só leitura)**: as colunas
+   da 0051 (e `em_oferta`/`em_destaque` da 0053) e o índice existem em
+   **staging e produção**. Staging tem a grade de teste BLT38 (4 itens, da
+   `0052`, fora do repo); produção tem **0 itens em grade** — a primeira
+   grade real é cadastro pela tela, sem migration.
+7. **Fotos da grade**: ver "Desagrupador de fotos de produto" acima
+   (`scripts/processar_grades_blt.py`).
