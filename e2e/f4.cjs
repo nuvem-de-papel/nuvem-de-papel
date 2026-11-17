@@ -24,6 +24,9 @@ const TENANT = "00000000-0000-0000-0000-000000000001";
 const SKU_F4 = "SKU-E2E-F4";
 const NOME_F4 = "Caderno E2E F4";
 const WEBHOOK_IDS = ["f4-pag-1", "f4-pag-2"];
+// vitrine nova (17/11/2026): carrinho pela pagina do produto e saldo exibido =
+// saldo do CD (item_stock_by_location), separado do ledger que a reserva usa
+const { definirSaldoCd, restaurarSaldoCd, adicionarPelaPagina } = require("./_vitrine.cjs");
 
 function lerEnv() {
   const env = {};
@@ -209,6 +212,7 @@ async function enviarWebhook(pagId, pedidoId, status) {
   await admin.from("webhook_events").delete().in("external_id", WEBHOOK_IDS);
 
   const itemId = await prepararItem();
+  const saldoCdAntes = await definirSaldoCd(admin, itemId, 1);
 
   const criadoComp = await admin.auth.admin.createUser({ email: EMAIL_COMP, password: SENHA_COMP, email_confirm: true });
   const userId = criadoComp.data.user?.id;
@@ -225,15 +229,15 @@ async function enviarWebhook(pagId, pedidoId, status) {
   const ctxComp = await browser.newContext();
   const page = await ctxComp.newPage();
   await login(page, EMAIL_COMP, SENHA_COMP);
-  await page.goto(BASE + "/produtos", { waitUntil: "domcontentloaded" });
-  const textoVitrine = (await page.textContent("body")) || "";
-  check("B1 vitrine mostra ultimas 1 unidade", textoVitrine.includes("Últimas 1 unidades"));
-  const btnItem = page.locator(`button[aria-label="Adicionar ${NOME_F4}"]`);
+  await page.goto(`${BASE}/produtos/${SKU_F4}`, { waitUntil: "domcontentloaded" });
+  const btnItem = page.getByRole("button", { name: "Adicionar ao carrinho", exact: true });
   await btnItem.waitFor({ timeout: 15000 });
+  const textoVitrine = (await page.textContent("body")) || "";
+  check("B1 pagina do produto com saldo nao fica sob consulta", !textoVitrine.includes("sob consulta"));
   check("B2 botao do item habilitado com saldo", !(await btnItem.isDisabled()));
-  await btnItem.click();
-  const badge = await page.locator('a[aria-label^="Carrinho com"]').getAttribute("aria-label");
-  check("B3 carrinho com 1 item E2E", (badge || "").includes("1"), badge);
+  await adicionarPelaPagina(page, BASE, SKU_F4, 1);
+  const carrinhoB3 = JSON.parse(await page.evaluate(() => window.localStorage.getItem("ndp_carrinho_v1") || "[]"));
+  check("B3 carrinho com 1 item E2E", carrinhoB3.length === 1 && carrinhoB3[0].sku === SKU_F4 && carrinhoB3[0].qty === 1, JSON.stringify(carrinhoB3));
 
   // C) corrida: 2 pedidos disputam a unidade restante
   const pedidoX = await criarPedidoReserva(itemId);
@@ -254,13 +258,15 @@ async function enviarWebhook(pagId, pedidoId, status) {
   const estoqueAposCorrida = await lerEstoque(itemId);
   check("C2 saldo esgotado apos corrida", Number(estoqueAposCorrida?.stock_available) === 0, JSON.stringify(estoqueAposCorrida));
 
-  // D) vitrine esgotada: botao desabilitado
-  await page.goto(BASE + "/produtos", { waitUntil: "domcontentloaded" });
-  const btnEsgotado = page.locator(`button[aria-label="${NOME_F4} esgotado"]`);
-  await btnEsgotado.waitFor({ timeout: 15000 });
-  check("D1 botao esgotado desabilitado na vitrine", await btnEsgotado.isDisabled());
+  // D) vitrine com saldo do CD zerado: "sob consulta", sem carrinho. A vitrine
+  // le o CD (cadastro manual), nao o ledger - o checkout (E) e quem barra
+  await definirSaldoCd(admin, itemId, 0);
+  await page.goto(`${BASE}/produtos/${SKU_F4}`, { waitUntil: "domcontentloaded" });
+  const btnOrcamento = page.getByRole("button", { name: "Fazer orçamento", exact: true });
+  await btnOrcamento.waitFor({ timeout: 15000 });
+  check("D1 sem saldo o botao vira Fazer orcamento", (await page.getByRole("button", { name: "Adicionar ao carrinho", exact: true }).count()) === 0);
   const textoEsgotado = (await page.textContent("body")) || "";
-  check("D2 card mostra Esgotado", textoEsgotado.includes("Esgotado"));
+  check("D2 pagina mostra sob consulta", textoEsgotado.includes("sob consulta"));
 
   // E) checkout com saldo esgotado → erro amigavel e pedido compensado
   await preencherCheckout(page);
@@ -300,8 +306,8 @@ async function enviarWebhook(pagId, pedidoId, status) {
 
   // H) checkout completo do comprador → reserva → webhook pago → baixa
   await page.evaluate(() => window.localStorage.removeItem("ndp_carrinho_v1"));
-  await page.goto(BASE + "/produtos", { waitUntil: "domcontentloaded" });
-  await page.locator(`button[aria-label="Adicionar ${NOME_F4}"]`).click();
+  await definirSaldoCd(admin, itemId, 8);
+  await adicionarPelaPagina(page, BASE, SKU_F4, 1);
   await preencherCheckout(page);
   const chkSalvar2 = page.locator('input[type="checkbox"]').first();
   if (await chkSalvar2.isChecked()) await chkSalvar2.uncheck();
@@ -387,6 +393,7 @@ async function enviarWebhook(pagId, pedidoId, status) {
       p_reference_type: "manual", p_reference_id: null, p_notes: "cleanup E2E F4", p_created_by: null,
     });
   }
+  await restaurarSaldoCd(admin, itemId, saldoCdAntes);
   await admin.from("catalog_items").update({ active: false }).eq("id", itemId);
   const pids = await apagarPedidosDosClientes(emails);
   await admin.from("webhook_events").delete().in("external_id", WEBHOOK_IDS);

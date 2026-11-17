@@ -157,6 +157,51 @@ function validarEndereco(e: EnderecoInput): string | null {
   return null;
 }
 
+const JANELA_PEDIDO_REPETIDO_MS = 10 * 60 * 1000;
+
+async function pedidoRepetido(
+  admin: ReturnType<typeof createAdminClient>,
+  userId: string,
+  alvo: {
+    porId: Map<string, number>;
+    total: number;
+    frete: number;
+    pagamento: string;
+    cep: string;
+    numero: string;
+  }
+): Promise<{ id: string; initPoint: string | null } | null> {
+  const desde = new Date(Date.now() - JANELA_PEDIDO_REPETIDO_MS).toISOString();
+  const { data } = await admin
+    .from("orders")
+    .select(
+      "id, total_amount, frete, payment_method, mp_init_point, address_snapshot, order_items(item_id, quantity)"
+    )
+    .eq("tenant_id", NUVEM_DE_PAPEL_TENANT_ID)
+    .eq("user_id", userId)
+    .eq("origem", "loja")
+    .eq("status", "aguardando_pagamento")
+    .gte("created_at", desde)
+    .order("created_at", { ascending: false })
+    .limit(5);
+
+  const centavos = (v: unknown) => Math.round(Number(v ?? 0) * 100);
+  for (const p of data ?? []) {
+    const end = (p.address_snapshot ?? {}) as { cep?: string; numero?: string };
+    const itens = (p.order_items ?? []) as { item_id: string; quantity: number }[];
+    const mesmo =
+      centavos(p.total_amount) === centavos(alvo.total) &&
+      centavos(p.frete) === centavos(alvo.frete) &&
+      p.payment_method === alvo.pagamento &&
+      (end.cep ?? "") === alvo.cep &&
+      String(end.numero ?? "").trim() === String(alvo.numero ?? "").trim() &&
+      itens.length === alvo.porId.size &&
+      itens.every((i) => alvo.porId.get(i.item_id) === Number(i.quantity));
+    if (mesmo) return { id: p.id as string, initPoint: (p.mp_init_point as string | null) ?? null };
+  }
+  return null;
+}
+
 export async function finalizarCheckout(input: {
   itens: { item_id: string; qty: number }[];
   pagamento: "pix" | "cartao" | "boleto";
@@ -369,6 +414,29 @@ export async function finalizarCheckout(input: {
     }
     freteValor = Math.round(opcao.valor * 100) / 100;
     total = Math.round((total + freteValor) * 100) / 100;
+  }
+
+  // 4.9) pedido em dobro (17/11/2026): em produção nasceram 2 pedidos
+  // iguais com 10 s de diferença (b148275d/a4afd4f1 — clique duplo ou volta
+  // do MP e novo "Confirmar"). Cada um reservava estoque e mandava e-mail.
+  // Se o MESMO cliente tem pedido idêntico (itens, total, frete, pagamento,
+  // CEP/número) aguardando pagamento há menos de 10 min, devolve esse pedido
+  // e o mesmo link de pagamento em vez de criar outro.
+  const repetido = await pedidoRepetido(admin, user.id, {
+    porId,
+    total,
+    frete: freteValor,
+    pagamento: input.pagamento,
+    cep: snapshot.cep,
+    numero: snapshot.numero,
+  });
+  if (repetido && (repetido.initPoint || !mpConfigurado())) {
+    return {
+      ok: true,
+      pedidoId: repetido.id,
+      initPoint: repetido.initPoint,
+      aviso: repetido.initPoint ? undefined : "Este pedido já estava registrado.",
+    };
   }
 
   // 5) pedido + itens (transação via ordem de escrita; RLS deny-all + service_role)

@@ -6,6 +6,7 @@ import { PageHeader } from "@/components/admin/PageHeader";
 import {
   avancarExpedicao,
   cancelarPedidoNaoPago,
+  conferirPagamentoMP,
   registrarMovimentoEstoque,
 } from "@/app/logistica/actions";
 
@@ -193,6 +194,17 @@ export function ConsoleLogistica({ fila, estoque }: { fila: PedidoFila[]; estoqu
                               style={{ ...BTN, background: accao.bg, color: "#FFF" }}
                             >
                               {accao.label}
+                            </button>
+                          )}
+                          {p.status === "aguardando_pagamento" && p.payment_method && (
+                            <button
+                              disabled={pendente}
+                              aria-label={`Conferir pagamento ${p.id.slice(0, 8)}`}
+                              title="Consulta o Mercado Pago e marca como pago se houver pagamento aprovado"
+                              onClick={() => rodar(() => conferirPagamentoMP(p.id))}
+                              style={{ ...BTN, background: "#E0F2FE", color: "#075985" }}
+                            >
+                              Conferir pagamento
                             </button>
                           )}
                           {p.status === "aguardando_pagamento" && (

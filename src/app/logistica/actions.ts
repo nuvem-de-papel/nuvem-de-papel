@@ -6,6 +6,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { NUVEM_DE_PAPEL_TENANT_ID } from "@/lib/tenant";
 import { PAPEIS_OPERACIONAIS } from "@/lib/rbac";
 import { notificarStatusPedido, type EventoPedido } from "@/lib/pedido-notificar";
+import { reconciliarPedido } from "@/lib/pagamento-confirmar";
 
 // Server Actions da logística (F4): avanço da fila de expedição, cancelamento
 // de pedido que nunca pagou (devolve a reserva) e movimentos manuais de
@@ -130,6 +131,49 @@ export async function cancelarPedidoNaoPago(pedidoId: string): Promise<Resultado
   revalidatePath("/logistica");
   revalidatePath("/produtos");
   return { ok: true, msg: "Pedido cancelado e estoque reservado devolvido." };
+}
+
+// Conferir pagamento no MP (17/11/2026): para o pedido pago cujo aviso
+// (webhook) não chegou. Pergunta ao MP pelo external_reference e, se houver
+// pagamento aprovado, confirma pela mesma regra do webhook
+// (src/lib/pagamento-confirmar.ts). Nunca cancela.
+export async function conferirPagamentoMP(pedidoId: string): Promise<ResultadoLogistica> {
+  if (!ehUuid(pedidoId)) return { ok: false, erro: "Pedido inválido." };
+
+  const acesso = await exigirOperador();
+  if ("erro" in acesso) return { ok: false, erro: acesso.erro };
+  const { userId, admin } = acesso;
+
+  const r = await reconciliarPedido(admin, pedidoId);
+  if (r.situacao === "falha") {
+    const motivo =
+      r.motivo === "mp_ausente"
+        ? "Mercado Pago não configurado neste ambiente."
+        : `Não foi possível consultar o Mercado Pago (${r.motivo}).`;
+    return { ok: false, erro: motivo };
+  }
+  if (r.situacao === "sem_pagamento_aprovado") {
+    return {
+      ok: false,
+      erro:
+        r.statusMp.length === 0
+          ? "O Mercado Pago não tem nenhum pagamento para este pedido."
+          : `Nenhum pagamento aprovado no Mercado Pago (situação: ${r.statusMp.join(", ")}).`,
+    };
+  }
+
+  await auditar(admin, userId, "pagamento.reconciliado", "orders", pedidoId, {
+    mp_payment_id: r.paymentId,
+    transicionou: r.transicionou,
+    origem: "logistica",
+  });
+  revalidatePath("/logistica");
+  return {
+    ok: true,
+    msg: r.transicionou
+      ? "Pagamento aprovado no Mercado Pago — pedido marcado como pago."
+      : "Pagamento aprovado no Mercado Pago — o pedido já estava pago.",
+  };
 }
 
 export async function registrarMovimentoEstoque(

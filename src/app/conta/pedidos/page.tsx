@@ -2,6 +2,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { mpConfigurado } from "@/lib/mercadopago";
+import { reconciliarPedido, type ResultadoReconciliacao } from "@/lib/pagamento-confirmar";
 import { SairButton } from "@/components/conta/SairButton";
 
 export const dynamic = "force-dynamic";
@@ -52,16 +55,63 @@ type LinhaPedido = {
   order_items: { sku: string; name: string; unit_price: number | string; quantity: number; total: number | string }[];
 };
 
+// Reconciliação na volta do cliente (17/11/2026): se o aviso do MP não
+// chegou, o pedido pago ficava "Aguardando pagamento" para sempre. Ao abrir
+// esta página, os pedidos pendentes recentes DESTE cliente (RLS) são
+// conferidos direto no MP; aprovado vira "pago" pela mesma regra do webhook.
+// Teto de 5 pedidos / 30 dias e 6 s para a página nunca travar.
+const RECONCILIAR_MAX = 5;
+const RECONCILIAR_DIAS = 30;
+const RECONCILIAR_TIMEOUT_MS = 6000;
+
+async function reconciliarPendentes(
+  supabase: ReturnType<typeof createClient>
+): Promise<number> {
+  if (!mpConfigurado()) return 0;
+  // E2E local (MP_MOCK=1) não consulta o MP de verdade — mesma regra do webhook
+  if (process.env.MP_MOCK === "1" && process.env.VERCEL !== "1") return 0;
+  const desde = new Date(Date.now() - RECONCILIAR_DIAS * 24 * 3600 * 1000).toISOString();
+  const { data: pendentes } = await supabase
+    .from("orders")
+    .select("id")
+    .eq("status", "aguardando_pagamento")
+    .gte("created_at", desde)
+    .order("created_at", { ascending: false })
+    .limit(RECONCILIAR_MAX);
+  if (!pendentes || pendentes.length === 0) return 0;
+
+  const admin = createAdminClient();
+  const todas = Promise.all(
+    pendentes.map((p) =>
+      reconciliarPedido(admin, p.id as string).catch(
+        (e): ResultadoReconciliacao => ({ situacao: "falha", motivo: String(e) })
+      )
+    )
+  );
+  const limite = new Promise<null>((r) => setTimeout(() => r(null), RECONCILIAR_TIMEOUT_MS));
+  const resultados = await Promise.race([todas, limite]);
+  if (!resultados) return 0;
+  for (const [i, r] of resultados.entries()) {
+    if (r.situacao === "falha") {
+      console.error(`[conta/pedidos] reconciliar pedido=${pendentes[i].id}: ${r.motivo}`);
+    }
+  }
+  return resultados.filter((r) => r.situacao === "pago" && r.transicionou).length;
+}
+
 export default async function MeusPedidosPage({
   searchParams,
 }: {
-  searchParams: { novo?: string; mp?: string };
+  searchParams: { novo?: string; mp?: string; payment_id?: string; collection_status?: string };
 }) {
   const supabase = createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect("/login?next=/conta/pedidos");
+
+  const confirmados = await reconciliarPendentes(supabase);
+  const voltouDoMp = !!searchParams.payment_id || !!searchParams.collection_status;
 
   const { data } = await supabase
     .from("orders")
@@ -110,6 +160,27 @@ export default async function MeusPedidosPage({
           {searchParams.mp === "0"
             ? "Pedido registrado! O pagamento online será ativado em breve — ele aparecerá aqui assim que confirmado."
             : "Pedido confirmado! Acompanhe o status por aqui."}
+        </p>
+      )}
+
+      {!searchParams.novo && (confirmados > 0 || voltouDoMp) && (
+        <p
+          role="status"
+          style={{
+            background: confirmados > 0 ? "var(--blue-100)" : "#FFF3CD",
+            color: confirmados > 0 ? "var(--blue-600)" : "#8A6D00",
+            fontWeight: 600,
+            fontSize: 14,
+            padding: "12px 16px",
+            borderRadius: 10,
+            marginBottom: 20,
+          }}
+        >
+          {confirmados > 0
+            ? confirmados === 1
+              ? "Pagamento confirmado! Seu pedido já está como Pago."
+              : `Pagamento confirmado em ${confirmados} pedidos.`
+            : "Recebemos sua volta do Mercado Pago. Se o pagamento ainda aparece como pendente, a confirmação pode levar alguns minutos — atualize esta página."}
         </p>
       )}
 
