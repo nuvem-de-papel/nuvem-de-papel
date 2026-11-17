@@ -28,6 +28,11 @@ helper de PAT (`sbp_…` salvo em `sbp-token.txt` no temp da sessão), não o
 `supabase-query.ps1` original. Antes de criar a próxima, conferir a numeração
 real em `supabase/migrations/`.
 
+> **Atualização (17/11/2026):** o helper `supabase-query-pat.ps1` e o `sbp-token.txt`
+> **não existem mais** no temp. SQL de apoio (leitura e ritual) passou a rodar
+> pelo conector MCP do Supabase (`execute_sql`, com `project_id` do ambiente);
+> escrita pelo MCP pede confirmação do Joaquim a cada chamada.
+
 ### Mapa confirmado dos projetos Supabase (confirmado pelo Joaquim em 13/11/2026 — não perguntar de novo)
 
 - **PRODUÇÃO:** `urlfwxeflxpdmmxkuuur` (nome no painel: `nuvem-de-papel-staging-produção`) — https://urlfwxeflxpdmmxkuuur.supabase.co
@@ -596,3 +601,39 @@ produção desde o PR #38.
    grade real é cadastro pela tela, sem migration.
 7. **Fotos da grade**: ver "Desagrupador de fotos de produto" acima
    (`scripts/processar_grades_blt.py`).
+
+## Pagamento Mercado Pago — rastro, conferência e pedido em dobro (17/11/2026)
+
+1. **Problema**: 2 pedidos pagos em 16/11 (Pix e cartão) ficaram em
+   `aguardando_pagamento` em produção. Toda falha do webhook APAGAVA a linha
+   de `webhook_events` (para liberar o retry do MP) e o motivo sumia; e não
+   havia outro caminho para descobrir que o pedido foi pago.
+2. **Rastro de falha** (`src/app/api/webhooks/mercadopago/route.ts`): a falha
+   fica gravada em `webhook_events.payload._falha {motivo, em, tentativas}` e
+   o webhook responde 500. Evento repetido **com** `_falha` é REPROCESSADO
+   (retry do MP continua valendo); sucesso depois de falha grava
+   `_resolvido {apos_tentativas}`; repetido sem `_falha` segue `duplicado`.
+   Reprocessar é seguro: troca de status guardada por `.in("status", [...])`
+   e `settle/release_order_stock` idempotentes.
+3. **Regra única de confirmação** (`src/lib/pagamento-confirmar.ts`):
+   `confirmarPagamentoAprovado` (webhook) e `reconciliarPedido` (consulta o MP
+   por `external_reference` = `orders.id`, via `src/lib/mercadopago.ts`).
+   Usada em três lugares: webhook, **volta do cliente** (`/conta/pedidos`
+   confere até 5 pedidos pendentes dos últimos 30 dias, teto de 6 s, banner
+   "Pagamento confirmado") e botão **"Conferir pagamento"** em `/logistica`
+   (`conferirPagamentoMP`, audit `pagamento.reconciliado`). Nunca cancela.
+   Com `MP_MOCK=1` local não consulta o MP.
+4. **Pedido em dobro**: `finalizarCheckout` recusa pedido igual (mesmo
+   cliente, itens, entrega e pagamento) criado nos últimos 10 min ainda em
+   `aguardando_pagamento` (`pedidoRepetido` em `checkout/actions.ts`) e o
+   `CheckoutForm` trava o duplo clique com `enviandoRef`. Origem: em 16/11 o
+   cartão de R$ 6,00 gerou 2 pedidos com 10 s de diferença.
+5. **E2E atualizados para a vitrine nova** (lista `/produtos` sem botão de
+   carrinho; vitrine lê o saldo do CD em `item_stock_by_location`, separado do
+   ledger `item_stock` que o checkout reserva): helper `e2e/_vitrine.cjs`
+   (`definirSaldoCd`/`restaurarSaldoCd`/`adicionarPelaPagina`). `f3` 20/20,
+   `f4` 32/32, `frete` 13/13 (agora com item próprio `SKU-E2E-FRETE` e devolve
+   a reserva — antes vazava 2 unidades do 1º produto da vitrine por rodada),
+   `clube` 24/24. Rastro de falha testado à parte: 7/7. **A conta mestre E2E
+   (`E2E_MASTER_EMAIL`) foi criada no staging em 17/11** — não existia depois
+   da troca de projeto Supabase, e o `f3` quebrava no login.
