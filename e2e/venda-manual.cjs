@@ -390,6 +390,106 @@ async function main() {
       .is("pedido_numero", null)
       .in("id", [ped1?.id, ped2?.id, ped3?.id].filter(Boolean));
     check("H1 nenhum pedido manual aparece em Importar da loja", (loja ?? []).length === 0);
+
+    // J) cancelar venda manual (0054) - venda B (pix 46.80, 2 un, retira) ------
+    const cod1 = `PED-${ped1.id.slice(0, 8).toUpperCase()}`;
+    await page.goto(BASE + "/vendas", { waitUntil: "domcontentloaded" });
+    await page.click('button[aria-label="Filtro Vendas a faturar"]');
+    const btnCancVenda = page.locator(`button[aria-label="Cancelar venda ${cod1}"]`);
+    await btnCancVenda.waitFor({ timeout: 15000 }).catch(() => {});
+    check("J1 venda pix aparece em Vendas a faturar com o botao Cancelar venda", (await btnCancVenda.count()) === 1);
+
+    await btnCancVenda.click();
+    const motivoInput = page.locator(`input[aria-label="Motivo do cancelamento ${cod1}"]`);
+    const btnConfirma = page.locator(`button[aria-label="Confirmar cancelamento ${cod1}"]`);
+    await motivoInput.fill("abc");
+    check("J2 motivo curto (<5) trava o Confirmar", await btnConfirma.isDisabled());
+
+    const MOTIVO = "Cliente desistiu (E2E VMan)";
+    await motivoInput.fill(MOTIVO);
+    await btnConfirma.click();
+    await page
+      .locator('div[role="status"]', { hasText: "cancelada" })
+      .waitFor({ timeout: 20000 })
+      .catch(() => {});
+    const aviso4 = await page.locator('div[role="status"]').innerText().catch(() => "");
+    check(
+      "J3 aviso: venda cancelada com estorno do caixa",
+      /cancelada/i.test(aviso4) && /estornado do caixa/i.test(aviso4) && /estoque devolvido/i.test(aviso4),
+      aviso4.slice(0, 120)
+    );
+
+    const { data: pedC } = await admin
+      .from("orders")
+      .select("status, cancelado_em, cancelado_motivo, cancelado_por")
+      .eq("id", ped1.id)
+      .maybeSingle();
+    check(
+      "J4 pedido cancelado com data, motivo e autor",
+      pedC?.status === "cancelado" && !!pedC?.cancelado_em && pedC?.cancelado_motivo === MOTIVO && !!pedC?.cancelado_por,
+      JSON.stringify(pedC)
+    );
+
+    const { data: stC } = await admin.from("item_stock").select("stock_available").eq("item_id", item.id).maybeSingle();
+    check("J5 estoque devolvido (5 -> 7)", Number(stC?.stock_available) === 7, `saldo=${stC?.stock_available}`);
+
+    const { data: titC } = await admin.from("financial_titles").select("status").eq("id", tit1?.id ?? "").maybeSingle();
+    const { data: parcC } = await admin
+      .from("financial_installments")
+      .select("id, status, paid_amount")
+      .eq("title_id", tit1?.id ?? "");
+    const { data: estC } = await admin
+      .from("financial_settlements")
+      .select("type, amount, idempotency_key")
+      .in("installment_id", (parcC ?? []).map((p) => p.id))
+      .eq("type", "estorno");
+    check(
+      "J6 titulo e parcela cancelados + estorno de 46.80 (dinheiro sai do caixa)",
+      titC?.status === "cancelado" && parcC?.length === 1 && parcC[0].status === "cancelado" &&
+        Number(parcC[0].paid_amount) === 0 && estC?.length === 1 && Number(estC[0].amount) === esp1 &&
+        /^cancelamento:/.test(estC[0].idempotency_key ?? ""),
+      JSON.stringify({ titC, parcC, estC })
+    );
+
+    const { data: diaC } = await admin
+      .from("journal_entries")
+      .select("id")
+      .eq("tenant_id", TENANT)
+      .eq("idempotency_key", `venda-estorno:${ped1.id}`);
+    check("J7 diario: estorno da receita/CMV lancado", (diaC ?? []).length === 1);
+
+    const { data: audC } = await admin
+      .from("audit_log")
+      .select("action")
+      .eq("entity_id", ped1.id)
+      .eq("action", "venda.cancelar");
+    check("J8 acao auditada venda.cancelar", (audC ?? []).length === 1);
+
+    await page.goto(BASE + "/vendas", { waitUntil: "domcontentloaded" });
+    const linhaC = page.locator("tr", { hasText: cod1 }).first();
+    await linhaC.waitFor({ timeout: 15000 }).catch(() => {});
+    const textoLinha = (await linhaC.innerText().catch(() => "")).toLowerCase();
+    await page.click('button[aria-label="Filtro Vendas a faturar"]');
+    await page.waitForTimeout(500);
+    check(
+      "J9 lista mostra Cancelado, sem botao e fora de Vendas a faturar",
+      textoLinha.includes("cancelado") &&
+        (await page.locator(`button[aria-label="Cancelar venda ${cod1}"]`).count()) === 0 &&
+        (await page.locator("tr", { hasText: cod1 }).count()) === 0,
+      textoLinha.slice(0, 120)
+    );
+
+    const rDup = await admin.rpc("sale_cancel", { p_order_id: ped1.id, p_motivo: MOTIVO, p_actor: null });
+    const { data: estDup } = await admin
+      .from("financial_settlements")
+      .select("id")
+      .in("installment_id", (parcC ?? []).map((p) => p.id))
+      .eq("type", "estorno");
+    check(
+      "J10 cancelar de novo nao duplica estorno",
+      !rDup.error && rDup.data?.ja_cancelada === true && rDup.data?.estornos === 0 && (estDup ?? []).length === 1,
+      JSON.stringify({ e: rDup.error?.message, d: rDup.data })
+    );
   } finally {
     await browser.close();
   }
@@ -404,12 +504,15 @@ async function main() {
   const ids = (restos ?? []).map((r) => r.id);
 
   // títulos NÃO liquidados primeiro (parcelas abertas nao tem settlement);
-  // os liquidados (pix) ficam - financial_settlements e imutavel (padrao f5).
+  // os liquidados (pix) e o cancelado da secao J (liquidacao + estorno) ficam -
+  // financial_settlements e imutavel (padrao f5).
   const { data: titulos } = await admin
     .from("financial_titles")
     .select("id, status")
     .in("source_id", ids.length ? ids : ["00000000-0000-0000-0000-000000000000"]);
-  const abertos = (titulos ?? []).filter((t) => t.status !== "liquidado").map((t) => t.id);
+  const abertos = (titulos ?? [])
+    .filter((t) => t.status !== "liquidado" && t.status !== "cancelado")
+    .map((t) => t.id);
   if (abertos.length) {
     await admin.from("financial_installments").delete().in("title_id", abertos);
     await admin.from("financial_titles").delete().in("id", abertos);
