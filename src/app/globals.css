@@ -339,6 +339,10 @@ button {
   .floating-social {
     display: none !important;
   }
+
+  .header-espaco {
+    display: none !important;
+  }
 }
 
 @media (min-width: 769px) {
