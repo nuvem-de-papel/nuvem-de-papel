@@ -729,6 +729,78 @@ export async function cancelarPedido(orderId: string): Promise<Resultado> {
   return { ok: true, msg: "Pedido cancelado — aparece como Cancelado na lista." };
 }
 
+// Cancelar venda manual (0054 - 17/11/2026). A RPC sale_cancel desfaz tudo
+// numa transacao: estorno do que foi pago (sai do caixa), titulo e parcelas
+// cancelados, estoque devolvido, entrega que nao saiu vira 'devolvido' e o
+// gatilho da 0023 estorna receita e CMV. Ela mesma grava o audit_log
+// 'venda.cancelar'. Editar venda nao existe (diario imutavel): cancela e
+// registra outra. PDV e loja ficam de fora por enquanto (gaveta/MP).
+const ERROS_CANCELAR_VENDA: Record<string, string> = {
+  MOTIVO_INVALIDO: "Informe o motivo do cancelamento (5 a 500 caracteres).",
+  VENDA_NAO_ENCONTRADA: "Venda não encontrada.",
+  NAO_E_VENDA: "Só vendas podem ser canceladas aqui — pedido usa o botão Cancelar.",
+  VENDA_ENTREGUE: "Venda já entregue não pode ser cancelada.",
+  ENTREGA_EM_TRANSITO:
+    "A entrega está em trânsito. Registre uma ocorrência na Expedição antes de cancelar.",
+};
+
+function erroCancelarVenda(mensagem: string): string {
+  if (mensagem.startsWith("NOTA_FISCAL_ATIVA")) {
+    const numero = mensagem.split(":")[1]?.trim();
+    return `Esta venda tem a nota fiscal${numero ? ` nº ${numero}` : ""} ativa. Cancele a nota antes.`;
+  }
+  if (mensagem.startsWith("ORIGEM_NAO_SUPORTADA")) {
+    return "Por enquanto só a venda manual pode ser cancelada aqui (PDV e loja ainda não).";
+  }
+  return ERROS_CANCELAR_VENDA[mensagem] ?? `Falha ao cancelar: ${mensagem}`;
+}
+
+export async function cancelarVendaManual(orderId: string, motivo: string): Promise<Resultado> {
+  if (!UUID.test(orderId ?? "")) return { ok: false, erro: "Venda inválida." };
+  const texto = String(motivo ?? "").trim();
+  if (texto.length < 5 || texto.length > 500) {
+    return { ok: false, erro: ERROS_CANCELAR_VENDA.MOTIVO_INVALIDO };
+  }
+  const acesso = await exigirGestao();
+  if ("erro" in acesso) return { ok: false, erro: acesso.erro };
+  const { userId, admin } = acesso;
+
+  const { data: venda } = await admin
+    .from("orders")
+    .select("id, etapa, origem, status")
+    .eq("id", orderId)
+    .eq("tenant_id", NUVEM_DE_PAPEL_TENANT_ID)
+    .maybeSingle();
+  if (!venda) return { ok: false, erro: ERROS_CANCELAR_VENDA.VENDA_NAO_ENCONTRADA };
+  if (venda.status === "cancelado") return { ok: false, erro: "Venda já cancelada." };
+
+  const { data, error } = await admin.rpc("sale_cancel", {
+    p_order_id: orderId,
+    p_motivo: texto,
+    p_actor: userId,
+  });
+  if (error) return { ok: false, erro: erroCancelarVenda(error.message) };
+
+  const r = (data ?? {}) as {
+    venda_numero?: string | null;
+    valor_estornado?: number;
+    parcelas_canceladas?: number;
+  };
+  const estornado = Number(r.valor_estornado ?? 0);
+  const partes = [
+    estornado > 0
+      ? `${estornado.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })} estornado do caixa`
+      : null,
+    "estoque devolvido",
+    r.parcelas_canceladas ? `${r.parcelas_canceladas} parcela(s) cancelada(s)` : null,
+  ].filter(Boolean);
+
+  revalidatePath("/vendas");
+  revalidatePath("/financeiro");
+  const numero = r.venda_numero ? ` ${r.venda_numero}` : "";
+  return { ok: true, msg: `Venda${numero} cancelada: ${partes.join(", ")}.` };
+}
+
 // EN-02..EN-04 + AV-02: proximo passo da linha da entrega. Postar exige
 // codigo de rastreio (EN-03) e, no postado/entregue, avisa o cliente por
 // e-mail (best-effort: sem RESEND_API_KEY nao envia - ver pendencia).

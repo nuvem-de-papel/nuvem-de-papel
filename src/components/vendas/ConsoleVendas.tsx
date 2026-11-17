@@ -7,6 +7,7 @@ import {
   atualizarEntrega,
   cancelarNfe,
   cancelarPedido,
+  cancelarVendaManual,
   consultarNfe,
   converterVenda,
   emitirNfe,
@@ -564,6 +565,8 @@ export function ConsoleVendas({
   const [filtroExp, setFiltroExp] = useState<FiltroExp | null>(null);
   const [entForm, setEntForm] = useState<Record<string, { transportadora: string; rastreio: string; prazo: string }>>({});
   const [ocorrId, setOcorrId] = useState<string | null>(null);
+  const [cancelVendaId, setCancelVendaId] = useState<string | null>(null);
+  const [cancelMotivo, setCancelMotivo] = useState("");
   const [ocorrTexto, setOcorrTexto] = useState("");
   const [marcados, setMarcados] = useState<Record<string, boolean>>({});
 
@@ -753,6 +756,19 @@ export function ConsoleVendas({
   function cancelarLinha(p: PedidoVenda) {
     if (!window.confirm(`Cancelar o pedido ${p.codigo}?`)) return;
     startTransition(async () => mostrar(await cancelarPedido(p.id)));
+  }
+
+  // 0054: venda manual cancela com motivo obrigatorio (estorna o caixa,
+  // devolve o estoque e cancela o titulo - tudo na RPC sale_cancel)
+  function confirmarCancelVenda(p: PedidoVenda) {
+    startTransition(async () => {
+      const r = await cancelarVendaManual(p.id, cancelMotivo);
+      if (r.ok) {
+        setCancelVendaId(null);
+        setCancelMotivo("");
+      }
+      mostrar(r);
+    });
   }
 
   function salvarEntrega(e: DadoEntrega) {
@@ -1146,8 +1162,11 @@ export function ConsoleVendas({
                     const notaRow = notaDaLinha(p);
                     const exp = entregaPorPedido.get(p.id);
                     const acao = acaoPrincipal(p);
+                    const podeCancelarVenda =
+                      p.origem === "manual" && p.etapa === "venda" && !p.cancelado;
                     return (
-                      <tr key={p.id} style={{ borderBottom: expandido === p.id ? "none" : undefined }}>
+                      <Fragment key={p.id}>
+                      <tr style={{ borderBottom: expandido === p.id ? "none" : undefined }}>
                         <td style={{ ...td, fontWeight: 700, whiteSpace: "nowrap" }}>
                           {p.codigo}
                           {(p.vendaNumero || p.pedidoNumero) && (
@@ -1236,6 +1255,28 @@ export function ConsoleVendas({
                               Cancelar
                             </button>
                           )}
+                          {podeCancelarVenda && (
+                            <button
+                              type="button"
+                              aria-label={`Cancelar venda ${p.codigo}`}
+                              aria-expanded={cancelVendaId === p.id}
+                              onClick={() => {
+                                setCancelVendaId(cancelVendaId === p.id ? null : p.id);
+                                setCancelMotivo("");
+                              }}
+                              disabled={pendente}
+                              style={{
+                                ...BTN,
+                                background: "transparent",
+                                color: "#991B1B",
+                                border: "1px solid #FECACA",
+                                marginRight: 8,
+                                opacity: pendente ? 0.6 : 1,
+                              }}
+                            >
+                              Cancelar venda
+                            </button>
+                          )}
                           {acao && (
                             <button
                               type="button"
@@ -1255,6 +1296,49 @@ export function ConsoleVendas({
                           )}
                         </td>
                       </tr>
+                      {cancelVendaId === p.id && podeCancelarVenda && (
+                        <tr>
+                          <td colSpan={8} style={{ ...td, background: "#FFF5F5" }}>
+                            <p style={{ margin: "0 0 8px", fontSize: 12.5, color: "#991B1B", fontWeight: 700 }}>
+                              Cancelar {p.vendaNumero ?? p.codigo} ({brl(p.total)}): o valor pago sai do caixa, o
+                              estoque volta e as parcelas em aberto são canceladas. Não dá para desfazer.
+                            </p>
+                            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                              <input
+                                aria-label={`Motivo do cancelamento ${p.codigo}`}
+                                value={cancelMotivo}
+                                onChange={(ev) => setCancelMotivo(ev.target.value)}
+                                maxLength={500}
+                                placeholder="Motivo (ex.: cliente desistiu, quantidade errada)"
+                                style={{ ...INPUT, flex: "1 1 280px", width: "auto" }}
+                              />
+                              <button
+                                type="button"
+                                aria-label={`Confirmar cancelamento ${p.codigo}`}
+                                onClick={() => confirmarCancelVenda(p)}
+                                disabled={pendente || cancelMotivo.trim().length < 5}
+                                style={{
+                                  ...BTN,
+                                  background: "#DC2626",
+                                  color: "#FFF",
+                                  opacity: pendente || cancelMotivo.trim().length < 5 ? 0.6 : 1,
+                                }}
+                              >
+                                {pendente ? "Cancelando..." : "Confirmar cancelamento"}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setCancelVendaId(null)}
+                                disabled={pendente}
+                                style={{ ...BTN, background: "var(--bg-cloud)", color: "var(--navy)" }}
+                              >
+                                Voltar
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                      </Fragment>
                     );
                   })}
                   {vendasFiltradas.map((p) =>

@@ -163,7 +163,7 @@
     </svg>
     <h1>Nuvem de Papel<small>Mapa estrutural do sistema</small></h1>
     <span class="badge-gov">Documento de governança</span>
-    <span class="versao">v1.2 · atualizado em 15/11/2026</span>
+    <span class="versao">v1.3 · atualizado em 17/11/2026</span>
   </div>
   <p class="regra">
     <b>Regra:</b> este mapa é atualizado <b>sempre que houver mudança estrutural</b> — rota nova ou
@@ -389,7 +389,7 @@
         <div class="ramos">
           <ul class="folhas">
             <li><span class="rota">/pdv</span> <span class="folha-nome">PDV (v6)</span><span class="desc">console de venda com caixa, atalhos F1–F8 e comanda lateral.</span></li>
-            <li><span class="rota">/vendas</span> <span class="folha-nome">Vendas Detalhada</span><span class="desc">lista de pedidos, emissão/cancelamento de NF-e, abas Vendas/Compras/Notas.</span></li>
+            <li><span class="rota">/vendas</span> <span class="folha-nome">Vendas Detalhada</span><span class="desc">lista de pedidos, emissão/cancelamento de NF-e, abas Vendas/Compras/Notas; <b>Cancelar venda</b> (só origem manual, motivo obrigatório) via RPC <code>sale_cancel</code> (0054).</span></li>
             <li><span class="rota">/vendas/nova</span> <span class="folha-nome">Venda manual (telefone/balcao)</span><span class="desc">PF/PJ, entrega/retirada, todas as formas de pagamento; sem caixa aberto; ViaCEP no cadastro e na entrega.</span></li>
             <li><span class="rota">/vendas/recuperacao</span> <span class="folha-nome">Recuperação de carrinho</span></li>
           </ul>
@@ -532,6 +532,7 @@
         <summary><span class="seta"></span><span class="titulo">Pedidos e checkout</span></summary>
         <div class="ramos"><ul class="folhas">
           <li><span class="tabela">customers</span> <span class="tabela">orders</span> <span class="tabela">order_items</span> <span class="tabela">addresses</span></li>
+          <li><span class="folha-nome">Cancelamento de venda (0054)</span><span class="desc"><code>orders.cancelado_motivo</code> (5–500) + <code>orders.cancelado_por</code>; RPC <code>sale_cancel</code> estorna caixa, cancela título/parcelas, devolve estoque e o diário estorna receita/CMV (<code>venda-estorno:&lt;id&gt;</code>).</span></li>
           <li><span class="tabela">webhook_events</span> <span class="tabela">cart_recovery_rules</span> <span class="tabela">cart_recovery_sends</span></li>
         </ul></div>
       </details>
@@ -606,7 +607,7 @@
         <div class="ramos">
           <ul class="folhas">
             <li><span class="folha-nome">Núcleo</span><span class="desc"><code>f2</code> RBAC · <code>f3</code> checkout · <code>f4</code> · <code>f5</code> catálogo · <code>f6</code> revenda/fornecedor</span></li>
-            <li><span class="folha-nome">Vendas</span><span class="desc"><code>vendas</code> (menu + NF-e) · <code>pdv-v6</code> · <code>vendas-v5</code> · <code>venda-manual</code> (28) · <code>vendedores</code></span></li>
+            <li><span class="folha-nome">Vendas</span><span class="desc"><code>vendas</code> (menu + NF-e) · <code>pdv-v6</code> · <code>vendas-v5</code> · <code>venda-manual</code> (38) · <code>vendedores</code></span></li>
             <li><span class="folha-nome">Financeiro</span><span class="desc"><code>dre</code> · <code>despesas</code> · <code>conciliacao</code> · <code>precos</code></span></li>
             <li><span class="folha-nome">Fiscal e documentos</span><span class="desc"><code>fiscal</code> · <code>sefaz</code> · <code>documentos</code></span></li>
             <li><span class="folha-nome">Operação</span><span class="desc"><code>compras-v1</code> · <code>frete</code> · <code>marketplaces</code> · <code>produto-import</code> · <code>produtos</code> · <code>clientes</code></span></li>
@@ -685,6 +686,8 @@
         <tr><th style="width:70px">Versão</th><th style="width:110px">Data</th><th>Mudança estrutural</th></tr>
       </thead>
       <tbody>
+        <tr><td class="v">v1.3</td><td>17/11/2026</td>
+          <td>Cancelar venda manual em <span class="rota">/vendas</span>: RPC <code>sale_cancel</code> e colunas <code>orders.cancelado_motivo</code>/<code>cancelado_por</code> (0054).</td></tr>
         <tr><td class="v">v1.2</td><td>15/11/2026</td>
           <td>Grade de produto: rota <span class="rota">/produtos/[sku]</span> (seletor de variantes), catálogo admin em <span class="rota">/produtos</span>, colunas <code>grupo_pai</code>/<code>cor</code> (0051) e tabela <span class="tabela">item_images</span> (0048).</td></tr>
         <tr><td class="v">v1.1</td><td>20/10/2026</td>
