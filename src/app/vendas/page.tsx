@@ -102,6 +102,8 @@ export default async function VendasPage() {
       .eq("tenant_id", NUVEM_DE_PAPEL_TENANT_ID)
       .eq("etapa", "venda")
       .is("cancelado_em", null)
+      // venda cancelada fora do app (status sem cancelado_em, ex.: V-4268)
+      .neq("status", "cancelado")
       .limit(5000),
     // funil: notas de saida (emitidas x rejeitadas) + quais vendas tem nota
     admin
@@ -177,7 +179,7 @@ export default async function VendasPage() {
       canal: o.channel,
       origem: (o.origem as string) ?? "erp",
       etapa: (o.etapa as string | null) ?? null,
-      cancelado: !!o.cancelado_em,
+      cancelado: !!o.cancelado_em || o.status === "cancelado",
       vendedorId: (o.seller_id as string | null) ?? null,
       pedidoNumero: (o.pedido_numero as string | null) ?? null,
       vendaNumero: (o.venda_numero as string | null) ?? null,
