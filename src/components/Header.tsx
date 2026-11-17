@@ -183,7 +183,9 @@ export function Header() {
               </span>
             )}
           </a>
-          <span aria-hidden="true" style={{ display: "flex", padding: 4, width: 27, height: 27 }} />
+          {/* espaçador do desktop; some no celular (globals.css) - em 390px
+              ele empurrava a linha 4px além da tela (E2E vendas-v5 H1) */}
+          <span aria-hidden="true" className="header-espaco" style={{ display: "flex", padding: 4, width: 27, height: 27 }} />
           <a
             href={destinoPainel}
             style={{
