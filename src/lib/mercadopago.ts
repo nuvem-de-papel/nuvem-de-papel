@@ -62,21 +62,59 @@ export async function criarPreferencia(input: {
   }
 }
 
+// motivo (17/11/2026): quando status vem null, diz POR QUE (mp_ausente,
+// mp_http_<codigo>, mp_rede, mp_sem_status) — o webhook grava o motivo em
+// webhook_events.payload._falha em vez de sumir com o rastro.
 export async function buscarPagamento(paymentId: string): Promise<{
   status: string | null;
   externalReference: string | null;
+  motivo: string | null;
 }> {
-  if (!mpConfigurado()) return { status: null, externalReference: null };
+  if (!mpConfigurado()) return { status: null, externalReference: null, motivo: "mp_ausente" };
   try {
     const resp = await fetch(`https://api.mercadopago.com/v1/payments/${encodeURIComponent(paymentId)}`, {
       headers: { Authorization: `Bearer ${process.env.MERCADOPAGO_ACCESS_TOKEN}` },
       cache: "no-store",
     });
-    if (!resp.ok) return { status: null, externalReference: null };
+    if (!resp.ok) return { status: null, externalReference: null, motivo: `mp_http_${resp.status}` };
     const data = (await resp.json()) as { status?: string; external_reference?: string };
-    return { status: data.status ?? null, externalReference: data.external_reference ?? null };
-  } catch {
-    return { status: null, externalReference: null };
+    return {
+      status: data.status ?? null,
+      externalReference: data.external_reference ?? null,
+      motivo: data.status ? (data.external_reference ? null : "mp_sem_external_reference") : "mp_sem_status",
+    };
+  } catch (e) {
+    return { status: null, externalReference: null, motivo: `mp_rede: ${e instanceof Error ? e.message : String(e)}` };
+  }
+}
+
+// Reconciliação (17/11/2026): lista os pagamentos de um pedido direto no MP
+// pelo external_reference (= orders.id). Usado quando o webhook não chegou:
+// volta do cliente ao site e botão "Conferir pagamento" da logística.
+export async function buscarPagamentosDoPedido(pedidoId: string): Promise<{
+  pagamentos: { id: string; status: string | null }[];
+  motivo: string | null;
+}> {
+  if (!mpConfigurado()) return { pagamentos: [], motivo: "mp_ausente" };
+  try {
+    const url =
+      "https://api.mercadopago.com/v1/payments/search?sort=date_created&criteria=desc&external_reference=" +
+      encodeURIComponent(pedidoId);
+    const resp = await fetch(url, {
+      headers: { Authorization: `Bearer ${process.env.MERCADOPAGO_ACCESS_TOKEN}` },
+      cache: "no-store",
+    });
+    if (!resp.ok) return { pagamentos: [], motivo: `mp_http_${resp.status}` };
+    const data = (await resp.json()) as {
+      results?: { id?: string | number; status?: string; external_reference?: string }[];
+    };
+    const pagamentos = (data.results ?? [])
+      // defesa: o MP filtra por external_reference, mas confere de novo
+      .filter((r) => r.id !== undefined && r.external_reference === pedidoId)
+      .map((r) => ({ id: String(r.id), status: r.status ?? null }));
+    return { pagamentos, motivo: null };
+  } catch (e) {
+    return { pagamentos: [], motivo: `mp_rede: ${e instanceof Error ? e.message : String(e)}` };
   }
 }
 
@@ -128,8 +166,9 @@ export async function buscarPreapproval(preapprovalId: string): Promise<{
   status: string | null;
   dateCreated: string | null;
   nextPaymentDate: string | null;
+  motivo?: string;
 }> {
-  if (!mpConfigurado()) return { status: null, dateCreated: null, nextPaymentDate: null };
+  if (!mpConfigurado()) return { status: null, dateCreated: null, nextPaymentDate: null, motivo: "mp_ausente" };
   try {
     const resp = await fetch(
       `https://api.mercadopago.com/v1/preapproval/${encodeURIComponent(preapprovalId)}`,
@@ -138,7 +177,7 @@ export async function buscarPreapproval(preapprovalId: string): Promise<{
         cache: "no-store",
       }
     );
-    if (!resp.ok) return { status: null, dateCreated: null, nextPaymentDate: null };
+    if (!resp.ok) return { status: null, dateCreated: null, nextPaymentDate: null, motivo: `mp_http_${resp.status}` };
     const data = (await resp.json()) as {
       status?: string;
       date_created?: string;
@@ -149,8 +188,13 @@ export async function buscarPreapproval(preapprovalId: string): Promise<{
       dateCreated: data.date_created ?? null,
       nextPaymentDate: data.next_payment_date ?? null,
     };
-  } catch {
-    return { status: null, dateCreated: null, nextPaymentDate: null };
+  } catch (e) {
+    return {
+      status: null,
+      dateCreated: null,
+      nextPaymentDate: null,
+      motivo: `mp_rede: ${e instanceof Error ? e.message : String(e)}`,
+    };
   }
 }
 

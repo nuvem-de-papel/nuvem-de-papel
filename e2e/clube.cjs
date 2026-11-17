@@ -20,6 +20,8 @@ const { email: EMAIL_MASTER, password: SENHA_MASTER } = require("./_credenciais-
 const TENANT = "00000000-0000-0000-0000-000000000001";
 const SKU_CLUBE = "SKU-E2E-CLUBE";
 const NOME_CLUBE = "Item E2E Clube";
+// vitrine nova (17/11/2026): carrinho pela pagina do produto + saldo do CD
+const { definirSaldoCd, restaurarSaldoCd, adicionarPelaPagina } = require("./_vitrine.cjs");
 const PLAN_CODE = "papel";
 const WEBHOOK_IDS = ["mock-pre-fantasma"];
 
@@ -185,6 +187,8 @@ async function limparPedidosDoUsuario(userId) {
 
 (async () => {
   const browser = await chromium.launch({ channel: "msedge", headless: true });
+  let itemCd = null;
+  let saldoCdAntes = null;
   try {
     // setup --------------------------------------------------------------
     await admin
@@ -197,6 +201,8 @@ async function limparPedidosDoUsuario(userId) {
     await limparPedidosDoUsuario(comprador.id);
     await admin.from("webhook_events").delete().in("external_id", WEBHOOK_IDS);
     const itemId = await prepararItem();
+    itemCd = itemId;
+    saldoCdAntes = await definirSaldoCd(admin, itemId, 10);
 
     const { data: planoPapel } = await admin
       .from("club_plans")
@@ -311,8 +317,7 @@ async function limparPedidosDoUsuario(userId) {
 
     // E) beneficio no checkout ---------------------------------------------
     await page.evaluate(() => window.localStorage.removeItem("ndp_carrinho_v1"));
-    await page.goto(BASE + "/produtos", { waitUntil: "domcontentloaded" });
-    await page.locator(`button[aria-label="Adicionar ${NOME_CLUBE}"]`).click();
+    await adicionarPelaPagina(page, BASE, SKU_CLUBE, 1);
     await preencherCheckout(page);
     const chkSalvar = page.locator('input[type="checkbox"]').first();
     if (await chkSalvar.isChecked()) await chkSalvar.uncheck();
@@ -413,6 +418,7 @@ async function limparPedidosDoUsuario(userId) {
     await ctxMaster.close();
     await ctxComp.close();
   } finally {
+    if (itemCd) await restaurarSaldoCd(admin, itemCd, saldoCdAntes).catch(() => {});
     await browser.close();
   }
 

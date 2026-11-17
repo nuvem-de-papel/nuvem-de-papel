@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useCart } from "@/components/carrinho/CartProvider";
 import { cotarFrete, finalizarCheckout, type EnderecoInput, type OpcaoFrete } from "@/app/checkout/actions";
 
@@ -61,6 +61,7 @@ export function CheckoutForm({
 }) {
   const { itens, totalValor, clear } = useCart();
   const [pendente, startTransition] = useTransition();
+  const enviandoRef = useRef(false);
   const [erro, setErro] = useState<string | null>(null);
 
   const [pagamento, setPagamento] = useState<"pix" | "cartao" | "boleto">("pix");
@@ -155,6 +156,9 @@ export function CheckoutForm({
 
   function confirmar(e: React.FormEvent) {
     e.preventDefault();
+    // trava de clique duplo (17/11/2026): o `pendente` do useTransition só
+    // vale depois do re-render — dois cliques rápidos passavam os dois
+    if (enviandoRef.current) return;
     setErro(null);
 
     // escolha do frete obrigatoria quando ja da para cotar: sem escolha, o
@@ -175,6 +179,7 @@ export function CheckoutForm({
       uf,
     };
 
+    enviandoRef.current = true;
     startTransition(async () => {
       const r = await finalizarCheckout({
         itens: itens.map((i) => ({ item_id: i.id, qty: i.qty })),
@@ -185,9 +190,11 @@ export function CheckoutForm({
         frete: freteEscolha,
       });
       if (!r.ok) {
+        enviandoRef.current = false;
         setErro(r.erro);
         return;
       }
+      // sucesso: a trava fica ligada até o navegador sair da página
       clear();
       if (r.initPoint) {
         window.location.href = r.initPoint;

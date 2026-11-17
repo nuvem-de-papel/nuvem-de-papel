@@ -15,6 +15,15 @@ const EMAIL = "e2e-frete@nuvem-de-papel.com.br";
 const SENHA = "E2e#2026Test";
 const TENANT = "00000000-0000-0000-0000-000000000001";
 const CEP = "01310-100"; // região 0 (SP capital) — matriz coberta pelo importador
+// vitrine nova (17/11/2026): a lista /produtos nao tem botao de carrinho e a
+// vitrine le o saldo do CD. A suite usa item proprio (antes: o 1o da vitrine,
+// que vazava reserva no ledger a cada rodada) e devolve CD e ledger no fim.
+const { definirSaldoCd, restaurarSaldoCd, adicionarPelaPagina } = require("./_vitrine.cjs");
+const SKU_FRETE = "SKU-E2E-FRETE";
+const NOME_FRETE = "Caderno E2E Frete";
+const PRECO_FRETE = 12;
+let itemFreteId = null;
+let saldoCdAntes = null;
 
 const resultados = [];
 function check(nome, ok, detalhe = "") {
@@ -51,8 +60,10 @@ async function acharUser(email) {
 async function limpar() {
   const u = await acharUser(EMAIL);
   if (!u) return;
-  const { data: pedidos } = await admin.from("orders").select("id").eq("user_id", u.id);
+  const { data: pedidos } = await admin.from("orders").select("id, status").eq("user_id", u.id);
   for (const p of pedidos ?? []) {
+    // devolve a reserva antes de apagar (o ledger e imutavel e nao devolve sozinho)
+    if (p.status === "aguardando_pagamento") await admin.rpc("release_order_stock", { p_order_id: p.id });
     await admin.from("order_items").delete().eq("order_id", p.id);
     await admin.from("orders").delete().eq("id", p.id);
   }
@@ -70,11 +81,52 @@ async function login(page) {
   await page.waitForURL((u) => !u.pathname.startsWith("/login"), { timeout: 20000 });
 }
 
+async function prepararItem() {
+  let { data: item } = await admin.from("catalog_items").select("id, active").eq("sku", SKU_FRETE).maybeSingle();
+  if (!item) {
+    const { data: novo, error } = await admin
+      .from("catalog_items")
+      .insert({ tenant_id: TENANT, sku: SKU_FRETE, name: NOME_FRETE, category: "E2E", active: true })
+      .select("id")
+      .single();
+    if (error) throw new Error("falha ao criar item E2E frete: " + error.message);
+    item = { id: novo.id, active: true };
+  } else if (!item.active) {
+    await admin.from("catalog_items").update({ active: true }).eq("id", item.id);
+  }
+  await admin.from("item_prices").delete().eq("item_id", item.id);
+  const { error: errPreco } = await admin
+    .from("item_prices")
+    .insert({ item_id: item.id, channel: "varejo", price: PRECO_FRETE, min_quantity: 1 });
+  if (errPreco) throw new Error("preco E2E frete falhou: " + errPreco.message);
+  // ledger com folga para os 2 pedidos (D e E) reservarem
+  const { data: est } = await admin.from("item_stock").select("stock_available").eq("item_id", item.id).maybeSingle();
+  const disp = Number(est?.stock_available ?? 0);
+  if (disp < 5) {
+    await admin.rpc("register_stock_movement", {
+      p_item_id: item.id, p_type: "entrada", p_quantity: 5 - disp,
+      p_reference_type: "manual", p_reference_id: null, p_notes: "seed E2E frete", p_created_by: null,
+    });
+  }
+  return item.id;
+}
+
+async function devolverItem() {
+  if (!itemFreteId) return;
+  const { data: est } = await admin.from("item_stock").select("stock_available").eq("item_id", itemFreteId).maybeSingle();
+  const disp = Number(est?.stock_available ?? 0);
+  if (disp > 0) {
+    await admin.rpc("register_stock_movement", {
+      p_item_id: itemFreteId, p_type: "ajuste", p_quantity: -disp,
+      p_reference_type: "manual", p_reference_id: null, p_notes: "cleanup E2E frete", p_created_by: null,
+    });
+  }
+  await restaurarSaldoCd(admin, itemFreteId, saldoCdAntes);
+  await admin.from("catalog_items").update({ active: false }).eq("id", itemFreteId);
+}
+
 async function addItemAoCarrinho(page) {
-  await page.goto(BASE + "/produtos", { waitUntil: "domcontentloaded" });
-  const btnAdd = page.locator('button[aria-label^="Adicionar"]').first();
-  await btnAdd.waitFor({ timeout: 15000 });
-  await btnAdd.click();
+  await adicionarPelaPagina(page, BASE, SKU_FRETE, 1);
   const cart = JSON.parse(await page.evaluate(() => window.localStorage.getItem("ndp_carrinho_v1") || "[]"));
   return cart[0];
 }
@@ -126,6 +178,8 @@ async function esperadoDaTabela(itemId, qty) {
 
 (async () => {
   await limpar();
+  itemFreteId = await prepararItem();
+  saldoCdAntes = await definirSaldoCd(admin, itemFreteId, 10);
 
   // A) matriz importada (pré-condição do teste)
   const { count: nLinhas } = await admin
@@ -293,6 +347,7 @@ async function esperadoDaTabela(itemId, qty) {
 
   // G) limpeza
   await limpar();
+  await devolverItem();
   const depois = await acharUser(EMAIL);
   const { data: sobra } = await admin.from("orders").select("id").eq("user_id", userId);
   check("G1 dados de teste removidos", !depois && (sobra ?? []).length === 0);
@@ -303,6 +358,6 @@ async function esperadoDaTabela(itemId, qty) {
   process.exit(falhas ? 1 : 0);
 })().catch(async (e) => {
   console.error("ERRO FATAL:", e);
-  try { await limpar(); } catch {}
+  try { await limpar(); await devolverItem(); } catch {}
   process.exit(2);
 });

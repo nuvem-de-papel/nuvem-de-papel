@@ -14,6 +14,12 @@ const EMAIL_COMP = "e2e-comprador@nuvem-de-papel.com.br";
 const SENHA_COMP = "E2e#2026Test";
 const { email: EMAIL_MASTER, password: SENHA_MASTER } = require("./_credenciais-e2e.cjs");
 const TENANT = "00000000-0000-0000-0000-000000000001";
+// item proprio da suite (17/11/2026): a vitrine nova nao tem botao de carrinho
+// na lista /produtos e le o saldo do CD - ver e2e/_vitrine.cjs
+const SKU_F3 = "SKU-E2E-F3";
+const NOME_F3 = "Caderno E2E F3";
+const PRECO_F3 = 7.5;
+const { definirSaldoCd, restaurarSaldoCd, adicionarPelaPagina } = require("./_vitrine.cjs");
 
 function lerEnv() {
   const env = {};
@@ -67,6 +73,28 @@ async function limpar() {
   }
 }
 
+async function prepararItem() {
+  let { data: item } = await admin.from("catalog_items").select("id, active").eq("sku", SKU_F3).maybeSingle();
+  if (!item) {
+    const { data: novo, error } = await admin
+      .from("catalog_items")
+      .insert({ tenant_id: TENANT, sku: SKU_F3, name: NOME_F3, category: "E2E", active: true })
+      .select("id")
+      .single();
+    if (error) throw new Error("falha ao criar item E2E F3: " + error.message);
+    item = { id: novo.id, active: true };
+  } else if (!item.active) {
+    await admin.from("catalog_items").update({ active: true }).eq("id", item.id);
+  }
+  // uma linha por faixa (regra dura do Bloco 5 passo 2): apaga e regrava
+  await admin.from("item_prices").delete().eq("item_id", item.id);
+  const { error: errPreco } = await admin
+    .from("item_prices")
+    .insert({ item_id: item.id, channel: "varejo", price: PRECO_F3, min_quantity: 1 });
+  if (errPreco) throw new Error("preco E2E F3 falhou: " + errPreco.message);
+  return item.id;
+}
+
 async function login(page, email, senha) {
   await page.goto(BASE + "/login", { waitUntil: "domcontentloaded" });
   await page.fill("#email", email);
@@ -98,19 +126,20 @@ async function login(page, email, senha) {
   const ctx = await browser.newContext();
   const page = await ctx.newPage();
 
-  // A) checkout sem sessão → login
-  const rAnon = await fetch(BASE + "/checkout", { redirect: "manual" });
-  check("A1 checkout anonimo -> 307 login", rAnon.status === 307 && (rAnon.headers.get("location") || "").includes("/login"), `status=${rAnon.status}`);
+  const itemId = await prepararItem();
+  const saldoCdAntes = await definirSaldoCd(admin, itemId, 10);
 
-  // B) carrinho: adicionar 2x do mesmo item → badge 2
+  // A) checkout sem sessão → cadastro básico (Opção C, 14/11/2026: não manda
+  // mais para o /login; o próprio /checkout cria conta ou entra)
+  const rAnon = await fetch(BASE + "/checkout", { redirect: "manual" });
+  const htmlAnon = rAnon.status === 200 ? await rAnon.text() : "";
+  check("A1 checkout anonimo -> cadastro basico", rAnon.status === 200 && htmlAnon.includes("Criar conta e continuar"), `status=${rAnon.status}`);
+
+  // B) carrinho: 2 unidades do mesmo item pela página do produto
   await login(page, EMAIL_COMP, SENHA_COMP);
-  await page.goto(BASE + "/produtos", { waitUntil: "domcontentloaded" });
-  const btnAdd = page.locator('button[aria-label^="Adicionar"]').first();
-  await btnAdd.waitFor({ timeout: 15000 });
-  await btnAdd.click();
-  await btnAdd.click();
-  const badge = await page.locator('a[aria-label^="Carrinho com"]').getAttribute("aria-label");
-  check("B1 badge do carrinho = 2", (badge || "").includes("2"), badge);
+  await adicionarPelaPagina(page, BASE, SKU_F3, 2);
+  const carrinhoB1 = JSON.parse(await page.evaluate(() => window.localStorage.getItem("ndp_carrinho_v1") || "[]"));
+  check("B1 carrinho com 2 unidades", carrinhoB1.reduce((s, i) => s + i.qty, 0) === 2, JSON.stringify(carrinhoB1));
 
   await page.goto(BASE + "/carrinho", { waitUntil: "domcontentloaded" });
   // o render do carrinho e client-side (domcontentloaded nao garante): sem
@@ -125,7 +154,7 @@ async function login(page, email, senha) {
   // preço REAL do banco + preço forjado no localStorage
   const carrinho = JSON.parse(await page.evaluate(() => window.localStorage.getItem("ndp_carrinho_v1") || "[]"));
   check("B3 carrinho tem 1 SKU com qty 2", carrinho.length === 1 && carrinho[0].qty === 2, JSON.stringify(carrinho));
-  const itemId = carrinho[0].id;
+  check("B4 item do carrinho = item da suite", carrinho[0]?.id === itemId, carrinho[0]?.id);
   const { data: precoRow } = await admin.from("item_prices").select("price").eq("item_id", itemId).eq("channel", "varejo").limit(1).maybeSingle();
   const precoReal = Number(precoRow.price);
   const totalEsperado = precoReal * 2;
@@ -212,6 +241,7 @@ async function login(page, email, senha) {
 
   // H) limpeza
   await limpar();
+  await restaurarSaldoCd(admin, itemId, saldoCdAntes);
   // devolve a reserva do checkout (2 unidades) - ledger imutavel nao volta so
   const { data: estFim } = await admin.from("item_stock").select("stock_available").eq("item_id", itemId).maybeSingle();
   if (estFim && Number(estFim.stock_available) !== estoqueAntes) {
