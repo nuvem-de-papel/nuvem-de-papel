@@ -115,11 +115,13 @@ async function main() {
         coluna: getComputedStyle(btns[0].parentElement).flexDirection,
       };
     });
+    // 10/11/2026 (pedido do Joaquim): flutuante invertido - fundo preto,
+    // ícone rosa do CTA (#FC99D3). O cinza #4D4D4D/branco era o padrão antigo.
     check(
-      "N9 flutuante no padrão do rodapé (círculo cinza + zap verde, vertical)",
+      "N9 flutuante (círculo preto + ícone rosa, zap verde, vertical)",
       estilo &&
-        estilo.bg === "rgb(77, 77, 77)" &&
-        estilo.cor === "rgb(255, 255, 255)" &&
+        estilo.bg === "rgb(0, 0, 0)" &&
+        estilo.cor === "rgb(252, 153, 211)" &&
         estilo.zap === "rgb(37, 211, 102)" &&
         estilo.coluna === "column",
       JSON.stringify(estilo)
