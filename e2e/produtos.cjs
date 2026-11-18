@@ -7,8 +7,8 @@
  * ficha do fornecedor/embalagem (item_supplier_data: codigo fornecedor, ref
  * fabricante, qtd emb/master, GTIN inner/master, dimensoes e pesos emb e
  * master). GTIN master DUN-14 com DV errado e bloqueado no servidor. O
- * importador por link fica OCULTO na tela e so abre com Ctrl+Shift+[ (o
- * botao Importar sem link avisa) e o aviso sai no TOPO (ct-feed-topo).
+ * importador por link fica FECHADO e abre pelo botao "Busca web" do header
+ * (o botao Importar sem link avisa) e o aviso sai no TOPO (ct-feed-topo).
  * Cleanup/restaura o catalogo anterior. */
 const { chromium } = require("playwright-core");
 const { createClient } = require("@supabase/supabase-js");
@@ -111,17 +111,20 @@ async function main() {
     await page.getByRole("heading", { name: "Cadastro de produto" }).waitFor({ timeout: 15000 });
     check("P1 abre a tela de produto", true);
 
-    // importador oculto: some da tela e so abre com o atalho Ctrl+Shift+[
+    // importador fechado por padrao; abre pelo botao "Busca web" do header
+    // (o atalho Ctrl+Shift+[ saiu em 68c905b - 09/11/2026)
     await page.getByRole("button", { name: "Incluir" }).click();
     check("P2a Importar oculto por padrao", (await page.getByRole("button", { name: "Importar" }).count()) === 0);
-    await page.keyboard.press("Control+Shift+[");
+    await page.getByRole("button", { name: "Busca web" }).click();
     // Importar sem link -> avisa (nao chama rede) e o aviso sai no TOPO
     await page.getByRole("button", { name: "Importar" }).click({ timeout: 10000 });
     const feedSemLink = await esperarFeed(page, "Cole o link");
     check("P2 Importar sem link avisa", feedSemLink.includes("Cole o link"), feedSemLink.trim());
+    // desde ddaa2b2 o aviso do produto fica NO cabecalho, ao lado de Relatorio
+    // (ct-feed-inline); as outras telas seguem com o banner ct-feed-topo
     check(
-      "P2b aviso no topo da tela (fora da barra de status)",
-      (await page.locator(".ct-feed.ct-feed-topo").count()) === 1 && (await page.locator(".ct-status .ct-feed").count()) === 0
+      "P2b aviso no cabecalho do produto (fora da barra de status)",
+      (await page.locator(".ct-header .ct-feed-inline").count()) === 1 && (await page.locator(".ct-status .ct-feed").count()) === 0
     );
 
     // navegacao da lista no header (◀◀ ◀ ▶ ▶▶): 4 botoes e o proximo anda
@@ -230,9 +233,9 @@ async function main() {
     await page.fill("#ct-prod-icmsbase", "100,00%");
     await page.fill("#ct-prod-cstibscbs", "000");
     await page.fill("#ct-prod-cclasstrib", "000000");
-    // GTIN tributavel mora na aba "Outros" (painel escondido ate clicar)
-    await page.getByRole("button", { name: /Outros/ }).click();
-    await page.fill("#ct-prod-gtintrib", GTIN_INNER_OK);
+    // GTIN tributavel nao tem mais campo proprio (saiu em ddaa2b2): grava
+    // sempre igual ao codigo de barras da ficha (#ct-prod-gtin)
+    const gtinFicha = (await page.inputValue("#ct-prod-gtin")).replace(/\D/g, "");
     // observacoes mora na aba "Observacoes"
     await page.getByRole("button", { name: /Observações/ }).click();
     await page.fill("#ct-prod-observacoes", "Capa dura, 160 fls, A5");
@@ -284,7 +287,7 @@ async function main() {
         Number(fisc?.icms_base_pct) === 100 &&
         fisc?.cst_ibscbs === "000" &&
         fisc?.cclass_trib === "000000" &&
-        fisc?.gtin_tributavel === GTIN_INNER_OK,
+        (fisc?.gtin_tributavel ?? "") === gtinFicha,
       JSON.stringify(fisc)
     );
 
@@ -474,20 +477,13 @@ async function main() {
     // sem foto cadastrada -> ilustrativa da categoria ("bloco" casa caderno.jpg)
     await admin.from("catalog_items").update({ foto_url: null }).eq("id", item?.id);
     await page.reload({ waitUntil: "domcontentloaded" });
-    const srcIlustrativa = await page.evaluate((nome) => {
-      const folhas = [...document.querySelectorAll("div")].filter(
-        (d) => d.children.length === 0 && d.textContent.trim() === nome
-      );
-      for (const folha of folhas) {
-        let no = folha;
-        while (no && no !== document.body) {
-          const img = no.querySelector?.("img");
-          if (img) return img.getAttribute("src") || "";
-          no = no.parentElement;
-        }
-      }
-      return "card nao encontrado";
-    }, "Produto E2E Bloco 2");
+    // o card (ProductCard) envolve a imagem num link para /produtos/<sku>; o
+    // nome fica em h3 > a, entao o card e achado pelo link, nao pelo texto
+    const imgCard = page.locator(`a[href="/produtos/${SKU_PROD}"] img`).first();
+    const srcIlustrativa = await imgCard
+      .getAttribute("src", { timeout: 15000 })
+      .then((s) => s || "")
+      .catch(() => "card nao encontrado");
     check(
       "P10c sem foto cadastrada a vitrine volta pra ilustrativa",
       /^\/produtos\/.+\.(jpe?g|png|svg)$/i.test(srcIlustrativa),

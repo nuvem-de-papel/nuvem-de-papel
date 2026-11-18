@@ -4,7 +4,7 @@
  *
  * Cobre o ciclo ponta a ponta:
  *  1. Cria um produto de teste (service role) com preço varejo -> aparece na vitrine.
- *  2. Abre a ficha, vai na aba "3. Descrição (IA)", clica "Gerar descrição com IA".
+ *  2. Abre a ficha, vai na aba "5. Descrição IA", clica "Gerar descrição com IA".
  *  3. Espera o textarea #ct-prod-descricao-vitrine encher com texto REAL (Gemini).
  *  4. Clica Salvar -> grava em catalog_items.description (com audit).
  *  5. Confere que a descrição aparece na vitrine publica /produtos.
@@ -108,10 +108,11 @@ async function main() {
     check("C1 abre a ficha do produto de teste", (await page.inputValue("#ct-prod-descricao")) === NOME_IA);
 
     // sem ID salvo o botão avisa; aqui já tem, então vai pra aba de IA
-    await page.getByRole("button", { name: /3\. Descrição \(IA\)/ }).click();
+    // aba renomeada em 68c905b (09/11/2026): "3. Descrição (IA)" -> "5. Descrição IA"
+    await page.getByRole("button", { name: /Descrição IA/ }).click();
     await page.waitForTimeout(200);
     const temTextarea = (await page.locator("#ct-prod-descricao-vitrine").count()) === 1;
-    check("C2 aba Descrição (IA) tem o textarea da vitrine", temTextarea);
+    check("C2 aba Descrição IA tem o textarea da vitrine", temTextarea);
 
     // gera com IA (chamada real ao Gemini via server action).
     // O Gemini free devolve "high demand" em pico de uso (2x na chain de 20/10,
