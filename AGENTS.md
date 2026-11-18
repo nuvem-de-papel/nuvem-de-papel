@@ -343,10 +343,18 @@ Next.js (App Router) + TypeScript + Supabase/PostgreSQL + Vercel + Mercado Pago 
 ## Identidade visual — paleta v3 cinza (aprovada pelo cliente 25/09/2026)
 
 1. Fundos de página e cards: `#E0E0E0` (`--bg-cotton` e `--bg-cloud` em `src/app/globals.css`); bordas `#C9C9C9`, texto fraco `#CFCFCF`, sombras neutras `rgba(0,0,0,…)`.
-2. Barras de topo (Header) e rodapé (Footer): `#3D3D3D` sólido (antes: gradiente navy).
+2. Rodapé (Footer): `#3D3D3D` sólido (antes: gradiente navy). A barra do topo mudou em 18/11/2026 — ver "Barra do topo — vidro degradê" abaixo.
 3. Mantidos: navy `#073B4C` (títulos/texto), CTA pink `#E084AC` (hover `#D06A97`), amarelo `#FFD166` só na marca, fontes Poppins + Open Sans.
 4. Hero da home: vídeo full-bleed com rotação de 4 clipes Pexels 720p em `public/videos/` (crossfade no fim de cada clipe, pausa via IntersectionObserver + visibilitychange), overlay navy e fade do conteúdo na rolagem; `prefers-reduced-motion` ou Save-Data → cena SVG estática, sem vídeo e sem parallax.
 5. Referência visual: `F:\Projetos\nuvem-de-papel-documentacao\Diversos4\preview-identidade-v2.html` (paleta + hero com vídeo).
+
+## Barra do topo — vidro degradê (18/11/2026)
+
+1. **Pedido do Joaquim** (referência de layout enviada por imagem): à esquerda o logo + "Nuvem de Papel" com "PAPELARIA" embaixo; no meio a busca arredondada; à direita favoritos (só ícone, ainda sem função), carrinho com contador e pessoa + "Entrar". Barra de ponta a ponta com o degradê rosa → lilás (`#F4C7D8` → `#D9C8F2`, 74% de opacidade) em **vidro** (`backdrop-filter: blur(16px) saturate(160%)`), sticky no topo. CSS no bloco "Barra do topo - vidro degrade" do `globals.css` (`.site-header*`, `.logo-home`, `.marca*`, `.header-busca`, `.busca-*`, `.header-acoes`, `.header-entrar`, `.header-links`, `.mobile-nav`).
+2. **Logo leva para a Home em qualquer página do site**; no painel (`body:has(.admin-shell)`) o clique fica desligado por CSS (`pointer-events: none`) — o painel tem o próprio Voltar.
+3. **Busca** (`src/components/busca/BuscaProdutos.tsx`) virou campo fixo no meio da barra (antes era uma lupa que abria painel): nome ou SKU, mínimo 2 letras, debounce 250 ms em `/api/produtos/busca`, lista flutuante embaixo, Enter/lupa abrem o 1º achado, Esc ou clique fora fecham. `aria-label="Buscar na loja"` **de propósito**: `Buscar produto` é o campo do PDV/venda manual (E2E) e o cabeçalho também aparece no painel.
+4. **Rótulo da conta**: `Entrar` (deslogado) · `Minha conta` (cliente da loja → `/conta/pedidos`) · `Painel` (equipe, destino por papel). No celular (≤ 768 px) o texto some visualmente (fica só o ícone; o nome acessível continua), a busca vai para a 2ª linha inteira e os links vão para o hambúrguer.
+5. **2ª linha provisória**: Home / Produtos / Publicações (+ Meus pedidos logado) até o Joaquim definir o que entra ali. Validado em 18/11: type-check 0, lint 0, build ok; `vendas-v5` 43/43 (H1: 390 px sem rolagem lateral), `vendas` 36/36, `f2` 15/15, `cadastro-basico-smoke-simple` 26/26. O `f3` caiu no C2 por ambiente, não pela barra: com `MERCADOPAGO_ACCESS_TOKEN` de teste no `.env.local` o checkout redireciona para o Mercado Pago e a suíte espera o caminho "pagamento desativado".
 
 ## Regras de modelagem de dados (definidas no parecer de migração ConnectionCyber)
 
