@@ -673,3 +673,30 @@ produção desde o PR #38.
 4. **Uso**: `node scripts/importar-jq.cjs <pasta>` só **simula** (lê banco + bucket e imprime o plano; `--relatorio x.json` grava o plano completo). `--aplicar` grava: sobe as fotos primeiro (6 em paralelo, 3 tentativas) e **aborta antes de tocar o banco** se alguma falhar; depois produtos novos (fiscal padrão UN/origem 2/CSOSN 102, preço base, estoque 0 no CD, galeria), nomes/preços/custos, galerias e **uma** linha de `audit_log` `catalogo.importar_jq` com o estado anterior. Idempotente: rodar de novo só grava o que ainda difere. Trava de ambiente: sem `--producao` recusa `.env` que não aponte para o staging; com `--producao` exige o ref de produção (`--env <arquivo>` com a service_role de produção, arquivo `.env*` ignorado pelo git e apagado depois). Pegadinha: `storage.from(b).list()` **não dá erro** com bucket inexistente (volta vazio) — o script checa com `getBucket`.
 5. **Staging (18/11)**: 0056 preflight 3/3 → migration → teste 5/5 (`FALHAS = true`); import aplicado (334 novos inativos, 84 nomes, 21 preços, 22 custos, 430 galerias, 3.133 fotos no bucket); simulação seguinte **toda zerada**; conferido no banco (334 com fiscal/comercial/preço/estoque, 764 capas no Storage, 1 linha de preço base por item) e na tela pelo Joaquim. **Pendente**: 286 dos 334 novos sem NCM (setor novo sem NCM de referência) — preencher antes de ativar/emitir nota.
 6. **Produção (18/11)**: simulação antes de gravar (436 itens; mesmos números do staging, exceto 20 preços em vez de 21 e 6 SKUs fora do JQ em vez de 15 — o staging tem fixtures de E2E e a grade de teste BLT38) → 0056 preflight 3/3 → migration → teste 5/5 (`FALHAS = true`) → import aplicado (334 novos inativos, 84 nomes, 20 preços, 22 custos, 430 galerias, 3.133 fotos) → re-simulação **toda zerada**. Banco conferido: 770 itens (436 ativos), 3.820 imagens no Storage, 764 capas, 43 setores, 0 preço base duplicado, 0 item sem preço, 334 novos com fiscal/comercial/estoque no CD; foto pública HTTP 200. O arquivo temporário com a service_role de produção foi apagado no fim.
+
+## Grupos de setores — catálogo em dois níveis (0057 — 18/11/2026)
+
+1. **Pedido**: os 43 setores soltos do JQ viraram **GRUPO > SUBGRUPO**. O subgrupo é o setor de sempre (`catalog_items.category`), então nenhum leitor antigo quebra: checkout, PDV, relatórios e importador JQ continuam iguais. Desenho aprovado pelo Joaquim no artefato "Grupos de Setores" v4: 9 grupos, 49 setores, um ícone de linha fina por grupo.
+2. **Migration `0057_grupos_setores.sql`** (+preflight/rollback/test):
+   - `catalog_grupos`: slug, nome, `icone` (chave do desenho), ordem, ativo.
+   - `catalog_setores`: PK `(tenant_id, nome)` = texto do `category` → `grupo_id`, com `on delete restrict`.
+   - **Leitura pública**, porque o menu da loja roda anônimo. Escrita só pela service_role.
+   - **Dados na mesma transação**: CADERNOS (176 itens) se divide pelo tipo lido do nome. Ordem do CASE: fichário > inteligente/disco > desenho > espiral > brochura > caderneta/mini > planner > decorativo. 11 produtos fora do lugar mudam de setor por SKU, conferindo a origem; rodar de novo não faz nada. POP IT ficou vazio e saiu do mapa.
+3. **Código**:
+   - `src/lib/gruposSetores.ts`: `carregarGrupos`, `mapaSetorGrupo`, `tituloGrupo` e `ICONES_GRUPO`, com os SVGs estilo Lucide em linha (sem biblioteca).
+   - `src/components/catalogo/IconeGrupo.tsx`.
+   - `src/lib/categoriasProdutos.ts` trocou os 7 setores fixos por regex por `agruparPorGrupo(produtos, grupos)`. Cor e descrição de cada grupo ficam no código, por slug.
+   - Setor sem grupo vira **"Outros"** no fim da loja (fora do menu) e **"Sem grupo"** no painel. Hoje só caem aí os fixtures E2E (`category = 'E2E'` ou nulo), de propósito, porque as suítes procuram esses produtos na vitrine.
+   - Home: carrosséis por grupo, e "Navegue por categoria" com o ícone do grupo no lugar das fotos Pexels emprestadas.
+   - `/produtos` da loja: botão escuro **"Todas as Categorias"** (`SetoresMenu.tsx`, abre `nav[aria-label="Categorias"]` com ícone por grupo; fecha com Esc ou clique fora).
+   - "Combina com" (`getCombinaCom`): só setores mapeados.
+   - Catálogo admin: setores agrupados por grupo, com `optgroup` no filtro. Cadastro de produto: mostra o grupo do setor digitado.
+4. **Setor novo**: digitado no cadastro, entra como "Sem grupo" até ganhar uma linha em `catalog_setores` (SQL por enquanto; não existe tela de gestão de grupos).
+5. **Validado no staging (18/11)**:
+   - preflight ok → migration → teste **17/17**.
+   - type-check 0, lint 0 (só os 5 avisos `<img>` antigos), build ok.
+   - E2E: `lancamento` **19/19** (A2 confere a ordem por grupo, A2b confere "Sem grupo"), `vendas` 36/36, `f2` 15/15, `produtos` 27/27.
+   - **Falhas anteriores, sem relação com a 0057**:
+     - `f6` passa de A a E e para no F: procura `button[aria-label="Adicionar Item E2E F6"]`, mas o botão real diz "… ao carrinho", e a lista de `/produtos` não tem botão de carrinho desde a vitrine nova.
+     - `catalogo-ia` C3: Gemini em "high demand".
+   - **Produção**: a 0057 entra **antes** do merge que deploya. A loja nova lê `catalog_grupos`; sem a tabela, `carregarGrupos` devolve vazio e a loja inteira cai em "Outros".

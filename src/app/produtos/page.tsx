@@ -1,6 +1,7 @@
 import { Fragment, type ReactNode } from "react";
 import { getStoreProducts } from "@/lib/products";
-import { CATEGORIAS_PRODUTOS, agruparPorSetor } from "@/lib/categoriasProdutos";
+import { agruparPorGrupo, gruposDoMenu } from "@/lib/categoriasProdutos";
+import { createClient } from "@/lib/supabase/server";
 import { BannerSlider } from "@/components/produtos/BannerSlider";
 import { CategoryCarousel } from "@/components/produtos/CategoryCarousel";
 import { PromoStrip, PROMO_ICONS } from "@/components/produtos/PromoStrip";
@@ -10,6 +11,7 @@ import { podeVerPainel } from "@/lib/painel";
 import { ehLancamento } from "@/lib/lancamento";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { CatalogoAdmin, type ItemCatalogoAdmin } from "@/components/catalogo/CatalogoAdmin";
+import { carregarGrupos } from "@/lib/gruposSetores";
 
 type LinhaCatalogo = {
   id: string;
@@ -98,11 +100,14 @@ export default async function ProdutosPage() {
   // Operacional logado vê o catálogo administrativo dentro do menu lateral do painel;
   // visitante e revenda seguem na loja.
   if (await podeVerPainel()) {
-    return <CatalogoAdmin itens={await carregarCatalogoAdmin()} />;
+    const [itens, grupos] = await Promise.all([carregarCatalogoAdmin(), carregarGrupos(createAdminClient())]);
+    return <CatalogoAdmin itens={itens} grupos={grupos} />;
   }
-  const produtos = await getStoreProducts();
-  const groups = agruparPorSetor(produtos);
-  const setores = CATEGORIAS_PRODUTOS.map((c) => ({ slug: c.slug, titulo: c.titulo }));
+  // 0057: secoes por GRUPO do banco; o menu "Todas as Categorias" lista so os
+  // grupos com produto (sem "Outros"), com o icone de cada um.
+  const [produtos, grupos] = await Promise.all([getStoreProducts(), carregarGrupos(createClient())]);
+  const groups = agruparPorGrupo(produtos, grupos);
+  const setores = gruposDoMenu(groups).map((g) => ({ slug: g.slug, titulo: g.title, icone: g.icone }));
 
   const midBanners: Record<number, { variant: "pink" | "green"; icon: ReactNode; imagem: string; title: string; text: string; tag: string }> = {
     1: {

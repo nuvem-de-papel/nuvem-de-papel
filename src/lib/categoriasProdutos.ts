@@ -1,119 +1,74 @@
-// Fonte unica dos setores da loja: usado pelo CategoryShowcase (home,
-// "Navegue por Categoria") e pela pagina /produtos (secoes fixas, uma por
-// setor). Clicar num icone da home leva pra /produtos#<slug> e aterrissa
-// direto na secao correspondente.
+// Grupos da loja (0057 - 18/11/2026). A vitrine passou dos 7 setores fixos
+// por regex para os GRUPOS do banco (catalog_grupos > catalog_setores >
+// catalog_items.category). Usado pela home (Hero, "Navegue por categoria",
+// carrosseis por grupo), por /produtos (secoes + menu "Todas as Categorias")
+// e pelo "Combina com" da pagina do produto.
 //
-// 2026-11-10: trocado de 6 categorias por PALAVRA-CHAVE do nome do produto
-// (regra antiga, pre-migracao) pros 7 SETORES REAIS do catalogo migrado
-// (catalog_items.category), que o cadastro ja usa 1:1 (ADESIVOS, BORRACHAS,
-// CADERNOS, CANETAS, MARCADORES, ORGANIZADORES, POST-IT). Produto que caia
-// fora dos 7 (erro de digitacao futuro) cai no ultimo grupo (catch-all),
-// mesmo padrao de antes - ver groupProducts em app/produtos/page.tsx.
+// Grupo sem produto ativo nao aparece. Produto cujo setor ainda nao foi
+// mapeado num grupo (setor novo digitado no cadastro, fixtures E2E) cai na
+// secao "Outros", no fim, fora do menu de grupos.
 //
-// fotoId = ID de foto no Pexels (licenca livre), usado só pro icone redondo
-// da home. ADESIVOS/BORRACHAS/MARCADORES/POST-IT ainda usam foto EMPRESTADA
-// de outro setor (placeholder) - pedir pro Joaquim escolher a foto definitiva
-// de cada um quando quiser.
+// Aqui fica so o VISUAL de cada grupo (cor de fundo, cor do titulo,
+// descricao), por slug. Grupo novo no banco sem visual aqui usa o padrao.
 import type { VarejoProduct } from "@/lib/products";
+import { tituloGrupo, type GrupoCatalogo } from "@/lib/gruposSetores";
 
-export type CategoriaProduto = {
+export const SLUG_OUTROS = "outros";
+
+type VisualGrupo = { cor: string; corTitulo: string; descricao: string };
+
+const VISUAL_PADRAO: VisualGrupo = {
+  cor: "#E9761C",
+  corTitulo: "#100D0D",
+  descricao: "Mais itens da papelaria para o dia a dia",
+};
+
+const VISUAL: Record<string, VisualGrupo> = {
+  cadernos: { cor: "#0CCAFD", corTitulo: "#006BE1", descricao: "Cadernos inteligentes, espirais, brochuras, fichários e planners" },
+  "papeis-e-agendas": { cor: "#24F1FC", corTitulo: "#100D0D", descricao: "Agendas, blocos, post-its e papéis para organizar a rotina" },
+  "lapis-e-canetas": { cor: "#006BE1", corTitulo: "#E9761C", descricao: "Canetas, lápis, marca-textos e borrachas para escrever e decorar" },
+  "arte-e-pintura": { cor: "#FC99D3", corTitulo: "#006BE1", descricao: "Tintas, pincéis e materiais para colorir e criar" },
+  "material-escolar": { cor: "#FECD01", corTitulo: "#100D0D", descricao: "Estojos, mochilas, réguas e tudo para o ano letivo" },
+  "escritorio-e-organizacao": { cor: "#03BF01", corTitulo: "#E9761C", descricao: "Organizadores, pastas e acessórios para a mesa de trabalho" },
+  "adesivos-e-presentes": { cor: "#FC99D3", corTitulo: "#100D0D", descricao: "Adesivos, chaveiros e mimos fofos para presentear" },
+  "infantil-e-livros": { cor: "#24F1FC", corTitulo: "#006BE1", descricao: "Livros, brinquedos e atividades para os pequenos" },
+  "datas-comemorativas": { cor: "#E9761C", corTitulo: "#100D0D", descricao: "Natal, Páscoa e itens de época" },
+};
+
+export type GrupoSetor = {
   slug: string;
-  titulo: string;
-  // cor do fundo do setor (paleta) e cor do titulo (diferente do fundo)
+  title: string;
+  icone: string;
   cor: string;
   corTitulo: string;
   descricao: string;
-  fotoId: number;
-  // regex testada contra catalog_items.category (lowercase) - match EXATO
-  // com o setor real, nao mais palavra-chave do nome do produto.
-  match: RegExp;
+  items: VarejoProduct[];
 };
 
-export const CATEGORIAS_PRODUTOS: CategoriaProduto[] = [
-  {
-    slug: "cadernos",
-    cor: "#0CCAFD",
-    corTitulo: "#006BE1",
-    titulo: "Cadernos",
-    descricao: "Cadernos criativos, inteligentes e com folhas decoradas para transformar sua rotina",
-    fotoId: 7054755,
-    match: /^cadernos$/,
-  },
-  {
-    slug: "organizadores",
-    cor: "#24F1FC",
-    corTitulo: "#100D0D",
-    titulo: "Organizadores",
-    descricao: "Agendas, planners, pastas e acessórios para uma rotina prática e organizada",
-    fotoId: 30101194,
-    match: /^organizadores$/,
-  },
-  {
-    slug: "canetas",
-    cor: "#006BE1",
-    corTitulo: "#E9761C",
-    titulo: "Canetas",
-    descricao: "Canetas criativas, coloridas e fofas para escrever, decorar e presentear",
-    fotoId: 6969285,
-    match: /^canetas$/,
-  },
-  {
-    slug: "adesivos",
-    cor: "#FC99D3",
-    corTitulo: "#006BE1",
-    titulo: "Adesivos",
-    // placeholder: foto emprestada de "presentes e colecoes" (28503362) ate
-    // escolher a foto definitiva deste setor.
-    descricao: "Adesivos e stickers fofos para decorar cadernos, agendas e muito mais",
-    fotoId: 28503362,
-    match: /^adesivos$/,
-  },
-  {
-    slug: "borrachas",
-    cor: "#FECD01",
-    corTitulo: "#100D0D",
-    titulo: "Borrachas",
-    // placeholder: foto emprestada de "lápis e lapiseiras" (6192765) ate
-    // escolher a foto definitiva deste setor.
-    descricao: "Borrachas fofas e divertidas para apagar sem estragar a folha",
-    fotoId: 6192765,
-    match: /^borrachas$/,
-  },
-  {
-    slug: "marcadores",
-    cor: "#03BF01",
-    corTitulo: "#E9761C",
-    titulo: "Marcadores",
-    // placeholder: foto emprestada de "estojos e nécessaires" (6193741) ate
-    // escolher a foto definitiva deste setor.
-    descricao: "Marca-textos e marcadores coloridos para destacar o que importa",
-    fotoId: 6193741,
-    match: /^marcadores$/,
-  },
-  {
-    slug: "post-it",
-    cor: "#E9761C",
-    corTitulo: "#100D0D",
-    titulo: "Post-it",
-    // placeholder: mesma foto de "adesivos" (28503362) ate escolher a foto
-    // definitiva deste setor. Tambem funciona como catch-all (ultimo grupo).
-    descricao: "Blocos de notas adesivas para lembretes, recados e organização rápida",
-    fotoId: 28503362,
-    match: /^post-it$/,
-  },
-];
+const chave = (s: string) => s.trim().toLocaleUpperCase("pt-BR");
 
-// Agrupa produtos pelos setores fixos (CATEGORIAS_PRODUTOS). Usado por
-// /produtos e pela home. Produto fora dos setores cai no ultimo grupo.
-export type GrupoSetor = { slug: string; title: string; cor: string; corTitulo: string; items: VarejoProduct[] };
+/**
+ * Produtos da vitrine por grupo, na ordem do menu. So grupos com produto;
+ * "Outros" (setor sem grupo) por ultimo e so se tiver item.
+ */
+export function agruparPorGrupo(produtos: VarejoProduct[], grupos: GrupoCatalogo[]): GrupoSetor[] {
+  const saida: GrupoSetor[] = grupos.map((g) => {
+    const v = VISUAL[g.slug] ?? VISUAL_PADRAO;
+    return { slug: g.slug, title: tituloGrupo(g.nome), icone: g.icone, cor: v.cor, corTitulo: v.corTitulo, descricao: v.descricao, items: [] };
+  });
+  const outros: GrupoSetor = { slug: SLUG_OUTROS, title: "Outros", icone: "menu", ...VISUAL_PADRAO, items: [] };
 
-export function agruparPorSetor(produtos: VarejoProduct[]): GrupoSetor[] {
-  const grupos: GrupoSetor[] = CATEGORIAS_PRODUTOS.map((c) => ({ slug: c.slug, title: c.titulo, cor: c.cor, corTitulo: c.corTitulo, items: [] }));
-  const catchAllIdx = grupos.length - 1;
+  const indice = new Map<string, number>();
+  grupos.forEach((g, i) => g.setores.forEach((s) => indice.set(chave(s), i)));
+
   for (const p of produtos) {
-    const key = (p.category ?? "").toLowerCase();
-    const idx = CATEGORIAS_PRODUTOS.findIndex((c) => c.match.test(key));
-    grupos[idx >= 0 ? idx : catchAllIdx].items.push(p);
+    const i = p.category ? indice.get(chave(p.category)) : undefined;
+    (i === undefined ? outros : saida[i]).items.push(p);
   }
-  return grupos;
+  return [...saida, outros].filter((g) => g.items.length > 0);
+}
+
+/** Grupos que entram no menu "Todas as Categorias" (sem "Outros"). */
+export function gruposDoMenu(grupos: GrupoSetor[]): GrupoSetor[] {
+  return grupos.filter((g) => g.slug !== SLUG_OUTROS);
 }
