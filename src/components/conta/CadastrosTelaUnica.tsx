@@ -18,6 +18,7 @@ import {
 } from "@/app/configuracoes/cadastro/actions";
 import { gerarRelatorioProduto, type RelatorioProduto } from "@/app/configuracoes/importar/actions";
 import { gerarRelatorioPdf } from "@/lib/relatorio-pdf";
+import { ehLancamento, lancamentoPadrao, PRAZO_LANCAMENTO_DIAS } from "@/lib/lancamento";
 
 const UFS = [
   "AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG","PA","PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO",
@@ -387,6 +388,8 @@ export type ProdutoCad = {
   hidePriceTable: boolean;
   emOferta: boolean;
   emDestaque: boolean;
+  // 0055: ultimo dia como lancamento (AAAA-MM-DD); "" = produto normal.
+  lancamentoAte: string;
   grupoPai: string | null;
   cor: string | null;
   lastAdjustedAt: string;
@@ -874,6 +877,11 @@ export function CadastrosTelaUnica({
     if (ofertaEl) ofertaEl.checked = p?.emOferta ?? false;
     const destaqueEl = g<HTMLInputElement>("ct-prod-destaque");
     if (destaqueEl) destaqueEl.checked = p?.emDestaque ?? false;
+    // 0055: lancamento vencido carrega desmarcado e sem data (ja e produto normal).
+    const lancAtivo = ehLancamento(p?.lancamentoAte);
+    const lancEl = g<HTMLInputElement>("ct-prod-lancamento");
+    if (lancEl) lancEl.checked = lancAtivo;
+    setVal("ct-prod-lancamento-ate", lancAtivo ? (p?.lancamentoAte ?? "") : "");
     // Bloco 2 (0031): campos novos que agora gravam de verdade.
     setVal("ct-prod-fabricante", p?.fabricante ?? "");
     setVal("ct-prod-observacoes", p?.observacoes ?? "");
@@ -971,6 +979,9 @@ export function CadastrosTelaUnica({
       cor: val("ct-prod-cor"),
       emOferta: g<HTMLInputElement>("ct-prod-oferta")?.checked ?? false,
       emDestaque: g<HTMLInputElement>("ct-prod-destaque")?.checked ?? false,
+      lancamentoAte: g<HTMLInputElement>("ct-prod-lancamento")?.checked
+        ? val("ct-prod-lancamento-ate") || lancamentoPadrao()
+        : "",
       lastAdjustedAt: val("ct-prod-reajuste"),
       fotoUrl: val("ct-prod-foto"),
       descricaoVitrine: val("ct-prod-descricao-vitrine"),
@@ -1895,6 +1906,36 @@ export function CadastrosTelaUnica({
               <div style={{ display: "flex", gap: 18, marginLeft: "auto" }}>
                 <label className="ct-checkline"><input type="checkbox" id="ct-prod-oferta" />Oferta</label>
                 <label className="ct-checkline"><input type="checkbox" id="ct-prod-destaque" />Destaque</label>
+                <span style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                <label className="ct-checkline">
+                  <input
+                    type="checkbox"
+                    id="ct-prod-lancamento"
+                    onChange={(e) => {
+                      // Marcar sugere hoje + 30 dias (editavel); desmarcar limpa a data.
+                      const ate = document.getElementById("ct-prod-lancamento-ate") as HTMLInputElement | null;
+                      if (!ate) return;
+                      if (e.currentTarget.checked) {
+                        if (!ate.value) ate.value = lancamentoPadrao();
+                      } else {
+                        ate.value = "";
+                      }
+                    }}
+                  />
+                  Lançamento até
+                </label>
+                  <input
+                    id="ct-prod-lancamento-ate"
+                    type="date"
+                    aria-label="Lançamento até"
+                    title={`Fica como Novo até esta data e depois vira produto normal sozinho (padrão: ${PRAZO_LANCAMENTO_DIAS} dias)`}
+                    onChange={(e) => {
+                      const chk = document.getElementById("ct-prod-lancamento") as HTMLInputElement | null;
+                      if (chk) chk.checked = !!e.currentTarget.value;
+                    }}
+                    style={{ padding: "4px 6px", borderRadius: 6, border: "1.5px solid var(--navy)", fontSize: ".82rem", fontFamily: "inherit" }}
+                  />
+                </span>
               </div>
             </div>
           </div>

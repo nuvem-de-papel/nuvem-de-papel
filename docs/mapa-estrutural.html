@@ -163,7 +163,7 @@
     </svg>
     <h1>Nuvem de Papel<small>Mapa estrutural do sistema</small></h1>
     <span class="badge-gov">Documento de governança</span>
-    <span class="versao">v1.3 · atualizado em 17/11/2026</span>
+    <span class="versao">v1.4 · atualizado em 17/11/2026</span>
   </div>
   <p class="regra">
     <b>Regra:</b> este mapa é atualizado <b>sempre que houver mudança estrutural</b> — rota nova ou
@@ -327,7 +327,7 @@
         <div class="ramos">
           <ul class="folhas">
             <li><span class="rota">/</span> <span class="folha-nome">Home da loja</span><span class="desc">rodapé + flutuante (fora do painel, por padrão).</span></li>
-            <li><span class="rota">/produtos</span> <span class="folha-nome">Catálogo</span><span class="desc">vitrine pública; para a equipe vira o catálogo admin (filtro Grade: todos / só grades / só únicos).</span></li>
+            <li><span class="rota">/produtos</span> <span class="folha-nome">Catálogo</span><span class="desc">vitrine pública; para a equipe vira o catálogo admin: abre só com a <b>lista de setores</b> (ordem alfabética, com contagem); clicar no setor abre os produtos dele (<code>?setor=</code>, Voltar retorna à lista); busca/filtros mostram os produtos direto; filtros Grade e Situação (inclui <b>Lançamento</b>, etiqueta “Novo até dd/mm”).</span></li>
             <li><span class="rota">/produtos/[sku]</span> <span class="folha-nome">Página do produto</span><span class="desc">grade: seletor de cor/modelo das variantes via <code>?v=SKU</code>, galeria do principal, “Combina com”.</span></li>
             <li><span class="rota">/publicacoes</span> <span class="folha-nome">Publicações</span></li>
             <li><span class="rota">/clube</span> <span class="folha-nome">Clube de assinantes</span><span class="desc">planos, checkout de assinatura e painel da conta.</span></li>
@@ -523,6 +523,7 @@
         <div class="ramos"><ul class="folhas">
           <li><span class="tabela">catalog_items</span> <span class="tabela">item_fiscal_data</span> <span class="tabela">item_commercial_data</span> <span class="tabela">item_prices</span> <span class="tabela">item_supplier_data</span></li>
           <li><span class="folha-nome">Grade (0051)</span><span class="desc"><code>catalog_items.grupo_pai</code> (SKU do principal; nulo = produto único) + <code>catalog_items.cor</code> (rótulo da variante). Cada variante é um item completo (preço, estoque, fotos). Ver AGENTS.md “Grade de produto”.</span></li>
+          <li><span class="folha-nome">Lançamento (0055)</span><span class="desc"><code>catalog_items.lancamento_ate</code> (date, nulo = produto normal). É lançamento enquanto <code>lancamento_ate &gt;= hoje</code> (Brasília) — vence sozinho, sem cron. Cadastro sugere hoje + 30 dias (<code>src/lib/lancamento.ts</code>); home ganha o carrossel “Lançamentos” e o card o selo “Novo”.</span></li>
           <li><span class="tabela">item_images</span> <span class="desc">galeria por produto (0048): posição 0 = capa, 1-4 = detalhes.</span></li>
           <li><span class="tabela">item_stock</span> <span class="tabela">stock_movements</span> <span class="desc">ledger <b>imutável</b> (trigger) · <span class="tabela">item_stock_public</span> (saldo público).</span></li>
           <li><span class="tabela">publications</span> <span class="tabela">suppliers</span></li>
@@ -611,7 +612,7 @@
             <li><span class="folha-nome">Financeiro</span><span class="desc"><code>dre</code> · <code>despesas</code> · <code>conciliacao</code> · <code>precos</code></span></li>
             <li><span class="folha-nome">Fiscal e documentos</span><span class="desc"><code>fiscal</code> · <code>sefaz</code> · <code>documentos</code></span></li>
             <li><span class="folha-nome">Operação</span><span class="desc"><code>compras-v1</code> · <code>frete</code> · <code>marketplaces</code> · <code>produto-import</code> · <code>produtos</code> · <code>clientes</code></span></li>
-            <li><span class="folha-nome">Marketing/IA e outros</span><span class="desc"><code>email</code> · <code>clube</code> · <code>catalogo-ia</code> · <code>carta-ia</code></span></li>
+            <li><span class="folha-nome">Marketing/IA e outros</span><span class="desc"><code>email</code> · <code>clube</code> · <code>catalogo-ia</code> · <code>carta-ia</code> · <code>lancamento</code></span></li>
             <li><span class="folha-nome">Helpers (fora da chain)</span><span class="desc"><code>_print-painel.cjs</code> (prints do painel) · <code>_relogio-banco.cjs</code></span></li>
           </ul>
         </div>
@@ -686,6 +687,8 @@
         <tr><th style="width:70px">Versão</th><th style="width:110px">Data</th><th>Mudança estrutural</th></tr>
       </thead>
       <tbody>
+        <tr><td class="v">v1.4</td><td>17/11/2026</td>
+          <td>Lançamento de produto: coluna <code>catalog_items.lancamento_ate</code> (0055), carrossel “Lançamentos” na home e selo “Novo”; catálogo admin em <span class="rota">/produtos</span> abre por setores (<code>?setor=</code>); suíte <code>e2e/lancamento.cjs</code>.</td></tr>
         <tr><td class="v">v1.3</td><td>17/11/2026</td>
           <td>Cancelar venda manual em <span class="rota">/vendas</span>: RPC <code>sale_cancel</code> e colunas <code>orders.cancelado_motivo</code>/<code>cancelado_por</code> (0054).</td></tr>
         <tr><td class="v">v1.2</td><td>15/11/2026</td>

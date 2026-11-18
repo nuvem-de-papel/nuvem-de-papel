@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { CATEGORIAS_PRODUTOS } from "@/lib/categoriasProdutos";
+import { ehLancamento } from "@/lib/lancamento";
 
 export type VarejoProduct = {
   id: string;
@@ -21,6 +22,8 @@ export type VarejoProduct = {
   emOferta: boolean;
   /** Destaque (0053): aparece no banner de Destaques. */
   emDestaque: boolean;
+  /** Lancamento (0055): lancamento_ate >= hoje (Brasilia). Carrossel + selo Novo. */
+  emLancamento: boolean;
 };
 
 type ItemPriceWithCatalogItem = {
@@ -38,6 +41,7 @@ type ItemPriceWithCatalogItem = {
     cor: string | null;
     em_oferta: boolean;
     em_destaque: boolean;
+    lancamento_ate: string | null;
     item_images: { url: string; position: number }[] | null;
   };
 };
@@ -67,7 +71,7 @@ export async function getStoreProducts(): Promise<VarejoProduct[]> {
   const { data, error } = await supabase
     .from("item_prices")
     .select(
-      "price, min_quantity, valid_from, valid_until, catalog_items!inner(id, sku, name, category, active, foto_url, description, grupo_pai, cor, em_oferta, em_destaque, item_images(url, position))"
+      "price, min_quantity, valid_from, valid_until, catalog_items!inner(id, sku, name, category, active, foto_url, description, grupo_pai, cor, em_oferta, em_destaque, lancamento_ate, item_images(url, position))"
     )
     .eq("channel", channel)
     .eq("catalog_items.active", true)
@@ -116,6 +120,7 @@ export async function getStoreProducts(): Promise<VarejoProduct[]> {
       cor: item.cor,
       emOferta: item.em_oferta,
       emDestaque: item.em_destaque,
+      emLancamento: ehLancamento(item.lancamento_ate),
     });
   }
   return [...porItem.values()];
@@ -142,6 +147,7 @@ type ItemPagina = {
   cor: string | null;
   em_oferta: boolean;
   em_destaque: boolean;
+  lancamento_ate: string | null;
   item_images: { url: string; position: number }[] | null;
   item_prices:
     | { price: number | string; min_quantity: number; valid_from: string; valid_until: string | null; channel: string }[]
@@ -168,7 +174,7 @@ export async function getPaginaProduto(
   const { data, error } = await supabase
     .from("catalog_items")
     .select(
-      "id, sku, name, category, active, foto_url, description, grupo_pai, cor, em_oferta, em_destaque, item_images(url, position), item_prices(price, min_quantity, valid_from, valid_until, channel)"
+      "id, sku, name, category, active, foto_url, description, grupo_pai, cor, em_oferta, em_destaque, lancamento_ate, item_images(url, position), item_prices(price, min_quantity, valid_from, valid_until, channel)"
     )
     .or(`sku.eq.${grupo},grupo_pai.eq.${grupo}`)
     .eq("active", true)
@@ -211,6 +217,7 @@ export async function getPaginaProduto(
       cor: item.cor,
       emOferta: item.em_oferta,
       emDestaque: item.em_destaque,
+      emLancamento: ehLancamento(item.lancamento_ate),
     };
   };
 

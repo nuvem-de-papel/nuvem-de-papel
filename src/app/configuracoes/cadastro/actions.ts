@@ -257,6 +257,8 @@ export type ProdutoInput = {
   hidePriceTable: boolean;
   emOferta: boolean;
   emDestaque: boolean;
+  // 0055: ultimo dia como lancamento (AAAA-MM-DD); "" = produto normal.
+  lancamentoAte: string;
   grupoPai: string;
   cor: string;
   lastAdjustedAt: string;
@@ -303,6 +305,16 @@ export async function salvarProduto(input: ProdutoInput): Promise<ResultadoAcao 
   const lastAdj = (input.lastAdjustedAt ?? "").trim();
   if (lastAdj && !/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(lastAdj)) {
     return { ok: false, erro: "Data do último reajuste inválida." };
+  }
+  // 0055: lancamento = data (vence sozinho). Confere formato e dia real
+  // (31/02 nao existe) antes de mandar pro banco.
+  const lancamentoAte = (input.lancamentoAte ?? "").trim();
+  if (lancamentoAte) {
+    const [la, lm, ld] = lancamentoAte.split("-").map(Number);
+    const real = new Date(Date.UTC(la, lm - 1, ld)).toISOString().slice(0, 10);
+    if (!/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(lancamentoAte) || real !== lancamentoAte) {
+      return { ok: false, erro: "Data do lançamento inválida." };
+    }
   }
 
   // 0032: foto do produto (URL servida pelo fornecedor). O banco so aceita
@@ -387,6 +399,7 @@ export async function salvarProduto(input: ProdutoInput): Promise<ResultadoAcao 
         hide_price_table: hidePriceTable,
         em_oferta: emOferta,
         em_destaque: emDestaque,
+        lancamento_ate: lancamentoAte || null,
         grupo_pai: grupoPai,
         cor: cor,
         last_adjusted_at: lastAdj || null,
@@ -415,6 +428,7 @@ export async function salvarProduto(input: ProdutoInput): Promise<ResultadoAcao 
         hide_price_table: hidePriceTable,
         em_oferta: emOferta,
         em_destaque: emDestaque,
+        lancamento_ate: lancamentoAte || null,
         grupo_pai: grupoPai,
         cor: cor,
         last_adjusted_at: lastAdj || null,
