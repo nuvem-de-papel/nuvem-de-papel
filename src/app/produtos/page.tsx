@@ -7,6 +7,7 @@ import { PromoStrip, PROMO_ICONS } from "@/components/produtos/PromoStrip";
 import { SetoresMenu } from "@/components/produtos/SetoresMenu";
 import { PageHeader } from "@/components/admin/PageHeader";
 import { podeVerPainel } from "@/lib/painel";
+import { ehLancamento } from "@/lib/lancamento";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { CatalogoAdmin, type ItemCatalogoAdmin } from "@/components/catalogo/CatalogoAdmin";
 
@@ -19,6 +20,7 @@ type LinhaCatalogo = {
   grupo_pai: string | null;
   em_oferta: boolean;
   em_destaque: boolean;
+  lancamento_ate: string | null;
   foto_url: string | null;
   item_stock: unknown;
   item_commercial_data: unknown;
@@ -36,7 +38,7 @@ async function carregarCatalogoAdmin(): Promise<ItemCatalogoAdmin[]> {
   const { data, error } = await admin
     .from("catalog_items")
     .select(
-      "id, sku, name, category, active, grupo_pai, em_oferta, em_destaque, foto_url, item_stock(stock_available, stock_on_hand), item_commercial_data(min_stock), item_prices(price, min_quantity, valid_from, valid_until, channel), item_images(url, position)"
+      "id, sku, name, category, active, grupo_pai, em_oferta, em_destaque, lancamento_ate, foto_url, item_stock(stock_available, stock_on_hand), item_commercial_data(min_stock), item_prices(price, min_quantity, valid_from, valid_until, channel), item_images(url, position)"
     )
     .order("sku", { ascending: true });
   if (error) throw new Error(`Catálogo: ${error.message}`);
@@ -70,6 +72,8 @@ async function carregarCatalogoAdmin(): Promise<ItemCatalogoAdmin[]> {
       grupoPai: r.grupo_pai,
       emOferta: r.em_oferta,
       emDestaque: r.em_destaque,
+      // 0055: so a data ativa chega na tela (vencido = produto normal).
+      lancamentoAte: ehLancamento(r.lancamento_ate) ? String(r.lancamento_ate).slice(0, 10) : null,
       foto: r.foto_url ?? imagens.find((i) => i.position === 0)?.url ?? null,
       minimo: com ? Number(com.min_stock) : 0,
       fisico: est ? Number(est.stock_on_hand) : null,

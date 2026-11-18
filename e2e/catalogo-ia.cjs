@@ -144,11 +144,12 @@ async function main() {
       // confere no banco
       const { data: depois } = await admin.from("catalog_items").select("description").eq("id", itemId).maybeSingle();
       check("C5 descrição gravada em catalog_items.description", (depois?.description || "").length > 20, (depois?.description || "").slice(0, 50));
-      // confere na vitrine publica
-      await page.goto(BASE + "/produtos", { waitUntil: "domcontentloaded" });
+      // confere na vitrine publica: desde a vitrine nova a descricao so aparece
+      // na pagina do produto (/produtos/<sku>); /produtos da equipe e o catalogo admin
+      await page.goto(BASE + "/produtos/" + encodeURIComponent(SKU_IA), { waitUntil: "domcontentloaded" });
       await page.waitForTimeout(600);
       const vitrine = (await page.locator("main").textContent()) || "";
-      check("C6 descrição aparece na vitrine /produtos", vitrine.includes(textoIA.slice(0, 25)), textoIA.slice(0, 40));
+      check("C6 descrição aparece na página do produto", vitrine.includes(textoIA.slice(0, 25)), textoIA.slice(0, 40));
     } else {
       // sem chave/falha de API: o botão deve ter avisado - cobre o caminho best-effort
       check("C3 IA gerou descrição real (textarea preenchido)", false, "sem texto - feedback: " + erroIA.trim().slice(0, 80));

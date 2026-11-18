@@ -24,11 +24,19 @@ export default async function HomePage() {
   const produtos = await getStoreProducts();
   const destaque = produtos.filter((p) => p.emDestaque);
   const ofertas = produtos.filter((p) => p.emOferta);
+  // Lancamento (0055): vence sozinho em lancamento_ate (regra em lib/lancamento).
+  const lancamentos = produtos.filter((p) => p.emLancamento);
   const setores = agruparPorSetor(produtos);
 
   return (
     <main style={{ overflowX: "clip" }}>
       <Hero vitrine={ordemLoop(setores)} />
+
+      {lancamentos.length > 0 && (
+        <section aria-label="Lançamentos" style={{ width: "100vw", marginLeft: "calc(50% - 50vw)", padding: "34px 56px 18px", boxSizing: "border-box" }}>
+          <CategoryCarousel title="Lançamentos" products={lancamentos} intensidadeCor={10} encaixar />
+        </section>
+      )}
       <CategoryShowcase />
 
       <section className="fundo-animado fundo-home-setores">

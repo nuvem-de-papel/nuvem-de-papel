@@ -30,7 +30,29 @@ export function ProductCard({ produto, grande = false }: { produto: VarejoProduc
         ...estiloCard,
       }}
     >
-      <Link href={`/produtos/${produto.sku}`} style={{ display: "block" }}>
+      <Link href={`/produtos/${produto.sku}`} style={{ display: "block", position: "relative" }}>
+        {produto.emLancamento && (
+          <span
+            data-selo="novo"
+            style={{
+              position: "absolute",
+              top: 10,
+              left: 10,
+              zIndex: 1,
+              background: "var(--cta)",
+              color: "var(--nuvem-preto)",
+              fontSize: grande ? 13 : 11,
+              fontWeight: 800,
+              letterSpacing: "0.06em",
+              textTransform: "uppercase",
+              padding: "4px 10px",
+              borderRadius: 999,
+              boxShadow: "0 1px 4px rgba(0,0,0,.18)",
+            }}
+          >
+            Novo
+          </span>
+        )}
         <ProductImage
           category={produto.category}
           name={produto.name}
