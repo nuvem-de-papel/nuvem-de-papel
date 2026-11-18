@@ -320,18 +320,6 @@ button {
     display: none !important;
   }
 
-  .menu-toggle {
-    display: block !important;
-  }
-
-  .nav-menu {
-    display: none !important;
-  }
-
-  .cta-button {
-    display: none !important;
-  }
-
   h1.display {
     font-size: 24px !important;
   }
@@ -340,9 +328,6 @@ button {
     display: none !important;
   }
 
-  .header-espaco {
-    display: none !important;
-  }
 }
 
 @media (min-width: 769px) {
@@ -1561,16 +1546,266 @@ body:has(.admin-shell) .floating-social {
   .orc-g-nome-tel { grid-template-columns: minmax(0, 1fr); }
 }
 
-/* Busca do topo (BuscaProdutos): borda rosa do CTA, texto preto dentro da caixa */
+/* ===================== Barra do topo - vidro degrade (18/11/2026) ========
+   Referencia enviada pelo Joaquim: logo + "Nuvem de Papel / Papelaria" a
+   esquerda, busca arredondada no meio, icones + Entrar a direita. Degrade
+   rosa -> lilas de ponta a ponta, translucido com desfoque (vidro). O logo
+   leva para a Home no site; no painel o clique fica desligado (pedido 18/11). */
+.site-header {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: linear-gradient(90deg, rgba(244, 199, 216, 0.74) 0%, rgba(217, 200, 242, 0.74) 100%);
+  -webkit-backdrop-filter: blur(16px) saturate(160%);
+  backdrop-filter: blur(16px) saturate(160%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.55);
+  box-shadow: 0 6px 20px rgba(61, 61, 61, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+.site-header-inner {
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 10px 24px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas: "logo busca acoes";
+  align-items: center;
+  gap: 28px;
+}
+.logo-home {
+  grid-area: logo;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  color: #3D3D3D;
+  text-decoration: none;
+}
+.logo-home-img {
+  height: 52px;
+  width: auto;
+}
+.marca {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.05;
+}
+.marca-nome {
+  font-family: "Poppins", sans-serif;
+  font-weight: 700;
+  font-size: 20px;
+  color: #3D3D3D;
+  white-space: nowrap;
+}
+.marca-sub {
+  font-family: "Open Sans", sans-serif;
+  font-weight: 600;
+  font-size: 12px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: #3D3D3D;
+  opacity: 0.75;
+  margin-top: 3px;
+}
+body:has(.admin-shell) .logo-home {
+  pointer-events: none;
+  cursor: default;
+}
+
+/* Busca do topo (BuscaProdutos): caixa arredondada, borda rosa do CTA,
+   texto preto dentro da caixa; resultados numa lista flutuante. */
+.header-busca {
+  grid-area: busca;
+  position: relative;
+  width: 100%;
+  max-width: 640px;
+  justify-self: center;
+}
 .busca-campo {
+  width: 100%;
+  height: 44px;
+  padding: 0 52px 0 20px;
+  border-radius: 999px;
+  font-size: 15px;
   color: #000000;
   border: 1px solid var(--cta);
-  background: #FFFFFF;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 2px 10px rgba(61, 61, 61, 0.08);
+  outline: none;
 }
 .busca-campo::placeholder {
   color: #000000;
-  opacity: 1;
+  opacity: 0.7;
 }
 .busca-campo:focus {
-  box-shadow: 0 0 0 2px rgba(255, 158, 208, 0.35);
+  background: #FFFFFF;
+  box-shadow: 0 0 0 3px rgba(255, 158, 208, 0.35);
+}
+.busca-campo::-webkit-search-cancel-button {
+  cursor: pointer;
+}
+.busca-lupa {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  transform: translateY(-50%);
+  width: 34px;
+  height: 34px;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: #3D3D3D;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.busca-lupa:hover {
+  background: rgba(224, 132, 172, 0.15);
+}
+.busca-resultados {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  z-index: 60;
+  max-height: 60vh;
+  overflow-y: auto;
+  padding: 10px;
+  border-radius: 16px;
+  background: #FFFFFF;
+  box-shadow: var(--shadow-soft);
+}
+.busca-aviso {
+  margin: 0;
+  padding: 8px 10px;
+  font-size: 14px;
+  color: var(--ink);
+}
+
+.header-acoes {
+  grid-area: acoes;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  color: #3D3D3D;
+}
+.header-icone {
+  position: relative;
+  display: inline-flex;
+  color: #3D3D3D;
+}
+.header-carrinho-qtd {
+  position: absolute;
+  top: -7px;
+  right: -9px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--cta);
+  color: #000000;
+  font-size: 11px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.header-entrar {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #3D3D3D;
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+  text-decoration: none;
+}
+.header-icone:hover,
+.header-entrar:hover {
+  color: #B5507F;
+}
+.menu-toggle {
+  display: none;
+  padding: 0;
+  border: none;
+  background: none;
+  color: #3D3D3D;
+  cursor: pointer;
+}
+
+/* 2a linha: provisoria (Home/Produtos/Publicacoes) - o Joaquim vai definir
+   o que entra aqui. Mesmo vidro, separada por um filete claro. */
+.header-links {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px 36px;
+  padding: 8px 24px 9px;
+  border-top: 1px solid rgba(255, 255, 255, 0.5);
+  font-size: 14px;
+}
+.header-links a,
+.mobile-nav a {
+  color: #3D3D3D;
+  text-decoration: none;
+}
+.header-links a:hover,
+.mobile-nav a:hover {
+  color: #B5507F;
+}
+.mobile-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 12px 16px 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.5);
+  font-size: 15px;
+}
+.mobile-nav a.mobile-nav-conta {
+  color: #B5507F;
+  font-weight: 700;
+}
+
+/* Celular: logo + icones na 1a linha, busca inteira na 2a; links vao para
+   o menu (hamburguer) e o texto do Entrar some (fica so o icone; o nome
+   acessivel do link continua "Entrar"/"Minha conta"/"Painel"). */
+@media (max-width: 768px) {
+  .site-header-inner {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "logo acoes"
+      "busca busca";
+    gap: 10px 12px;
+    padding: 10px 16px 12px;
+  }
+  .logo-home-img {
+    height: 40px;
+  }
+  .marca-nome {
+    font-size: 16px;
+  }
+  .marca-sub {
+    font-size: 10px;
+  }
+  .header-busca {
+    max-width: none;
+  }
+  .header-acoes {
+    gap: 14px;
+  }
+  .header-entrar-txt {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+  .menu-toggle {
+    display: inline-flex;
+  }
+  .header-links {
+    display: none;
+  }
 }
