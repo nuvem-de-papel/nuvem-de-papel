@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { CATEGORIAS_PRODUTOS } from "@/lib/categoriasProdutos";
+import { carregarGrupos } from "@/lib/gruposSetores";
 import { ehLancamento } from "@/lib/lancamento";
 
 export type VarejoProduct = {
@@ -238,16 +238,16 @@ export async function getPaginaProduto(
 }
 
 // ---------- "Combina com" (pagina do produto) ----------
-// Sorteio a cada carregamento: produtos dos 7 setores atuais, em ordem
-// aleatoria, sem o proprio produto, sem inativos (getStoreProducts ja filtra)
-// e sem produtos sem estoque. Nao depende do setor do produto clicado.
+// Sorteio a cada carregamento: produtos de setores que pertencem a algum
+// grupo da loja (0057), em ordem aleatoria, sem o proprio produto, sem
+// inativos (getStoreProducts ja filtra) e sem produtos sem estoque. Nao
+// depende do setor do produto clicado. Setor sem grupo (fixtures E2E, setor
+// novo ainda nao mapeado) fica de fora.
 export async function getCombinaCom(excluirSku: string): Promise<VarejoProduct[]> {
-  const todos = await getStoreProducts();
+  const [todos, grupos] = await Promise.all([getStoreProducts(), carregarGrupos(createClient())]);
+  const mapeados = new Set(grupos.flatMap((g) => g.setores.map((s) => s.trim().toLocaleUpperCase("pt-BR"))));
   const elegiveis = todos.filter(
-    (p) =>
-      p.sku !== excluirSku &&
-      !!p.category &&
-      CATEGORIAS_PRODUTOS.some((c) => c.match.test(p.category!.toLowerCase()))
+    (p) => p.sku !== excluirSku && !!p.category && mapeados.has(p.category.trim().toLocaleUpperCase("pt-BR"))
   );
   for (let i = elegiveis.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));

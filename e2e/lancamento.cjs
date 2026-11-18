@@ -155,10 +155,23 @@ async function main() {
       "A1 abre só com a lista de setores (sem produtos)",
       (await page.getByRole("button", { name: `Abrir setor ${SETOR}` }).count()) === 1 && !textoInicial.includes(SKU.toLowerCase())
     );
-    const nomesSetores = await tabelaSetores.locator("tbody button").allTextContents();
-    const limpos = nomesSetores.map((s) => s.replace("▸", "").trim());
-    const ordenados = [...limpos].sort((a, b) => a.localeCompare(b, "pt-BR"));
-    check("A2 setores em ordem alfabética", limpos.join("|") === ordenados.join("|"), `${limpos.length} setores`);
+    // 0057: a lista vem agrupada (um tbody por grupo); a ordem alfabetica vale dentro de cada grupo,
+    // e o setor sem mapeamento (fixture E2E) cai no bloco "Sem grupo".
+    const blocosSetores = tabelaSetores.locator("tbody[aria-label^='Grupo ']");
+    const totalBlocos = await blocosSetores.count();
+    let ordemOk = totalBlocos > 0;
+    let totalSetores = 0;
+    for (let i = 0; i < totalBlocos; i++) {
+      const limpos = (await blocosSetores.nth(i).locator("button").allTextContents()).map((s) => s.replace("▸", "").trim());
+      totalSetores += limpos.length;
+      const ordenados = [...limpos].sort((a, b) => a.localeCompare(b, "pt-BR"));
+      if (limpos.join("|") !== ordenados.join("|")) ordemOk = false;
+    }
+    check("A2 setores em ordem alfabética dentro de cada grupo", ordemOk, `${totalBlocos} grupos, ${totalSetores} setores`);
+    check(
+      "A2b setor sem mapeamento cai em Sem grupo",
+      (await tabelaSetores.locator("tbody[aria-label='Grupo Sem grupo']").getByRole("button", { name: `Abrir setor ${SETOR}` }).count()) === 1
+    );
 
     // botoes na mesma linha do Voltar
     const voltar = page.locator(".page-header-back");

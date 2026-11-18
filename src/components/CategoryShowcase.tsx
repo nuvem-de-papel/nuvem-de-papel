@@ -1,23 +1,19 @@
-// "Navegue por Categoria" - pedido do Joaquim pra reproduzir o banner de
-// referencia (grid de 6 categorias, foto circular + titulo script rosa +
-// descricao). Fotos genericas do Pexels (mesmo banco usado no
-// InspirationBanner), licenca livre p/ uso comercial. Substitui o antigo
-// CategoryHighlights (cards retangulares com icone) nesta secao da home.
-// 09/11/2026: titulo/descricao/fotoId vem de CATEGORIAS_PRODUTOS
-// (src/lib/categoriasProdutos.ts), fonte unica compartilhada com as 6
-// secoes fixas de /produtos - clicar aqui leva direto pra secao certa.
-import { CATEGORIAS_PRODUTOS } from "@/lib/categoriasProdutos";
+// "Navegue por Categoria" - grade circular da home (titulo script rosa +
+// descricao). 18/11/2026 (0057): passou dos 7 setores fixos para os GRUPOS
+// do banco que tem produto na vitrine; o circulo mostra o icone de linha
+// fina do grupo, na cor do grupo (as fotos Pexels eram placeholders
+// emprestados de outros setores). Clicar leva para /produtos#<slug>.
+import { IconeGrupo } from "@/components/catalogo/IconeGrupo";
+import type { GrupoSetor } from "@/lib/categoriasProdutos";
 
-function fotoPexels(id: number, largura = 300) {
-  return `https://images.pexels.com/photos/${id}/pexels-photo-${id}.jpeg?auto=compress&cs=tinysrgb&w=${largura}`;
-}
-
-export function CategoryShowcase() {
+export function CategoryShowcase({ grupos }: { grupos: GrupoSetor[] }) {
+  if (grupos.length === 0) return null;
+  const total = String(grupos.length).padStart(2, "0");
   return (
     <section className="tech-band" style={{ maxWidth: 1240, margin: "0 auto", padding: "32px 32px 72px" }}>
       <div style={{ textAlign: "center", marginBottom: 40 }}>
         <div className="tech-label" style={{ justifyContent: "center" }}>
-          Navegue por categoria · 07 setores
+          Navegue por categoria · {total} {grupos.length === 1 ? "grupo" : "grupos"}
         </div>
         <div
           aria-hidden="true"
@@ -26,14 +22,13 @@ export function CategoryShowcase() {
       </div>
 
       <div className="category-showcase-grid">
-        {CATEGORIAS_PRODUTOS.map((cat) => (
-          <a key={cat.slug} href={`/produtos#${cat.slug}`} className="category-showcase-item">
-            <div className="category-showcase-photo">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={fotoPexels(cat.fotoId)} alt={cat.titulo} loading="lazy" />
+        {grupos.map((g) => (
+          <a key={g.slug} href={`/produtos#${g.slug}`} className="category-showcase-item">
+            <div className="category-showcase-photo category-showcase-icone" style={{ background: `${g.cor}33` }}>
+              <IconeGrupo icone={g.icone} tamanho={56} />
             </div>
-            <h3>{cat.titulo}</h3>
-            <p>{cat.descricao}</p>
+            <h3>{g.title}</h3>
+            <p>{g.descricao}</p>
           </a>
         ))}
       </div>

@@ -4,6 +4,8 @@
 import { Fragment, useRef, useState, type CSSProperties } from "react";
 import { useSearchParams } from "next/navigation";
 import { PageHeader } from "@/components/admin/PageHeader";
+import { IconeGrupo } from "@/components/catalogo/IconeGrupo";
+import { SEM_GRUPO, tituloGrupo, type GrupoCatalogo } from "@/lib/gruposSetores";
 
 // Catálogo administrativo (painel). Mesma estrutura da Logística: busca e
 // filtros no topo, tabela de largura total, Tabela/Grade, "Novo produto",
@@ -207,7 +209,7 @@ function LinhaProduto({
   );
 }
 
-export function CatalogoAdmin({ itens }: { itens: ItemCatalogoAdmin[] }) {
+export function CatalogoAdmin({ itens, grupos = [] }: { itens: ItemCatalogoAdmin[]; grupos?: GrupoCatalogo[] }) {
   const [visao, setVisao] = useState<Visao>("tabela");
   const [busca, setBusca] = useState("");
   // Setor mora na URL: o pushState do Next 14.1+ atualiza o useSearchParams sem ir ao servidor.
@@ -236,6 +238,19 @@ export function CatalogoAdmin({ itens }: { itens: ItemCatalogoAdmin[] }) {
   }
   const setores = [...porSetor.keys()].sort((a, b) => a.localeCompare(b, "pt-BR"));
   const ativos = itens.filter((i) => i.ativo).length;
+
+  // 0057: a lista de setores sai agrupada (ordem do menu da loja). Só entram
+  // setores com produto; setor fora de catalog_setores cai em "Sem grupo".
+  const mapeados = new Set(grupos.flatMap((g) => g.setores));
+  const blocos = [
+    ...grupos.map((g) => ({
+      nome: tituloGrupo(g.nome),
+      icone: g.icone,
+      setores: g.setores.filter((s) => porSetor.has(s)).sort((a, b) => a.localeCompare(b, "pt-BR")),
+    })),
+    { nome: SEM_GRUPO, icone: "menu", setores: setores.filter((s) => !mapeados.has(s)) },
+  ].filter((b) => b.setores.length > 0);
+  const somaBloco = (lista: string[]) => lista.reduce((t, s) => t + (porSetor.get(s) ?? 0), 0);
 
   // empilhar = entrar no setor pela lista (Voltar retorna à lista); trocar no select/Limpar só substitui.
   function mudarSetor(s: string, empilhar: boolean) {
@@ -364,10 +379,14 @@ export function CatalogoAdmin({ itens }: { itens: ItemCatalogoAdmin[] }) {
           Setor
           <select value={setor} onChange={(e) => mudarSetor(e.target.value, false)} aria-label="Setor" style={campo}>
             <option value="todos">Todos os setores</option>
-            {setores.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
+            {blocos.map((b) => (
+              <optgroup key={b.nome} label={b.nome}>
+                {b.setores.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </optgroup>
             ))}
           </select>
         </label>
@@ -405,32 +424,45 @@ export function CatalogoAdmin({ itens }: { itens: ItemCatalogoAdmin[] }) {
                 <th style={cabecaNum}>Produtos</th>
               </tr>
             </thead>
-            <tbody>
-              {setores.length === 0 ? (
+            {blocos.length === 0 ? (
+              <tbody>
                 <tr>
                   <td colSpan={2} style={{ ...celula, textAlign: "center", color: "#6B6B6B", padding: 24 }}>
                     Nenhum produto cadastrado.
                   </td>
                 </tr>
-              ) : null}
-              {setores.map((s) => (
-                <tr key={s} onClick={() => mudarSetor(s, true)} style={{ cursor: "pointer" }}>
-                  <td style={{ ...celula, fontWeight: 700 }}>
-                    <button
-                      type="button"
-                      aria-label={`Abrir setor ${s}`}
-                      style={{ border: 0, background: "none", padding: 0, font: "inherit", color: "inherit", cursor: "pointer", textAlign: "left" }}
-                    >
-                      <span aria-hidden="true" style={{ display: "inline-block", width: 16, color: "#6B6B6B" }}>
-                        ▸
-                      </span>
-                      {s}
-                    </button>
-                  </td>
-                  <td style={celulaNum}>{qtd(porSetor.get(s) ?? 0)}</td>
+              </tbody>
+            ) : null}
+            {blocos.map((b) => (
+              <tbody key={b.nome} aria-label={`Grupo ${b.nome}`}>
+                <tr style={{ background: "#F3F3F3" }}>
+                  <th scope="rowgroup" style={{ ...cabeca, textTransform: "none" }}>
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                      <IconeGrupo icone={b.icone} />
+                      {b.nome}
+                    </span>
+                  </th>
+                  <th style={{ ...cabecaNum, textTransform: "none" }}>{qtd(somaBloco(b.setores))}</th>
                 </tr>
-              ))}
-            </tbody>
+                {b.setores.map((s) => (
+                  <tr key={s} onClick={() => mudarSetor(s, true)} style={{ cursor: "pointer" }}>
+                    <td style={{ ...celula, fontWeight: 700, paddingLeft: 34 }}>
+                      <button
+                        type="button"
+                        aria-label={`Abrir setor ${s}`}
+                        style={{ border: 0, background: "none", padding: 0, font: "inherit", color: "inherit", cursor: "pointer", textAlign: "left" }}
+                      >
+                        <span aria-hidden="true" style={{ display: "inline-block", width: 16, color: "#6B6B6B" }}>
+                          ▸
+                        </span>
+                        {s}
+                      </button>
+                    </td>
+                    <td style={celulaNum}>{qtd(porSetor.get(s) ?? 0)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            ))}
           </table>
         </div>
       ) : visao === "tabela" ? (

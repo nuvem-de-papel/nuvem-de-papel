@@ -233,6 +233,8 @@ const css = String.raw`
 .ct-ac-new-btn:hover{background:var(--pink-600);color:#fff}
 .ct-ac-list li.ct-ac-empty{color:var(--ink-soft);cursor:default}
 .ct-ac-list li.ct-ac-empty:hover{background:transparent}
+.ct-ac-grupo{float:right;margin-left:10px;color:var(--ink-soft);font-size:.78em}
+.ct-setor-grupo{display:block;margin-top:3px;color:var(--ink-soft);font-size:.78rem}
 .ct-fiscal{border:1.5px dashed rgba(246,133,31,.55);border-radius:6px;padding:14px 16px;background:rgba(246,133,31,.05)}
 .ct-fiscal .ct-grp-label{color:#a85d13}
 .ct-photo{width:100%;aspect-ratio:4/3;border:1.5px dashed var(--border);border-radius:6px;display:flex;align-items:center;justify-content:center;color:var(--ink-soft);background:#fff;flex-direction:column;gap:8px;font-size:.78rem}
@@ -414,6 +416,9 @@ export type LocalEstoqueCad = {
   tipo: string;
 };
 
+// 0057: setor (= catalog_items.category) e o grupo da loja a que pertence.
+export type SetorLojaCad = { nome: string; grupo: string };
+
 // Bloco 5 passo 3: cliente vem do banco (customers) em vez de ficha fixa.
 // 0029: ficha completa - contato, endereco e situacao comercial.
 export type ClienteCad = {
@@ -530,6 +535,7 @@ export function CadastrosTelaUnica({
   produtos = [],
   clientes = [],
   locaisEstoque = [],
+  setoresLoja = [],
 }: {
   fornecedoresReais?: FornecedorCad[];
   revendas?: RevendaCad[];
@@ -537,6 +543,8 @@ export function CadastrosTelaUnica({
   produtos?: ProdutoCad[];
   clientes?: ClienteCad[];
   locaisEstoque?: LocalEstoqueCad[];
+  /** 0057: setor -> grupo da loja (catalog_setores), ja na ordem do menu. */
+  setoresLoja?: SetorLojaCad[];
 }) {
   const params = useSearchParams();
   const telaUrl = params?.get("tela") ?? "cliente";
@@ -605,14 +613,17 @@ export function CadastrosTelaUnica({
   // page.tsx select) — não existe cadastro separado de setor. O que você digitar
   // aqui novo vai para category no Salvar e o router.refresh() pós-salvamento
   // já devolve a lista com ele.
+  // 0057: a lista tambem traz os setores do mapa da loja (catalog_setores),
+  // mesmo os ainda sem produto; cada setor mostra o grupo do menu da loja.
+  const grupoDoSetor = useMemo(() => new Map(setoresLoja.map((s) => [s.nome, s.grupo])), [setoresLoja]);
   const setores = useMemo(() => {
-    const vistos = new Set<string>();
+    const vistos = new Set<string>(setoresLoja.map((s) => s.nome));
     for (const p of produtos) {
       const c = p.categoria.trim();
       if (c) vistos.add(c);
     }
     return [...vistos].sort((a, b) => a.localeCompare(b, "pt-BR"));
-  }, [produtos]);
+  }, [produtos, setoresLoja]);
   // 0043: Grupo - lista fixa (GRUPOS_PRODUTO) + qualquer valor novo que já
   // tenha sido digitado em produtos cadastrados (mesmo padrão de "setores").
   const grupos = useMemo(() => {
@@ -1764,14 +1775,22 @@ export function CadastrosTelaUnica({
                   <ul className={`ct-ac-list${acAberto === "setor" ? " on" : ""}`}>
                     {filtrar(setores, setorQ).length === 0 && <li className="ct-ac-empty">Nenhum cadastrado ainda</li>}
                     {filtrar(setores, setorQ).map((v) => (
-                      <li key={v} onMouseDown={() => { setSetorQ(v); setAcAberto(null); }}>{v}</li>
+                      <li key={v} onMouseDown={() => { setSetorQ(v); setAcAberto(null); }}>
+                        {v}
+                        <span className="ct-ac-grupo">{grupoDoSetor.get(v) ?? "Sem grupo"}</span>
+                      </li>
                     ))}
                     {setorQ.trim() && !setores.some((v) => v.toLowerCase() === setorQ.trim().toLowerCase()) && (
                       <li className="ct-ac-new">
-                        <span className="ct-ac-empty">Setor novo — grave o produto e ele entra na lista</span>
+                        <span className="ct-ac-empty">Setor novo — grave o produto e ele entra na lista (sem grupo na loja até ser mapeado)</span>
                       </li>
                     )}
                   </ul>
+                  {setorQ.trim() && (
+                    <small className="ct-setor-grupo" data-testid="setor-grupo">
+                      Grupo na loja: {grupoDoSetor.get(setorQ.trim()) ?? "Sem grupo — não aparece no menu da loja"}
+                    </small>
+                  )}
                 </div>
                 <div className="ct-field ct-ac">
                   <label>Fornecedor/Cadastrar</label>
@@ -1798,7 +1817,7 @@ export function CadastrosTelaUnica({
               </div>
               <div className="ct-row ct-r2">
                 <div className="ct-field ct-ac">
-                  <label>Grupo</label>
+                  <label>Grupo interno</label>
                   <input
                     autoComplete="off"
                     value={grupoQ}
@@ -1819,7 +1838,7 @@ export function CadastrosTelaUnica({
                   </ul>
                 </div>
                 <div className="ct-field ct-ac">
-                  <label>Subgrupo</label>
+                  <label>Subgrupo interno</label>
                   <input
                     autoComplete="off"
                     value={subgrupoQ}
