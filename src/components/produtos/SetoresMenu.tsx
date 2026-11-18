@@ -1,20 +1,44 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { IconeGrupo } from "@/components/catalogo/IconeGrupo";
 
-// Rolagem animada ate o setor: duracao proporcional a distancia, entre 600 e 1100 ms.
+// Menu "Todas as Categorias" (0057 - 18/11/2026): botao que abre a lista
+// preta dos grupos com icone de linha fina (artefato aprovado pelo Joaquim).
+// Clicar no grupo rola ate a secao dele em /produtos.
+
+// Rolagem animada ate o grupo: duracao proporcional a distancia, entre 600 e 1100 ms.
 const DURACAO_MIN = 600;
 const DURACAO_MAX = 1100;
 const MS_POR_PX = 0.45;
 
-type Setor = { slug: string; titulo: string };
+type ItemMenu = { slug: string; titulo: string; icone: string };
 
-export function SetoresMenu({ itens, offsetTopo = 137 }: { itens: Setor[]; offsetTopo?: number }) {
+export function SetoresMenu({ itens, offsetTopo = 137 }: { itens: ItemMenu[]; offsetTopo?: number }) {
   const pararRef = useRef<(() => void) | null>(null);
+  const caixaRef = useRef<HTMLDivElement | null>(null);
+  const [aberto, setAberto] = useState(false);
 
   useEffect(() => () => pararRef.current?.(), []);
 
+  useEffect(() => {
+    if (!aberto) return;
+    const fora = (e: MouseEvent) => {
+      if (caixaRef.current && !caixaRef.current.contains(e.target as Node)) setAberto(false);
+    };
+    const esc = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setAberto(false);
+    };
+    window.addEventListener("mousedown", fora);
+    window.addEventListener("keydown", esc);
+    return () => {
+      window.removeEventListener("mousedown", fora);
+      window.removeEventListener("keydown", esc);
+    };
+  }, [aberto]);
+
   function irPara(slug: string) {
+    setAberto(false);
     const el = document.getElementById(slug);
     if (!el) return;
     pararRef.current?.();
@@ -51,21 +75,44 @@ export function SetoresMenu({ itens, offsetTopo = 137 }: { itens: Setor[]; offse
     history.replaceState(null, "", `#${slug}`);
   }
 
+  if (itens.length === 0) return null;
+
   return (
-    <nav aria-label="Setores" style={{ display: "flex", flexWrap: "wrap", gap: "8px 20px", alignItems: "center", justifyContent: "center", flex: 1 }}>
-      {itens.map((s) => (
-        <a
-          key={s.slug}
-          href={`#${s.slug}`}
-          onClick={(e) => {
-            e.preventDefault();
-            irPara(s.slug);
-          }}
-          style={{ fontSize: 16, fontWeight: 600, color: "#000000", textDecoration: "none", textTransform: "uppercase", letterSpacing: 0.3 }}
-        >
-          {s.titulo}
-        </a>
-      ))}
-    </nav>
+    <div ref={caixaRef} className="menu-categorias">
+      <button
+        type="button"
+        className="menu-categorias-botao"
+        aria-haspopup="true"
+        aria-expanded={aberto}
+        aria-controls="menu-categorias-lista"
+        onClick={() => setAberto((v) => !v)}
+      >
+        <IconeGrupo icone="menu" tamanho={20} />
+        <span>Todas as Categorias</span>
+        <span aria-hidden="true" className="menu-categorias-seta">
+          ›
+        </span>
+      </button>
+      {aberto && (
+        <nav id="menu-categorias-lista" aria-label="Categorias" className="menu-categorias-lista">
+          <ul>
+            {itens.map((s) => (
+              <li key={s.slug}>
+                <a
+                  href={`#${s.slug}`}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    irPara(s.slug);
+                  }}
+                >
+                  <IconeGrupo icone={s.icone} tamanho={20} />
+                  {s.titulo}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </nav>
+      )}
+    </div>
   );
 }

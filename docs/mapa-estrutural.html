@@ -163,7 +163,7 @@
     </svg>
     <h1>Nuvem de Papel<small>Mapa estrutural do sistema</small></h1>
     <span class="badge-gov">Documento de governança</span>
-    <span class="versao">v1.5 · atualizado em 18/11/2026</span>
+    <span class="versao">v1.6 · atualizado em 18/11/2026</span>
   </div>
   <p class="regra">
     <b>Regra:</b> este mapa é atualizado <b>sempre que houver mudança estrutural</b> — rota nova ou
@@ -525,6 +525,7 @@
           <li><span class="folha-nome">Grade (0051)</span><span class="desc"><code>catalog_items.grupo_pai</code> (SKU do principal; nulo = produto único) + <code>catalog_items.cor</code> (rótulo da variante). Cada variante é um item completo (preço, estoque, fotos). Ver AGENTS.md “Grade de produto”.</span></li>
           <li><span class="folha-nome">Lançamento (0055)</span><span class="desc"><code>catalog_items.lancamento_ate</code> (date, nulo = produto normal). É lançamento enquanto <code>lancamento_ate &gt;= hoje</code> (Brasília) — vence sozinho, sem cron. Cadastro sugere hoje + 30 dias (<code>src/lib/lancamento.ts</code>); home ganha o carrossel “Lançamentos” e o card o selo “Novo”.</span></li>
           <li><span class="tabela">item_images</span> <span class="desc">galeria por produto (0048): posição 0 = capa, 1-4 = detalhes.</span></li>
+          <li><span class="folha-nome">Grupos de setores (0057)</span><span class="desc"><span class="tabela">catalog_grupos</span> (9 grupos, slug, ícone, ordem) &gt; <span class="tabela">catalog_setores</span> (setor = <code>catalog_items.category</code> → grupo). Leitura pública, escrita só service_role. Setor sem linha = “Sem grupo” no painel / “Outros” na loja. Loja (home, <span class="rota">/produtos</span> com menu “Todas as Categorias”, “Combina com”) e catálogo admin agrupam por grupo (<code>src/lib/gruposSetores.ts</code>, <code>src/lib/categoriasProdutos.ts</code>). Ver AGENTS.md “Grupos de setores”.</span></li>
           <li><span class="folha-nome">Storage <code>produtos</code> (0056)</span><span class="desc">bucket público de fotos de produto, sem policy (só a service_role grava), teto 2 MB, caminho <code>jq/&lt;sha256&gt;.jpg</code>. Abastecido por <code>scripts/importar-jq.cjs</code> (catálogo do fornecedor JQ — simula por padrão, <code>--aplicar</code> grava). Ver AGENTS.md “Catálogo JQ”.</span></li>
           <li><span class="tabela">item_stock</span> <span class="tabela">stock_movements</span> <span class="desc">ledger <b>imutável</b> (trigger) · <span class="tabela">item_stock_public</span> (saldo público).</span></li>
           <li><span class="tabela">publications</span> <span class="tabela">suppliers</span></li>
@@ -688,6 +689,8 @@
         <tr><th style="width:70px">Versão</th><th style="width:110px">Data</th><th>Mudança estrutural</th></tr>
       </thead>
       <tbody>
+        <tr><td class="v">v1.6</td><td>18/11/2026</td>
+          <td>Catálogo em dois níveis (0057): <span class="tabela">catalog_grupos</span> + <span class="tabela">catalog_setores</span>; vitrine troca os 7 setores fixos por regex pelos grupos do banco (menu “Todas as Categorias” com ícones em <span class="rota">/produtos</span>); catálogo admin e cadastro de produto mostram o grupo de cada setor.</td></tr>
         <tr><td class="v">v1.5</td><td>18/11/2026</td>
           <td>Bucket público <code>produtos</code> no Supabase Storage (0056) e importador do catálogo JQ <code>scripts/importar-jq.cjs</code>: galerias de <span class="tabela">item_images</span> passam a apontar para o Storage; produto novo entra inativo.</td></tr>
         <tr><td class="v">v1.4</td><td>17/11/2026</td>

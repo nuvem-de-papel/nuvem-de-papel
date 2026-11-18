@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { PAPEIS_GESTAO } from "@/lib/rbac";
 import { NUVEM_DE_PAPEL_TENANT_ID } from "@/lib/tenant";
+import { carregarGrupos, tituloGrupo } from "@/lib/gruposSetores";
 import {
   CadastrosTelaUnica,
   type ClienteCad,
@@ -340,6 +341,11 @@ export default async function CadastroPage() {
     fotoUrl: c.foto_url ?? "",
   }));
 
+  // 0057: setor -> grupo da loja, na ordem do menu (falha = lista vazia).
+  const setoresLoja = (await carregarGrupos(admin)).flatMap((g) =>
+    g.setores.map((nome) => ({ nome, grupo: tituloGrupo(g.nome) }))
+  );
+
   return (
     <CadastrosTelaUnica
       fornecedoresReais={fornecedoresReais}
@@ -348,6 +354,7 @@ export default async function CadastroPage() {
       produtos={produtos}
       clientes={clientes}
       locaisEstoque={locaisEstoque}
+      setoresLoja={setoresLoja}
     />
   );
 }
