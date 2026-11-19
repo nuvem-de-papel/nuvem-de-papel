@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import { createClient } from "@/lib/supabase/client";
@@ -309,12 +310,14 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
       <aside className="admin-side">
         <div className="admin-side-inner">
           <div className="admin-brand">
-            <svg width="26" height="26" viewBox="0 0 40 40" fill="none" aria-hidden="true">
-              <path
-                d="M10 27c-4.4 0-8-3.6-8-8 0-4.1 3.1-7.5 7.1-7.9C10.4 7 14.6 4 19.5 4c5.6 0 10.3 3.9 11.4 9.1 4.3.6 7.6 4.3 7.6 8.7 0 4.9-3.9 8.8-8.8 8.8H10z"
-                fill="var(--pink-600)"
-              />
-            </svg>
+            {/* 18/11/2026: nuvem do logo oficial (mesma do cabecalho do site). */}
+            <Image
+              src="/logo/nuvem-de-papel.png"
+              alt=""
+              width={400}
+              height={267}
+              className="admin-brand-logo"
+            />
             <span>
               <span className="admin-brand-name">
                 Nuvem de Papel
