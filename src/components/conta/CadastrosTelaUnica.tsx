@@ -1184,8 +1184,16 @@ export function CadastrosTelaUnica({
     // So preenche o que estiver VAZIO (nao sobrescreve codigo ja digitado).
     const embInput = document.getElementById("ct-prod-gtin-inner") as HTMLInputElement | null;
     const mstInput = document.getElementById("ct-prod-gtin-master") as HTMLInputElement | null;
-    if (embInput && !embInput.value.trim()) embInput.value = codigo;
-    if (mstInput && !mstInput.value.trim()) mstInput.value = codigo;
+    // 19/11/2026: tambem reescreve quando o valor ainda e a copia automatica
+    // anterior - senao corrigir um GTIN errado deixava o errado na embalagem.
+    for (const el of [embInput, mstInput]) {
+      if (!el) continue;
+      const atual = el.value.trim();
+      if (!atual || atual === el.dataset.auto) {
+        el.value = codigo;
+        el.dataset.auto = codigo;
+      }
+    }
     syncGtins();
 
     const achou = GTIN_DB[codigo];

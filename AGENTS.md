@@ -645,6 +645,19 @@ produção desde o PR #38.
    `clube` 24/24. Rastro de falha testado à parte: 7/7. **A conta mestre E2E
    (`E2E_MASTER_EMAIL`) foi criada no staging em 17/11** — não existia depois
    da troca de projeto Supabase, e o `f3` quebrava no login.
+6. **Cadeia E2E com token do MP no `.env.local` (19/11/2026)**: com
+   `MERCADOPAGO_ACCESS_TOKEN` preenchido, o checkout vai para o Mercado Pago
+   em vez de `/conta/pedidos?novo=`. Helper `aguardarPedido` (`e2e/_vitrine.cjs`)
+   aceita os dois destinos, acha o pedido por `orders.mp_preference_id` (= `pref_id`
+   da URL) e volta para `/conta/pedidos`; usado em `f3/f4/f6/frete/clube`.
+   `assinarPlano` usa o id `mock-pre-*` sempre que `MP_MOCK=1` local, mesmo com
+   token (regra do webhook). Na mesma rodada: lista de produtos de
+   `/configuracoes/marketplaces` subiu de 200 para 3000 (o catálogo JQ cortava
+   produtos); o cadastro de produto reescreve o GTIN copiado para embalagem/master
+   quando o código de barras é corrigido (antes ficava o GTIN errado);
+   `conciliacao.cjs` F4 usa o mês corrente; `produto-import.cjs` transpila com
+   `--strict`. Resultado: 26 de 28 suítes verdes; `catalogo-ia` e `carta-ia`
+   caem só pelo Gemini ("high demand"/timeout, armadilha (i) da entrega 7).
 
 ## Cancelar venda manual (0054 — 17/11/2026)
 

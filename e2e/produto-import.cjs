@@ -22,7 +22,7 @@ fs.rmSync(tmp, { recursive: true, force: true });
 fs.mkdirSync(tmp, { recursive: true });
 try {
   execSync(
-    `npx tsc src/lib/fornecedor-import.ts --outDir "${tmp}" --module commonjs ` +
+    `npx tsc src/lib/fornecedor-import.ts --outDir "${tmp}" --module commonjs --strict ` +
       `--target es2020 --moduleResolution node --skipLibCheck --esModuleInterop`,
     { cwd: path.join(__dirname, ".."), stdio: "pipe" }
   );

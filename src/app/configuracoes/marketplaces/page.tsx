@@ -110,7 +110,8 @@ export default async function MarketplacesPage() {
       .eq("tenant_id", t)
       .eq("active", true)
       .order("sku")
-      .limit(200),
+      // 19/11/2026: o catalogo JQ passou de 400 ativos; 200 cortava produtos
+      .limit(3000),
     admin
       .from("marketplace_listings")
       .select(
