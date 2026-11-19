@@ -26,7 +26,7 @@ const NOME_F4 = "Caderno E2E F4";
 const WEBHOOK_IDS = ["f4-pag-1", "f4-pag-2"];
 // vitrine nova (17/11/2026): carrinho pela pagina do produto e saldo exibido =
 // saldo do CD (item_stock_by_location), separado do ledger que a reserva usa
-const { definirSaldoCd, restaurarSaldoCd, adicionarPelaPagina } = require("./_vitrine.cjs");
+const { definirSaldoCd, restaurarSaldoCd, adicionarPelaPagina, aguardarPedido } = require("./_vitrine.cjs");
 
 function lerEnv() {
   const env = {};
@@ -312,8 +312,7 @@ async function enviarWebhook(pagId, pedidoId, status) {
   const chkSalvar2 = page.locator('input[type="checkbox"]').first();
   if (await chkSalvar2.isChecked()) await chkSalvar2.uncheck();
   await page.click('button:has-text("Confirmar pedido")');
-  await page.waitForURL(/\/conta\/pedidos\?novo=/, { timeout: 25000 });
-  const pedidoG = new URL(page.url()).searchParams.get("novo");
+  const { pedidoId: pedidoG } = await aguardarPedido(page, admin, BASE);
   check("H1 pedido criado com reserva (saldo=7)", !!pedidoG);
   const estoqueH = await lerEstoque(itemId);
   check("H2 reserva aplicada (disponivel=7, fisico=8)", Number(estoqueH?.stock_available) === 7 && Number(estoqueH?.stock_on_hand) === 8, JSON.stringify(estoqueH));

@@ -192,11 +192,29 @@ async function login(page, email, senha) {
   // frete exige escolha explicita (null ate o cliente clicar)
   await page.locator('label:has-text("Retirar na loja")').click();
   await page.click('button:has-text("Confirmar pedido")');
-  await page.waitForURL(/\/conta\/pedidos\?novo=/, { timeout: 25000 });
-  const pedidoId = new URL(page.url()).searchParams.get("novo");
-  check("C2 redireciona para meus pedidos com pedido", !!pedidoId, page.url());
-  const banner = (await page.textContent("body")) || "";
-  check("C3 banner de pagamento pendente", banner.includes("pagamento online será ativado"));
+  // 19/11: com MERCADOPAGO_ACCESS_TOKEN no .env.local o checkout vai para o
+  // Mercado Pago; sem token, para /conta/pedidos?novo=. Os dois valem.
+  await page.waitForURL((u) => /\/conta\/pedidos/.test(u.pathname) || /mercadopago\.com/.test(u.hostname), { timeout: 25000 });
+  const foiMp = /mercadopago\.com/.test(new URL(page.url()).hostname);
+  let pedidoId = new URL(page.url()).searchParams.get("novo");
+  if (foiMp) {
+    const { data: ult } = await admin
+      .from("orders")
+      .select("id")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    pedidoId = ult?.id ?? null;
+  }
+  check("C2 pedido criado (meus pedidos ou Mercado Pago)", !!pedidoId, page.url());
+  if (foiMp) {
+    check("C3 pagamento online ativo: foi para o Mercado Pago", true, "pref_id na URL");
+    await page.goto(`${BASE}/conta/pedidos?novo=${pedidoId}`, { waitUntil: "domcontentloaded" });
+  } else {
+    const banner = (await page.textContent("body")) || "";
+    check("C3 banner de pagamento pendente", banner.includes("pagamento online será ativado"));
+  }
 
   // D) banco: pedido/itens/endereço/cliente corretos E preço real (ignora forja)
   const { data: pedido } = await admin.from("orders").select("*").eq("id", pedidoId).maybeSingle();

@@ -21,7 +21,7 @@ const TENANT = "00000000-0000-0000-0000-000000000001";
 const SKU_CLUBE = "SKU-E2E-CLUBE";
 const NOME_CLUBE = "Item E2E Clube";
 // vitrine nova (17/11/2026): carrinho pela pagina do produto + saldo do CD
-const { definirSaldoCd, restaurarSaldoCd, adicionarPelaPagina } = require("./_vitrine.cjs");
+const { definirSaldoCd, restaurarSaldoCd, adicionarPelaPagina, aguardarPedido } = require("./_vitrine.cjs");
 const PLAN_CODE = "papel";
 const WEBHOOK_IDS = ["mock-pre-fantasma"];
 
@@ -322,8 +322,7 @@ async function limparPedidosDoUsuario(userId) {
     const chkSalvar = page.locator('input[type="checkbox"]').first();
     if (await chkSalvar.isChecked()) await chkSalvar.uncheck();
     await page.click('button:has-text("Confirmar pedido")');
-    await page.waitForURL(/\/conta\/pedidos\?novo=/, { timeout: 25000 });
-    const pedidoId = new URL(page.url()).searchParams.get("novo");
+    const { pedidoId } = await aguardarPedido(page, admin, BASE);
     check("E1 pedido criado pelo fluxo do clube", !!pedidoId);
     const { data: pedido } = await admin
       .from("orders")
