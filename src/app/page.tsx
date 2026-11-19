@@ -32,7 +32,7 @@ export default async function HomePage() {
       <Hero vitrine={ordemLoop(setores)} />
 
       {lancamentos.length > 0 && (
-        <section aria-label="Lançamentos" style={{ width: "100vw", marginLeft: "calc(50% - 50vw)", padding: "34px 56px 18px", boxSizing: "border-box" }}>
+        <section id="lancamentos" aria-label="Lançamentos" style={{ scrollMarginTop: 140, width: "100vw", marginLeft: "calc(50% - 50vw)", padding: "34px 56px 18px", boxSizing: "border-box" }}>
           <CategoryCarousel title="Lançamentos" products={lancamentos} intensidadeCor={10} encaixar />
         </section>
       )}
