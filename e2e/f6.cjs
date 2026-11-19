@@ -14,6 +14,7 @@ const path = require("path");
 
 const BASE = "http://localhost:3000";
 const { email: EMAIL_MASTER, password: SENHA_MASTER } = require("./_credenciais-e2e.cjs");
+const { definirSaldoCd, restaurarSaldoCd, adicionarPelaPagina } = require("./_vitrine.cjs");
 const EMAIL_REV = "e2e-revenda-f6@nuvem-de-papel.com.br";
 const EMAIL_FORN = "e2e-forn-f6@nuvem-de-papel.com.br";
 const SENHA = "E2e#2026Test";
@@ -223,6 +224,8 @@ async function main() {
   });
   if (errPreco) throw new Error("seed item_prices: " + errPreco.message);
   await ajustarEstoque(item.id, SALDO, "seed E2E F6");
+  // vitrine nova (17/11): o carrinho so aceita item com saldo no CD
+  const saldoCdAntes = await definirSaldoCd(admin, item.id, SALDO);
   check("B1 seed: saldo de estoque igual a 100", Number((await lerEstoque(item.id)).stock_available) === SALDO);
 
   let uForn = await acharUser(EMAIL_FORN);
@@ -333,21 +336,34 @@ async function main() {
   await ctxVis.close();
 
   // F) checkout da revenda: faixa 10+ resolvida no servidor -----------------
-  await pageR.goto(BASE + "/produtos", { waitUntil: "domcontentloaded" });
-  const btnAdd = pageR.locator(`button[aria-label="Adicionar ${NOME_F6}"]`);
-  await btnAdd.waitFor({ timeout: 15000 });
-  await btnAdd.click();
-  const cart = JSON.parse(
-    await pageR.evaluate(() => window.localStorage.getItem("ndp_carrinho_v1") || "[]")
-  );
-  cart[0].qty = 10;
-  await pageR.evaluate((c) => window.localStorage.setItem("ndp_carrinho_v1", JSON.stringify(c)), cart);
+  // 19/11: a lista /produtos nao tem mais botao de carrinho - entra pela
+  // pagina do produto (helper _vitrine.cjs), ja com 10 unidades.
+  await adicionarPelaPagina(pageR, BASE, SKU_F6, 10);
   await preencherCheckout(pageR);
   const chkSalvar = pageR.locator('input[type="checkbox"]').first();
   if (await chkSalvar.isChecked()) await chkSalvar.uncheck();
   await pageR.click('button:has-text("Confirmar pedido")');
-  await pageR.waitForURL(/\/conta\/pedidos\?novo=/, { timeout: 25000 });
-  const pedidoId = new URL(pageR.url()).searchParams.get("novo");
+  // 19/11: com MERCADOPAGO_ACCESS_TOKEN no .env.local o checkout vai para o
+  // Mercado Pago (sem token, /conta/pedidos?novo=). Os dois destinos valem;
+  // o pedido e lido do banco pelo cliente da revenda.
+  await pageR
+    .waitForURL((u) => /\/conta\/pedidos/.test(u.pathname) || /mercadopago\.com/.test(u.hostname), { timeout: 25000 })
+    .catch(async (e) => {
+      const aviso = await pageR.locator('[role="alert"]').allTextContents().catch(() => []);
+      throw new Error(`F checkout nao concluiu: url=${pageR.url()} aviso=${JSON.stringify(aviso)} (${e.message.split("\n")[0]})`);
+    });
+  let pedidoId = new URL(pageR.url()).searchParams.get("novo");
+  if (!pedidoId) {
+    const { data: cli } = await admin.from("customers").select("id").eq("email", EMAIL_REV);
+    const { data: ult } = await admin
+      .from("orders")
+      .select("id")
+      .in("customer_id", (cli ?? []).map((c) => c.id))
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    pedidoId = ult?.id ?? null;
+  }
   const { data: pedidoF6 } = await admin.from("orders").select("*").eq("id", pedidoId).maybeSingle();
   const totalFaixa = Math.round(PRECO_FAIXA10 * 10 * 100);
   check(
@@ -496,6 +512,7 @@ async function main() {
   await apagarPedidosDe(EMAIL_REV);
   await limparComprasF6();
   await ajustarEstoque(item.id, 0, "limpeza E2E F6");
+  await restaurarSaldoCd(admin, item.id, saldoCdAntes);
   await admin.from("catalog_items").update({ active: false }).eq("id", item.id);
   await limparUsuarios([EMAIL_REV, EMAIL_FORN]);
 
