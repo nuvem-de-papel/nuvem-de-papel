@@ -219,6 +219,15 @@ const CONFIG: Link[] = [
     ),
   },
   {
+    href: "/configuracoes/setores",
+    label: "Setores e menu",
+    icon: (
+      <>
+        <path d="M4 6h16M4 12h16M4 18h10" />
+      </>
+    ),
+  },
+  {
     href: "/configuracoes/marketplaces",
     label: "Marketplaces",
     icon: (

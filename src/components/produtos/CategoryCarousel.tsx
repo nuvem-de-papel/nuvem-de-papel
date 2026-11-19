@@ -46,7 +46,9 @@ export function CategoryCarousel({
     if (!track) return;
     const medir = () => {
       const W = track.clientWidth - 4; // padding lateral do track (2px de cada lado)
-      const n = Math.max(1, Math.floor((W + GAP) / (BASE + GAP)));
+      // 19/11/2026 (pedido do Joaquim): no maximo 6 cards inteiros por tela;
+      // abaixo disso, quantos couberem com a largura base.
+      const n = Math.min(6, Math.max(1, Math.floor((W + GAP) / (BASE * 0.7 + GAP))));
       const w = (W - (n - 1) * GAP) / n;
       setEncaixe({ n, w });
     };

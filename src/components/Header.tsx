@@ -1,19 +1,45 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useCart } from "@/components/carrinho/CartProvider";
 import { BuscaProdutos } from "@/components/busca/BuscaProdutos";
+import { IconeGrupo } from "@/components/catalogo/IconeGrupo";
+import { carregarGrupos, tituloGrupo, type GrupoCatalogo } from "@/lib/gruposSetores";
 
 // Barra do topo (18/11/2026, referencia enviada pelo Joaquim): logo + nome com
 // "Papelaria" embaixo | busca no meio | icones + Entrar. Vidro degrade de ponta
 // a ponta (CSS .site-header em globals.css). O logo leva para a Home no site;
-// no painel (body:has(.admin-shell)) o CSS desliga o clique. A 2a linha
-// (.header-links) e provisoria: o Joaquim vai definir o que entra no lugar de
-// Home/Produtos/Publicacoes.
+// no painel (body:has(.admin-shell)) o CSS desliga o clique.
+// 2a linha (19/11/2026, mockup aprovado): "Todos os setores" abre os grupos
+// ativos; a direita, os grupos com catalog_grupos.na_barra (0058) e
+// "Lancamentos". Quem aparece = tela /configuracoes/setores, sem codigo.
 export function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [grupos, setGrupos] = useState<GrupoCatalogo[]>([]);
+  const [setoresAberto, setSetoresAberto] = useState(false);
+  const setoresRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    carregarGrupos(createClient()).then(setGrupos);
+  }, []);
+
+  useEffect(() => {
+    if (!setoresAberto) return;
+    const fora = (e: MouseEvent) => {
+      if (setoresRef.current && !setoresRef.current.contains(e.target as Node)) setSetoresAberto(false);
+    };
+    const esc = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setSetoresAberto(false);
+    };
+    window.addEventListener("mousedown", fora);
+    window.addEventListener("keydown", esc);
+    return () => {
+      window.removeEventListener("mousedown", fora);
+      window.removeEventListener("keydown", esc);
+    };
+  }, [setoresAberto]);
   const [logado, setLogado] = useState(false);
   // undefined = ainda carregando; null = logado sem profile (cliente da loja)
   const [role, setRole] = useState<string | null | undefined>(undefined);
@@ -53,10 +79,10 @@ export function Header() {
           : "/crm";
   const rotuloPainel = !logado ? "Entrar" : cliente ? "Minha conta" : "Painel";
 
+  const naBarra = grupos.filter((g) => g.naBarra);
   const navLinks = [
-    { href: "/", label: "Home", bold: true },
-    { href: "/produtos", label: "Produtos", bold: false },
-    { href: "/publicacoes", label: "Publicações", bold: false },
+    ...grupos.map((g) => ({ href: `/produtos#${g.slug}`, label: tituloGrupo(g.nome), bold: false })),
+    { href: "/#lancamentos", label: "Lançamentos", bold: true },
     ...(logado ? [{ href: "/conta/pedidos", label: "Meus pedidos", bold: false }] : []),
   ];
 
@@ -116,11 +142,43 @@ export function Header() {
       </div>
 
       <nav className="header-links" aria-label="Seções da loja">
-        {navLinks.map((link) => (
-          <a key={link.href} href={link.href} style={{ fontWeight: link.bold ? 700 : 600 }}>
-            {link.label}
+        <div ref={setoresRef} className="header-setores">
+          <button
+            type="button"
+            className="header-setores-botao"
+            aria-haspopup="true"
+            aria-expanded={setoresAberto}
+            aria-controls="header-setores-lista"
+            onClick={() => setSetoresAberto((v) => !v)}
+          >
+            <IconeGrupo icone="menu" tamanho={18} />
+            <span>Todos os setores</span>
+            <span aria-hidden="true" className="header-setores-seta">▾</span>
+          </button>
+          {setoresAberto && (
+            <ul id="header-setores-lista" aria-label="Todos os setores" className="header-setores-lista">
+              {grupos.map((g) => (
+                <li key={g.slug}>
+                  <a href={`/produtos#${g.slug}`} onClick={() => setSetoresAberto(false)}>
+                    <IconeGrupo icone={g.icone} tamanho={20} />
+                    {tituloGrupo(g.nome)}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+        {naBarra.map((g) => (
+          <a key={g.slug} href={`/produtos#${g.slug}`} className="header-atalho">
+            <IconeGrupo icone={g.icone} tamanho={18} />
+            {tituloGrupo(g.nome)}
           </a>
         ))}
+        <span className="header-links-espaco" />
+        <a href="/#lancamentos" className="header-atalho header-lancamentos">
+          <IconeGrupo icone="estrela" tamanho={18} />
+          Lançamentos
+        </a>
       </nav>
 
       {menuOpen && (
