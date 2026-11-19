@@ -10,6 +10,7 @@ import { ehLancamento } from "@/lib/lancamento";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { CatalogoAdmin, type ItemCatalogoAdmin } from "@/components/catalogo/CatalogoAdmin";
 import { carregarGrupos } from "@/lib/gruposSetores";
+import { CamadasFundo } from "@/components/FundoRotativo";
 
 type LinhaCatalogo = {
   id: string;
@@ -126,11 +127,12 @@ export default async function ProdutosPage() {
   };
 
   return (
-    <main className="fundo-animado fundo-pagina-produtos" style={{ paddingBottom: 72, overflowX: "clip" }}>
+    <main className="fundo-rotativo" style={{ paddingBottom: 72, overflowX: "clip" }}>
+      <CamadasFundo />
       {/* 19/11/2026: menu antigo (barra fixa + "Todas as Categorias") removido -
           o menu de setores agora mora na barra do topo. O banner comeca
           logo abaixo da barra (sticky, ja ocupa espaco no fluxo). */}
-      <div style={{ ...PONTA_A_PONTA, paddingTop: 18 }}>
+      <div className="faixa-carrossel" style={{ ...PONTA_A_PONTA, paddingTop: 18 }}>
         <BannerSlider />
       </div>
 
@@ -140,14 +142,14 @@ export default async function ProdutosPage() {
             <CategoryCarousel title={group.title} products={group.items} cor={group.cor} corTitulo={group.corTitulo} intensidadeCor={10} encaixar />
           </div>
           {midBanners[i] && (
-            <div style={PONTA_A_PONTA}>
+            <div className="faixa-carrossel" style={PONTA_A_PONTA}>
               <PromoStrip {...midBanners[i]} />
             </div>
           )}
         </Fragment>
       ))}
 
-      <div style={{ ...PONTA_A_PONTA, paddingTop: 38 }}>
+      <div className="faixa-carrossel" style={{ ...PONTA_A_PONTA, paddingTop: 38 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "0 22px" }}>
           <h2 className="display" style={{ fontSize: 23 }}>
             Promoções imperdíveis
@@ -156,7 +158,7 @@ export default async function ProdutosPage() {
         </div>
       </div>
 
-      <div style={{ ...PONTA_A_PONTA, display: "flex", flexDirection: "column", gap: 14, paddingTop: 14 }}>
+      <div className="faixa-carrossel" style={{ ...PONTA_A_PONTA, display: "flex", flexDirection: "column", gap: 14, paddingTop: 14 }}>
         <PromoStrip
           variant="navy"
           icon={PROMO_ICONS.truck}

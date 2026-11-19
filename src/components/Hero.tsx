@@ -262,7 +262,7 @@ export function Hero({ vitrine = [] }: { vitrine?: VarejoProduct[] }) {
         position: "relative",
         overflow: "hidden",
         padding: "76px 32px 100px",
-        background: "linear-gradient(180deg, #006BE1 0%, #006BE1 40%, var(--bg-cotton) 100%)",
+        background: "linear-gradient(180deg, #006BE1 0%, #006BE1 40%, transparent 100%)",
         // `dvh` acompanha a altura visível real: janela redimensionada e barras móveis.
         // Os 61px correspondem ao cabeçalho sticky, mantendo o primeiro bloco na tela inteira.
         minHeight: "calc(100dvh - 61px)",
