@@ -88,8 +88,9 @@ export function CategoryCarousel({
         padding: "22px 24px 14px",
         marginBottom: 18,
       }}
+      className="carrossel-caixa"
     >
-      <div style={{ display: "flex", alignItems: "center", gap: 12, margin: "8px 0 14px" }}>
+      <div className="carrossel-topo" style={{ display: "flex", alignItems: "center", gap: 12, margin: "8px 0 14px" }}>
         <h2 className="display" style={{ fontSize: 21, margin: 0, color: corTitulo ?? "var(--navy)" }}>
           {title}
         </h2>
@@ -106,7 +107,7 @@ export function CategoryCarousel({
           Categoria
         </span>
         <span style={{ width: 24, height: 1, background: "#100D0D", flexShrink: 0 }} />
-        <div style={{ position: "relative", flexShrink: 0, width: 320 }}>
+        <div className="carrossel-busca" style={{ position: "relative", flexShrink: 0, width: 320 }}>
           <svg
             width="15"
             height="15"
