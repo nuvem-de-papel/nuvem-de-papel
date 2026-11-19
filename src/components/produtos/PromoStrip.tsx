@@ -29,8 +29,8 @@ export function PromoStrip({
   const v = VARIANTS[variant];
 
   return (
-    <div style={{ background: v.bg, color: v.fg, padding: "52px 48px", borderRadius: 18, boxShadow: "0 6px 20px rgba(0, 107, 225,0.10)" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 28 }}>
+    <div className="promo-strip" style={{ background: v.bg, color: v.fg, padding: "52px 48px", borderRadius: 18, boxShadow: "0 6px 20px rgba(0, 107, 225,0.10)" }}>
+      <div className="promo-conteudo" style={{ display: "flex", alignItems: "center", gap: 28 }}>
         {imagem ? (
           <img src={imagem} alt="" width={88} height={88} style={{ width: 88, height: 88, borderRadius: 16, objectFit: "cover", flexShrink: 0 }} />
         ) : (
@@ -56,6 +56,7 @@ export function PromoStrip({
           <p style={{ margin: 0, fontSize: 14, color: v.text }}>{text}</p>
         </div>
         <span
+          className="promo-tag"
           style={{
             marginLeft: "auto",
             fontWeight: 700,

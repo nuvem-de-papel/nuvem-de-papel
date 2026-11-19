@@ -1557,11 +1557,30 @@ body:has(.admin-shell) .site-header {
 }
 /* a grade "tech" e a linha da transicao do hero ficam transparentes sobre a foto */
 .fundo-rotativo .tech-band::before { background-image: none; }
-.fundo-rotativo .category-showcase-item h3,
+/* 19/11 (pedido do Joaquim): nome da categoria em preto, sem caixa */
+.fundo-rotativo .category-showcase-item h3 { color: #000; }
 .fundo-rotativo .tech-label {
   background: rgba(255, 255, 255, 0.88);
   padding: 4px 12px;
   border-radius: 12px;
+}
+
+/* Mobile (<= 768px): categorias, carrosseis e banners sem estourar */
+@media (max-width: 768px) {
+  .category-showcase-grid { gap: 14px 8px; }
+  .category-showcase-item { width: calc((100% - 16px) / 3); }
+  .category-showcase-photo { width: 84px; height: 84px; margin-bottom: 6px; }
+  .category-showcase-item h3 { font-size: 14px; overflow-wrap: normal; word-break: normal; hyphens: auto; }
+  .carrossel-caixa { padding: 16px 12px 10px !important; }
+  .carrossel-topo { flex-wrap: wrap; gap: 8px !important; }
+  .carrossel-topo > span:nth-of-type(2) { display: none; }
+  .carrossel-busca { width: 100% !important; flex-shrink: 1 !important; }
+  .carrossel-topo > span:last-child { display: none; }
+  .banner-slide { padding: 28px 20px 44px !important; }
+  .banner-conteudo, .promo-conteudo { flex-direction: column; text-align: center; gap: 14px !important; }
+  .banner-titulo { font-size: 22px !important; }
+  .promo-strip { padding: 24px 20px !important; }
+  .promo-tag { margin-left: 0 !important; }
 }
 @media (prefers-reduced-motion: reduce) {
   .fundo-rotativo-camadas span { animation: none; }
