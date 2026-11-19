@@ -5,7 +5,6 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { mpConfigurado } from "@/lib/mercadopago";
 import { reconciliarPedido, type ResultadoReconciliacao } from "@/lib/pagamento-confirmar";
-import { SairButton } from "@/components/conta/SairButton";
 
 export const dynamic = "force-dynamic";
 
@@ -123,7 +122,7 @@ export default async function MeusPedidosPage({
   const pedidos = (data ?? []) as unknown as LinhaPedido[];
 
   return (
-    <main style={{ maxWidth: 980, margin: "0 auto", padding: "48px 32px 72px" }}>
+    <main className="conta-pagina">
       <div
         style={{
           display: "flex",
@@ -142,7 +141,6 @@ export default async function MeusPedidosPage({
             {pedidos.length} {pedidos.length === 1 ? "pedido" : "pedidos"} · {user.email}
           </p>
         </div>
-        <SairButton />
       </div>
 
       {searchParams.novo && (

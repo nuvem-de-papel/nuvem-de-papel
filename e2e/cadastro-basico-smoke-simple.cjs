@@ -121,7 +121,7 @@ async function main() {
     // 7. Sessão aberta no servidor: o form some e o checkout logado aparece
     log("7. Aguardando checkout logado...");
     const logado = page
-      .getByRole("heading", { name: "Endereço de entrega" })
+      .getByRole("heading", { name: "1 - Dados cadastrais e entrega" })
       .or(page.getByRole("heading", { name: "Checkout em breve" }));
     await logado.first().waitFor({ timeout: 20000 });
     check(new URL(page.url()).pathname === "/checkout", "Continua em /checkout (sem passar pelo /login)");
