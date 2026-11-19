@@ -2,6 +2,7 @@ import { CategoryCarousel } from "@/components/produtos/CategoryCarousel";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getCombinaCom, getPaginaProduto } from "@/lib/products";
+import { GaleriaProduto } from "@/components/produtos/GaleriaProduto";
 import { ProductImage } from "@/components/ProductImage";
 import { ProductActions } from "@/components/produtos/ProductActions";
 
@@ -31,51 +32,8 @@ export default async function PaginaProdutoPage({
         <Link href="/">Home</Link> / <Link href="/produtos">Produtos</Link> / {principal.name}
       </nav>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 48, alignItems: "start" }}>
-        <div>
-          <ProductImage
-            category={selecionado.category}
-            name={selecionado.name}
-            fotoUrl={selecionado.fotoUrl}
-            style={{ aspectRatio: "1 / 1", height: "auto", border: "1px solid var(--cta)" }}
-          />
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10, marginTop: 12 }}>
-            {[0, 1, 2, 3].map((i) =>
-              galeria[i] ? (
-                <img
-                  key={i}
-                  src={galeria[i]}
-                  alt=""
-                  style={{
-                    width: "100%",
-                    aspectRatio: "1 / 1",
-                    objectFit: "contain",
-                    borderRadius: 10,
-                    background: "#fff",
-                    border: "1px solid var(--ink-faint)",
-                  }}
-                />
-              ) : (
-                <div
-                  key={i}
-                  style={{
-                    aspectRatio: "1 / 1",
-                    borderRadius: 10,
-                    border: "1px dashed var(--ink-faint)",
-                    background: "#fff",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: 12,
-                    color: "var(--ink-soft)",
-                  }}
-                >
-                  {["Detalhe", "Medidas", "Verso", "Pack"][i]}
-                </div>
-              )
-            )}
-          </div>
-        </div>
+      <div className="produto-grade" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 48, alignItems: "start" }}>
+        <GaleriaProduto key={selecionado.sku} category={selecionado.category} name={selecionado.name} fotoUrl={selecionado.fotoUrl} galeria={galeria} />
 
         <div>
           <h1 className="display" style={{ fontSize: 30, margin: "0 0 6px" }}>
