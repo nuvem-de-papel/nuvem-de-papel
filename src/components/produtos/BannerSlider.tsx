@@ -73,6 +73,7 @@ export function BannerSlider() {
         {SLIDES.map((s) => (
           <div
             key={s.tag}
+            className="banner-slide"
             style={{
               minWidth: "100%",
               background: s.bg,
@@ -81,7 +82,7 @@ export function BannerSlider() {
               borderRadius: 18,
             }}
           >
-            <div style={{ display: "flex", alignItems: "center", gap: 28 }}>
+            <div className="banner-conteudo" style={{ display: "flex", alignItems: "center", gap: 28 }}>
               <img src={s.imagem} alt="" width={96} height={96} style={{ width: 96, height: 96, borderRadius: 18, objectFit: "cover", flexShrink: 0 }} />
               <div>
                 <span
@@ -98,7 +99,7 @@ export function BannerSlider() {
                 >
                   {s.tag}
                 </span>
-                <h2 className="display" style={{ fontSize: 30, margin: "0 0 6px", color: s.fg }}>
+                <h2 className="display banner-titulo" style={{ fontSize: 30, margin: "0 0 6px", color: s.fg }}>
                   {s.title}
                 </h2>
                 <p style={{ margin: 0, opacity: 0.9, maxWidth: 520, fontSize: 15 }}>{s.text}</p>
