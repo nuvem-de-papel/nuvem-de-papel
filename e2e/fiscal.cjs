@@ -51,11 +51,12 @@ async function login(page, email, senha) {
 }
 
 async function esperarFeed(page, trecho, timeout = 20000) {
-  await page.waitForFunction(
-    (t) => (document.querySelector(".ct-feed")?.textContent || "").includes(t),
-    trecho,
-    { timeout }
-  );
+  await page
+    .waitForFunction((t) => (document.querySelector(".ct-feed")?.textContent || "").includes(t), trecho, { timeout })
+    .catch(async () => {
+      const atual = await page.locator(".ct-feed").first().textContent().catch(() => "(sem .ct-feed)");
+      throw new Error(`feed nao mostrou "${trecho}"; mostra: ${atual}`);
+    });
   return (await page.locator(".ct-feed").textContent()) || "";
 }
 

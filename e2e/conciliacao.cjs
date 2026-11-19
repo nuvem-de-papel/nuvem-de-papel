@@ -370,7 +370,10 @@ async function main() {
     const nTodas = await page.locator('section[aria-label="Linhas do extrato"] tbody tr').count();
     check("F3 filtro todas mostra 5 linhas", nTodas === 5, `n=${nTodas}`);
 
-    await page.selectOption('select[aria-label="Mês do extrato"]', "2026-10");
+    // mes corrente: sempre esta na lista e o extrato de teste e de 2026-09
+    // (antes fixo "2026-10", que sumiu da lista quando o mes virou)
+    const mesCorrente = new Date().toLocaleDateString("sv-SE", { timeZone: "America/Sao_Paulo" }).slice(0, 7);
+    await page.selectOption('select[aria-label="Mês do extrato"]', mesCorrente);
     const vazioMes = await temTexto(page, "Nenhuma linha neste mês.");
     check("F4 mes sem extrato mostra o estado vazio", vazioMes);
 

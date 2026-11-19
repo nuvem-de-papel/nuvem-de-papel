@@ -62,4 +62,25 @@ async function adicionarPelaPagina(page, base, sku, qtd = 1) {
   await page.getByRole("button", { name: "Adicionado", exact: true }).waitFor({ timeout: 5000 }).catch(() => {});
 }
 
-module.exports = { definirSaldoCd, restaurarSaldoCd, adicionarPelaPagina };
+// 19/11/2026: depois de "Confirmar pedido" o checkout vai para
+// /conta/pedidos?novo=<id> (sem token do MP) OU para o Mercado Pago (com
+// MERCADOPAGO_ACCESS_TOKEN no .env.local). No MP o pedido e achado pelo
+// pref_id da URL (= orders.mp_preference_id). Devolve { pedidoId, foiMp } e
+// deixa a pagina em /conta/pedidos?novo=<id> nos dois casos.
+async function aguardarPedido(page, admin, base, timeout = 25000) {
+  await page.waitForURL(
+    (u) => /\/conta\/pedidos/.test(u.pathname) || /mercadopago\./.test(u.hostname),
+    { timeout }
+  );
+  const url = new URL(page.url());
+  if (!/mercadopago\./.test(url.hostname)) {
+    return { pedidoId: url.searchParams.get("novo"), foiMp: false };
+  }
+  const pref = url.searchParams.get("pref_id");
+  const { data } = await admin.from("orders").select("id").eq("mp_preference_id", pref).maybeSingle();
+  const pedidoId = data?.id ?? null;
+  if (pedidoId) await page.goto(`${base}/conta/pedidos?novo=${pedidoId}`, { waitUntil: "domcontentloaded" });
+  return { pedidoId, foiMp: true };
+}
+
+module.exports = { definirSaldoCd, restaurarSaldoCd, adicionarPelaPagina, aguardarPedido };

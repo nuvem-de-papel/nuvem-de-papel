@@ -104,7 +104,9 @@ export async function assinarPlano(planId: string): Promise<ResultadoClube> {
   }
 
   let preapprovalId: string | null = null;
-  if (mpConfigurado()) {
+  // 19/11/2026: MP_MOCK=1 local manda mesmo com token no .env.local (a mesma
+  // regra do webhook, que em mock espera id mock-pre-*); na Vercel nunca e mock.
+  if (mpConfigurado() && !clubeEmModoMock()) {
     const r = await criarPreapproval({
       subscriptionId: assinaturaId,
       payerEmail: user.email,

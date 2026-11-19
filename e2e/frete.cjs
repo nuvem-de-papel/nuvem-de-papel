@@ -18,7 +18,7 @@ const CEP = "01310-100"; // região 0 (SP capital) — matriz coberta pelo impor
 // vitrine nova (17/11/2026): a lista /produtos nao tem botao de carrinho e a
 // vitrine le o saldo do CD. A suite usa item proprio (antes: o 1o da vitrine,
 // que vazava reserva no ledger a cada rodada) e devolve CD e ledger no fim.
-const { definirSaldoCd, restaurarSaldoCd, adicionarPelaPagina } = require("./_vitrine.cjs");
+const { definirSaldoCd, restaurarSaldoCd, adicionarPelaPagina, aguardarPedido } = require("./_vitrine.cjs");
 const SKU_FRETE = "SKU-E2E-FRETE";
 const NOME_FRETE = "Caderno E2E Frete";
 const PRECO_FRETE = 12;
@@ -251,8 +251,7 @@ async function esperadoDaTabela(itemId, qty) {
   // D) escolhe PAC → pedido nasce com frete da tabela e total = itens + frete
   await entrega.locator('label:has-text("PAC")').click();
   await page.click('button:has-text("Confirmar pedido")');
-  await page.waitForURL(/\/conta\/pedidos\?novo=/, { timeout: 25000 });
-  const pedidoId = new URL(page.url()).searchParams.get("novo");
+  const { pedidoId } = await aguardarPedido(page, admin, BASE);
 
   const { data: itemPreco } = await admin
     .from("item_prices")
@@ -295,8 +294,7 @@ async function esperadoDaTabela(itemId, qty) {
   await entrega2.locator('label:has-text("Retirar na loja")').waitFor({ timeout: 30000 });
   await entrega2.locator('label:has-text("Retirar na loja")').click();
   await page.click('button:has-text("Confirmar pedido")');
-  await page.waitForURL(/\/conta\/pedidos\?novo=/, { timeout: 25000 });
-  const pedido2Id = new URL(page.url()).searchParams.get("novo");
+  const { pedidoId: pedido2Id } = await aguardarPedido(page, admin, BASE);
   const { data: pedido2 } = await admin.from("orders").select("*").eq("id", pedido2Id).maybeSingle();
   const total2 = Math.round(precoReal * (item2?.qty ?? 1) * 100) / 100;
   check("E1 retirada grava frete 0", Number(pedido2?.frete) === 0, `db=${pedido2?.frete}`);
