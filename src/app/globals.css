@@ -1507,14 +1507,32 @@ body:has(.admin-shell) .site-header {
   will-change: transform;
 }
 
-.fundo-home-setores::before {
-  background-image: url("/fundos/home-setores.png");
-  --fundo-opacidade: 0.32;
+/* 19/11/2026: foto do Pexels nas laterais (home e /produtos) e hero do login,
+   com opacidade alta para o desenho aparecer de verdade. */
+.fundo-home-setores::before,
+.fundo-pagina-produtos::before {
+  background-image: url("/fundos/laterais-papelaria.jpg");
+  background-attachment: fixed;
+  --fundo-opacidade: 0.6;
 }
 
-.fundo-pagina-produtos::before {
-  background-image: url("/fundos/pagina-produtos.jpg");
-  --fundo-opacidade: 0.22;
+.fundo-login::before {
+  background-image: url("/fundos/login-hero.jpg");
+  background-position: center;
+  --fundo-opacidade: 0.65;
+}
+
+/* Carrosseis com 5 cards: a largura do 6o card vira margem dos dois lados
+   (o tamanho do card fica igual) e o fundo aparece nas laterais. */
+.faixa-carrossel {
+  padding-left: calc(56px + (100vw - 112px) / 12) !important;
+  padding-right: calc(56px + (100vw - 112px) / 12) !important;
+}
+@media (max-width: 900px) {
+  .faixa-carrossel {
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+  }
 }
 
 @keyframes fundo-deriva {
@@ -1905,8 +1923,11 @@ body:has(.admin-shell) .logo-home {
   gap: 7px;
   white-space: nowrap;
 }
+.header-links {
+  justify-content: center;
+}
 .header-links-espaco {
-  flex: 1;
+  display: none;
 }
 .header-links a.header-lancamentos {
   color: #B5507F;

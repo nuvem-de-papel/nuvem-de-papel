@@ -106,7 +106,7 @@ export function LoginForm() {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        background: "var(--bg-cotton)",
+        background: "transparent",
         padding: "40px 24px",
       }}
     >

@@ -1,12 +1,10 @@
 import { Fragment, type ReactNode } from "react";
 import { getStoreProducts } from "@/lib/products";
-import { agruparPorGrupo, gruposDoMenu } from "@/lib/categoriasProdutos";
+import { agruparPorGrupo } from "@/lib/categoriasProdutos";
 import { createClient } from "@/lib/supabase/server";
 import { BannerSlider } from "@/components/produtos/BannerSlider";
 import { CategoryCarousel } from "@/components/produtos/CategoryCarousel";
 import { PromoStrip, PROMO_ICONS } from "@/components/produtos/PromoStrip";
-import { SetoresMenu } from "@/components/produtos/SetoresMenu";
-import { PageHeader } from "@/components/admin/PageHeader";
 import { podeVerPainel } from "@/lib/painel";
 import { ehLancamento } from "@/lib/lancamento";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -93,8 +91,8 @@ const PONTA_A_PONTA = {
   boxSizing: "border-box" as const,
 };
 
-// Cabecalho do site (61px) + topo da barra (14px) + barra (64px) + respiro (12px)
-const OFFSET_SECAO = 151;
+// Barra do topo sticky (2 linhas, ~118px) + respiro
+const OFFSET_SECAO = 130;
 
 export default async function ProdutosPage() {
   // Operacional logado vê o catálogo administrativo dentro do menu lateral do painel;
@@ -107,7 +105,6 @@ export default async function ProdutosPage() {
   // grupos com produto (sem "Outros"), com o icone de cada um.
   const [produtos, grupos] = await Promise.all([getStoreProducts(), carregarGrupos(createClient())]);
   const groups = agruparPorGrupo(produtos, grupos);
-  const setores = gruposDoMenu(groups).map((g) => ({ slug: g.slug, titulo: g.title, icone: g.icone }));
 
   const midBanners: Record<number, { variant: "pink" | "green"; icon: ReactNode; imagem: string; title: string; text: string; tag: string }> = {
     1: {
@@ -130,36 +127,16 @@ export default async function ProdutosPage() {
 
   return (
     <main className="fundo-animado fundo-pagina-produtos" style={{ paddingBottom: 72, overflowX: "clip" }}>
-      <div
-        className="barra-setores"
-        style={{
-          position: "fixed",
-          top: 75,
-          left: 0,
-          right: 0,
-          height: 64,
-          zIndex: 40,
-          background: "rgba(120, 124, 132, 0.22)",
-          backdropFilter: "blur(16px) saturate(0.9)",
-          WebkitBackdropFilter: "blur(16px) saturate(0.9)",
-          borderTop: "1px solid rgba(255, 255, 255, 0.45)",
-          borderBottom: "1px solid rgba(255, 255, 255, 0.45)",
-          boxShadow: "0 10px 30px rgba(0, 0, 0, 0.12)",
-        }}
-      >
-        <section style={{ maxWidth: 1240, height: "100%", margin: "0 auto", padding: "0 24px", boxSizing: "border-box", display: "flex", alignItems: "center" }}>
-          <PageHeader titulo="Produtos" voltarPara="/" meio={<SetoresMenu itens={setores} offsetTopo={OFFSET_SECAO} />} />
-        </section>
-      </div>
-      <div aria-hidden="true" style={{ height: 102 }} />
-
-      <div style={PONTA_A_PONTA}>
+      {/* 19/11/2026: menu antigo (barra fixa + "Todas as Categorias") removido -
+          o menu de setores agora mora na barra do topo. O banner comeca
+          logo abaixo da barra (sticky, ja ocupa espaco no fluxo). */}
+      <div style={{ ...PONTA_A_PONTA, paddingTop: 18 }}>
         <BannerSlider />
       </div>
 
       {groups.map((group, i) => (
         <Fragment key={group.slug}>
-          <div id={group.slug} style={{ ...PONTA_A_PONTA, padding: i === 0 ? "34px 56px 0" : "18px 56px 0", scrollMarginTop: OFFSET_SECAO }}>
+          <div id={group.slug} className="faixa-carrossel" style={{ ...PONTA_A_PONTA, padding: i === 0 ? "34px 56px 0" : "18px 56px 0", scrollMarginTop: OFFSET_SECAO }}>
             <CategoryCarousel title={group.title} products={group.items} cor={group.cor} corTitulo={group.corTitulo} intensidadeCor={10} encaixar />
           </div>
           {midBanners[i] && (
