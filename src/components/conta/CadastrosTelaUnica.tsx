@@ -591,6 +591,7 @@ export function CadastrosTelaUnica({
   const [cliId, setCliId] = useState<string | null>(clientes[0]?.id ?? null);
   const [cliBusca, setCliBusca] = useState("");
   const [cliPesquisaAberta, setCliPesquisaAberta] = useState(false);
+  const [cliPos, setCliPos] = useState<{ top: number; left: number; width: number } | null>(null);
   const [formCli, setFormCli] = useState<CliForm>(() => cliDeRegistro(clientes[0] ?? null));
   // "novos no mês" é calculado depois da hidratação: o relógio do servidor não
   // pode entrar no HTML inicial (senão o React reclama de mismatch de hydrate).
@@ -1342,6 +1343,15 @@ export function CadastrosTelaUnica({
     setFeedback(null);
   }
 
+  // anda pela lista em ordem alfabética (mesma ideia do navegarProduto)
+  function navegarCliente(passo: number) {
+    if (clientes.length === 0) return;
+    const ordem = [...clientes].sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+    const atual = ordem.findIndex((c) => c.id === cliId);
+    const i = Math.min(ordem.length - 1, Math.max(0, (atual < 0 ? 0 : atual) + passo));
+    selecionarCliente(ordem[i]);
+  }
+
   function pesquisarCliente() {
     setCliPesquisaAberta(true);
     const el = document.getElementById("ct-cli-busca") as HTMLInputElement | null;
@@ -1452,6 +1462,53 @@ export function CadastrosTelaUnica({
       <div className="ct-window">
         <div className="ct-header">
           <div className="ct-h-title"><span className="eyebrow">Nuvem de Papel · Cliente</span><h1>Cadastro de cliente</h1></div>
+          {/* barra de busca igual ao cadastro de produto (19/11/2026) */}
+          <span className="ct-busca">
+            <input
+              id="ct-cli-busca"
+              type="search"
+              aria-label="Localizar cliente"
+              placeholder="Buscar por nome, e-mail ou CPF/CNPJ"
+              autoComplete="off"
+              value={cliBusca}
+              onChange={(e) => {
+                setCliBusca(e.target.value);
+                setCliPesquisaAberta(true);
+                const r = e.currentTarget.getBoundingClientRect();
+                setCliPos({ top: r.bottom + 4, left: r.left, width: r.width });
+              }}
+              onFocus={(e) => {
+                const r = e.currentTarget.getBoundingClientRect();
+                setCliPos({ top: r.bottom + 4, left: r.left, width: r.width });
+                setCliPesquisaAberta(true);
+              }}
+              onBlur={() => window.setTimeout(() => setCliPesquisaAberta(false), 160)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && cliAchados[0]) {
+                  e.preventDefault();
+                  selecionarCliente(cliAchados[0]);
+                }
+                if (e.key === "Escape") { setCliBusca(""); setCliPesquisaAberta(false); }
+              }}
+            />
+            {cliPesquisaAberta && cliPos && (
+              <span className="ct-drop" style={{ top: cliPos.top, left: cliPos.left, width: Math.max(cliPos.width, 300) }}>
+                {cliAchados.length === 0 && <span className="ct-drop-vazio">Nenhum cliente encontrado.</span>}
+                {cliAchados.map((c) => (
+                  <button key={c.id} type="button" onMouseDown={(e) => { e.preventDefault(); selecionarCliente(c); }}>
+                    {c.nome}
+                    <span className="ct-drop-sub">{c.email}</span>
+                  </button>
+                ))}
+              </span>
+            )}
+          </span>
+          <span className="ct-nav-prod">
+            <button className="ct-act" title="Primeiro cliente" aria-label="Primeiro cliente" onClick={() => navegarCliente(-clientes.length)} disabled={clientes.length === 0}>{iconePrimeiro}</button>
+            <button className="ct-act" title="Cliente anterior" aria-label="Cliente anterior" onClick={() => navegarCliente(-1)} disabled={clientes.length === 0}>{iconeAnterior}</button>
+            <button className="ct-act" title="Próximo cliente" aria-label="Próximo cliente" onClick={() => navegarCliente(1)} disabled={clientes.length === 0}>{iconeProximo}</button>
+            <button className="ct-act" title="Último cliente" aria-label="Último cliente" onClick={() => navegarCliente(clientes.length)} disabled={clientes.length === 0}>{iconeUltimo}</button>
+          </span>
           <button className="ct-act primary" onClick={() => setModal("cliente")}>{iconePlus}Incluir</button>
           <button className="ct-act danger" aria-label="Apagar cliente" disabled={salvando || !cliId} onClick={apagarClienteUI}>{iconeLixeira}Apagar</button>
           <button className="ct-act" aria-label="Pesquisar cliente" onClick={pesquisarCliente}>{iconeLupa}Pesquisar</button>
@@ -1472,36 +1529,6 @@ export function CadastrosTelaUnica({
               <div className="inat"><span className="k">Com pedidos</span><b aria-label="Clientes com pedidos">{cliComPedido}</b></div>
               <div className="ativ"><span className="k">Ativos</span><b aria-label="Clientes ativos">{cliAtivos}</b></div>
               <div className="inat"><span className="k">Inativos</span><b aria-label="Clientes inativos">{clientes.length - cliAtivos}</b></div>
-            </div>
-
-            <div className="ct-grp">
-              <div className="ct-field ct-ac">
-                <label>Localizar cliente</label>
-                <input
-                  id="ct-cli-busca"
-                  aria-label="Localizar cliente"
-                  placeholder="nome, e-mail ou CPF/CNPJ"
-                  value={cliBusca}
-                  onChange={(e) => {
-                    setCliBusca(e.target.value);
-                    setCliPesquisaAberta(true);
-                  }}
-                  onFocus={() => setCliPesquisaAberta(true)}
-                  onBlur={() => window.setTimeout(() => setCliPesquisaAberta(false), 160)}
-                />
-                <ul className={`ct-ac-list${cliAchados.length ? " on" : ""}`}>
-                  {cliAchados.length === 0 ? (
-                    <li className="ct-ac-empty">Nenhum cliente encontrado.</li>
-                  ) : (
-                    cliAchados.map((c) => (
-                      <li key={c.id} onMouseDown={() => selecionarCliente(c)}>
-                        {c.nome}
-                        <span style={{ color: "var(--ink-soft)" }}> · {c.email}</span>
-                      </li>
-                    ))
-                  )}
-                </ul>
-              </div>
             </div>
 
             <div className="ct-grp">

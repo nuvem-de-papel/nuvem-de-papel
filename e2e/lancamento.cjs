@@ -151,9 +151,16 @@ async function main() {
     const tabelaSetores = page.locator('table[aria-label="Setores"]');
     await tabelaSetores.waitFor({ timeout: 15000 });
     const textoInicial = await textoTela(page);
+    // 19/11/2026: grupos nascem fechados; abre todos para conferir os setores.
+    const botoesGrupo = page.locator('button[aria-label^="Abrir grupo "]');
+    const fechadoOk = (await page.getByRole("button", { name: `Abrir setor ${SETOR}` }).count()) === 0 && (await botoesGrupo.count()) > 0;
+    for (let i = 0; i < (await botoesGrupo.count()); i++) {
+      const b = botoesGrupo.nth(i);
+      if ((await b.getAttribute("aria-expanded")) !== "true") await b.click();
+    }
     check(
-      "A1 abre só com a lista de setores (sem produtos)",
-      (await page.getByRole("button", { name: `Abrir setor ${SETOR}` }).count()) === 1 && !textoInicial.includes(SKU.toLowerCase())
+      "A1 abre só com os grupos fechados (sem produtos) e o grupo expande os setores",
+      fechadoOk && (await page.getByRole("button", { name: `Abrir setor ${SETOR}` }).count()) === 1 && !textoInicial.includes(SKU.toLowerCase())
     );
     // 0057: a lista vem agrupada (um tbody por grupo); a ordem alfabetica vale dentro de cada grupo,
     // e o setor sem mapeamento (fixture E2E) cai no bloco "Sem grupo".
@@ -162,7 +169,7 @@ async function main() {
     let ordemOk = totalBlocos > 0;
     let totalSetores = 0;
     for (let i = 0; i < totalBlocos; i++) {
-      const limpos = (await blocosSetores.nth(i).locator("button").allTextContents()).map((s) => s.replace("▸", "").trim());
+      const limpos = (await blocosSetores.nth(i).locator('button[aria-label^="Abrir setor "]').allTextContents()).map((s) => s.replace("▸", "").trim());
       totalSetores += limpos.length;
       const ordenados = [...limpos].sort((a, b) => a.localeCompare(b, "pt-BR"));
       if (limpos.join("|") !== ordenados.join("|")) ordemOk = false;
@@ -173,17 +180,15 @@ async function main() {
       (await tabelaSetores.locator("tbody[aria-label='Grupo Sem grupo']").getByRole("button", { name: `Abrir setor ${SETOR}` }).count()) === 1
     );
 
-    // botoes na mesma linha do Voltar
-    const voltar = page.locator(".page-header-back");
-    const novoProd = page.locator(".page-header").getByRole("link", { name: "Novo produto" });
+    // 19/11/2026: Voltar saiu do cabecalho e foi para a barra de filtros, antes da busca
+    const voltar = page.locator(".botao-vidro-voltar");
+    const busca = page.locator('input[aria-label="Buscar por SKU ou nome"]');
     const grupoVis = page.locator('.page-header [aria-label="Visualização"]');
     const bV = await voltar.boundingBox();
-    const bN = await novoProd.boundingBox();
-    const centro = (b) => (b ? b.y + b.height / 2 : -999);
+    const bB = await busca.boundingBox();
     check(
-      "A3 Tabela/Grade e Novo produto na linha do Voltar, antes dele",
-      (await grupoVis.count()) === 1 && !!bV && !!bN && Math.abs(centro(bV) - centro(bN)) <= 12 && bN.x < bV.x,
-      `centros ${centro(bN).toFixed(0)} x ${centro(bV).toFixed(0)}`
+      "A3 Voltar na barra de filtros, antes da busca; cabeçalho sem Voltar rosa",
+      (await grupoVis.count()) === 1 && (await page.locator(".page-header-back").count()) === 0 && !!bV && !!bB && bV.x < bB.x
     );
 
     await page.getByRole("button", { name: `Abrir setor ${SETOR}` }).click();
