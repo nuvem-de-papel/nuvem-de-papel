@@ -162,17 +162,14 @@ export function Footer() {
         }}
       >
         <div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-            <svg width="22" height="22" viewBox="0 0 40 40" fill="none">
-              <path
-                d="M10 27c-4.4 0-8-3.6-8-8 0-4.1 3.1-7.5 7.1-7.9C10.4 7 14.6 4 19.5 4c5.6 0 10.3 3.9 11.4 9.1 4.3.6 7.6 4.3 7.6 8.7 0 4.9-3.9 8.8-8.8 8.8H10z"
-                fill="#FECD01"
-              />
-            </svg>
+          {/* 19/11/2026: logo oficial, clicavel para a Home */}
+          <a href="/" aria-label="Nuvem de Papel - início" style={{ display: "inline-flex", alignItems: "center", gap: 10, marginBottom: 12, textDecoration: "none" }}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/logo/nuvem-de-papel.png" alt="" style={{ height: 48, width: "auto" }} />
             <span className="display" style={{ fontSize: 18, color: "#FFFFFF" }}>
               Nuvem de Papel
             </span>
-          </div>
+          </a>
           <p style={{ margin: 0, fontStyle: "italic", color: "#FC99D3", fontSize: 14 }}>
             Organização e Criatividade que transforma a rotina
           </p>

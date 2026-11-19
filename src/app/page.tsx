@@ -1,5 +1,6 @@
 import { Hero } from "@/components/Hero";
 import { CategoryShowcase } from "@/components/CategoryShowcase";
+import { CamadasFundo } from "@/components/FundoRotativo";
 import { CategoryCarousel } from "@/components/produtos/CategoryCarousel";
 import { getStoreProducts, type VarejoProduct } from "@/lib/products";
 import { agruparPorGrupo, gruposDoMenu } from "@/lib/categoriasProdutos";
@@ -31,6 +32,8 @@ export default async function HomePage() {
     <main style={{ overflowX: "clip" }}>
       <Hero vitrine={ordemLoop(setores)} />
 
+      <div className="fundo-rotativo">
+      <CamadasFundo />
       {lancamentos.length > 0 && (
         <section id="lancamentos" className="faixa-carrossel" aria-label="Lançamentos" style={{ scrollMarginTop: 140, width: "100vw", marginLeft: "calc(50% - 50vw)", padding: "34px 56px 18px", boxSizing: "border-box" }}>
           <CategoryCarousel title="Lançamentos" products={lancamentos} intensidadeCor={10} encaixar />
@@ -38,7 +41,7 @@ export default async function HomePage() {
       )}
       <CategoryShowcase grupos={gruposDoMenu(setores)} />
 
-      <section className="fundo-animado fundo-home-setores">
+      <section>
         <div className="faixa-carrossel" style={{ width: "100vw", marginLeft: "calc(50% - 50vw)", padding: "34px 56px 0", boxSizing: "border-box" }}>
           {setores.map((setor) => (
             <div key={setor.slug} style={{ marginBottom: 18 }}>
@@ -59,6 +62,7 @@ export default async function HomePage() {
           <CategoryCarousel title="Ofertas" products={ofertas} intensidadeCor={10} encaixar />
         </div>
       )}
+      </div>
     </main>
   );
 }
