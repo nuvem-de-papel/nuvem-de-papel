@@ -32,14 +32,14 @@ export default async function HomePage() {
       <Hero vitrine={ordemLoop(setores)} />
 
       {lancamentos.length > 0 && (
-        <section id="lancamentos" aria-label="Lançamentos" style={{ scrollMarginTop: 140, width: "100vw", marginLeft: "calc(50% - 50vw)", padding: "34px 56px 18px", boxSizing: "border-box" }}>
+        <section id="lancamentos" className="faixa-carrossel" aria-label="Lançamentos" style={{ scrollMarginTop: 140, width: "100vw", marginLeft: "calc(50% - 50vw)", padding: "34px 56px 18px", boxSizing: "border-box" }}>
           <CategoryCarousel title="Lançamentos" products={lancamentos} intensidadeCor={10} encaixar />
         </section>
       )}
       <CategoryShowcase grupos={gruposDoMenu(setores)} />
 
       <section className="fundo-animado fundo-home-setores">
-        <div style={{ width: "100vw", marginLeft: "calc(50% - 50vw)", padding: "34px 56px 0", boxSizing: "border-box" }}>
+        <div className="faixa-carrossel" style={{ width: "100vw", marginLeft: "calc(50% - 50vw)", padding: "34px 56px 0", boxSizing: "border-box" }}>
           {setores.map((setor) => (
             <div key={setor.slug} style={{ marginBottom: 18 }}>
               <CategoryCarousel title={setor.title} products={setor.items} cor={setor.cor} corTitulo={setor.corTitulo} intensidadeCor={10} encaixar />
@@ -49,13 +49,13 @@ export default async function HomePage() {
       </section>
 
       {destaque.length > 0 && (
-        <div style={{ width: "100vw", marginLeft: "calc(50% - 50vw)", padding: "18px 56px 0", boxSizing: "border-box" }}>
+        <div className="faixa-carrossel" style={{ width: "100vw", marginLeft: "calc(50% - 50vw)", padding: "18px 56px 0", boxSizing: "border-box" }}>
           <CategoryCarousel title="Destaques" products={destaque} intensidadeCor={10} encaixar />
         </div>
       )}
 
       {ofertas.length > 0 && (
-        <div style={{ width: "100vw", marginLeft: "calc(50% - 50vw)", padding: "18px 56px 72px", boxSizing: "border-box" }}>
+        <div className="faixa-carrossel" style={{ width: "100vw", marginLeft: "calc(50% - 50vw)", padding: "18px 56px 72px", boxSizing: "border-box" }}>
           <CategoryCarousel title="Ofertas" products={ofertas} intensidadeCor={10} encaixar />
         </div>
       )}
