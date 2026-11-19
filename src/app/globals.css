@@ -360,6 +360,19 @@ body:has(.admin-shell) .floating-social {
   display: none !important;
 }
 
+/* 18/11/2026 (pedido do Joaquim): o painel e area operacional - a barra do
+   topo do site (logo, busca, carrinho, links da loja) nao aparece em nenhuma
+   tela com o menu lateral. A marca do painel fica no topo do proprio menu. */
+body:has(.admin-shell) .site-header {
+  display: none;
+}
+
+.admin-brand-logo {
+  width: 40px;
+  height: auto;
+  flex-shrink: 0;
+}
+
 .admin-shell {
   display: flex;
   align-items: stretch;
