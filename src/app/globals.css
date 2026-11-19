@@ -1568,7 +1568,40 @@ body:has(.admin-shell) .site-header {
   backdrop-filter: blur(16px) saturate(160%);
   -webkit-backdrop-filter: blur(16px) saturate(160%);
   border: 1px solid rgba(255, 255, 255, 0.45);
+  /* etiquetas iguais (tamanho da maior), texto preto sem negrito (19/11/2026) */
+  width: 150px;
+  min-height: calc(2 * 1.25em + 8px);
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font-weight: 400;
+  color: #000;
 }
+.category-showcase-photo,
+.fundo-rotativo .category-showcase-photo {
+  border: 1px solid #000 !important;
+}
+/* Voltar do catalogo admin: formato dos botoes Tabela/Grade, vidro da barra do topo */
+.botao-vidro-voltar {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-end;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  color: #000;
+  cursor: pointer;
+  background: linear-gradient(90deg, rgba(244, 199, 216, 0.74), rgba(217, 200, 242, 0.74));
+  backdrop-filter: blur(16px) saturate(160%);
+  -webkit-backdrop-filter: blur(16px) saturate(160%);
+  border: 1px solid rgba(0, 0, 0, 0.15);
+}
+.botao-vidro-voltar:hover { filter: brightness(0.96); }
 .fundo-rotativo .tech-label {
   background: rgba(255, 255, 255, 0.88);
   padding: 4px 12px;
@@ -1580,7 +1613,7 @@ body:has(.admin-shell) .site-header {
   .category-showcase-grid { gap: 14px 8px; }
   .category-showcase-item { width: calc((100% - 16px) / 3); }
   .category-showcase-photo { width: 84px; height: 84px; margin-bottom: 6px; }
-  .category-showcase-item h3 { font-size: 14px; overflow-wrap: normal; word-break: normal; hyphens: auto; }
+  .category-showcase-item h3 { width: 120px; font-size: 14px; overflow-wrap: normal; word-break: normal; hyphens: auto; }
   .carrossel-caixa { padding: 16px 12px 10px !important; }
   .carrossel-topo { flex-wrap: wrap; gap: 8px !important; }
   .carrossel-topo > span:nth-of-type(2) { display: none; }
