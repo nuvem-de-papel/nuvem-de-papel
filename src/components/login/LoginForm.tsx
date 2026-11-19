@@ -110,46 +110,17 @@ export function LoginForm() {
         padding: "40px 24px",
       }}
     >
-      <div
-        style={{
-          width: "100%",
-          maxWidth: 420,
-          background: "var(--bg-cloud)",
-          border: "1px solid var(--border)",
-          borderRadius: 16,
-          boxShadow: "var(--shadow-soft)",
-          overflow: "hidden",
-        }}
-      >
-        <div
-          style={{
-            background: "linear-gradient(180deg, #006BE1 0%, #006BE1 100%)",
-            padding: "28px 32px",
-            display: "flex",
-            alignItems: "center",
-            gap: 12,
-          }}
-        >
-          <svg width="34" height="34" viewBox="0 0 40 40" fill="none" aria-hidden="true">
-            <path
-              d="M10 27c-4.4 0-8-3.6-8-8 0-4.1 3.1-7.5 7.1-7.9C10.4 7 14.6 4 19.5 4c5.6 0 10.3 3.9 11.4 9.1 4.3.6 7.6 4.3 7.6 8.7 0 4.9-3.9 8.8-8.8 8.8H10z"
-              fill="#FECD01"
-            />
-          </svg>
-          <div>
-            <div className="display" style={{ color: "#FFFFFF", fontSize: 18 }}>
-              Nuvem de Papel
-            </div>
-            <div style={{ color: "rgba(255,255,255,0.65)", fontSize: 12 }}>
-              Clientes e equipe
-            </div>
-          </div>
-        </div>
+      <div className="login-vidro">
+        <a href="/" aria-label="Nuvem de Papel - início" className="login-vidro-topo">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo/nuvem-de-papel.png" alt="Nuvem de Papel" style={{ height: 64, width: "auto" }} />
+          <div style={{ color: "#000", fontSize: 13, fontWeight: 600 }}>Clientes e equipe</div>
+        </a>
 
         <form onSubmit={handleSubmit} style={{ padding: "28px 32px 32px" }}>
           <label
             htmlFor="email"
-            style={{ display: "block", fontSize: 13, fontWeight: 700, color: "var(--navy)", marginBottom: 6 }}
+            style={{ display: "block", fontSize: 13, fontWeight: 700, color: "#000", marginBottom: 6 }}
           >
             E-mail
           </label>
@@ -163,7 +134,7 @@ export function LoginForm() {
             style={{
               width: "100%",
               padding: "12px 14px",
-              border: "1.5px solid var(--border)",
+              border: "1.5px solid rgba(0,0,0,0.18)", background: "rgba(255,255,255,0.75)",
               borderRadius: 10,
               fontSize: 15,
               fontFamily: "'Open Sans', sans-serif",
@@ -174,7 +145,7 @@ export function LoginForm() {
 
           <label
             htmlFor="senha"
-            style={{ display: "block", fontSize: 13, fontWeight: 700, color: "var(--navy)", marginBottom: 6 }}
+            style={{ display: "block", fontSize: 13, fontWeight: 700, color: "#000", marginBottom: 6 }}
           >
             Senha
           </label>
@@ -189,7 +160,7 @@ export function LoginForm() {
               style={{
                 width: "100%",
                 padding: "12px 64px 12px 14px",
-                border: "1.5px solid var(--border)",
+                border: "1.5px solid rgba(0,0,0,0.18)", background: "rgba(255,255,255,0.75)",
                 borderRadius: 10,
                 fontSize: 15,
                 fontFamily: "'Open Sans', sans-serif",
@@ -210,7 +181,7 @@ export function LoginForm() {
                 border: "none",
                 padding: "6px 8px",
                 cursor: "pointer",
-                color: "var(--navy)",
+                color: "#000",
                 fontSize: 13,
                 fontWeight: 700,
               }}
@@ -238,12 +209,11 @@ export function LoginForm() {
           <button
             type="submit"
             disabled={carregando}
+            className="login-vidro-botao"
             style={{
               width: "100%",
-              background: "var(--pink-600)",
-              color: "#FFFFFF",
+              color: "#000",
               padding: "14px",
-              border: "none",
               borderRadius: 999,
               fontWeight: 700,
               fontSize: 15,
@@ -254,7 +224,7 @@ export function LoginForm() {
             {carregando ? "Entrando…" : "Entrar"}
           </button>
 
-          <p style={{ fontSize: 12, color: "var(--ink-soft)", textAlign: "center", margin: "18px 0 0" }}>
+          <p style={{ fontSize: 12, color: "#000", textAlign: "center", margin: "18px 0 0" }}>
             Ainda não tem conta? Ela é criada ao finalizar sua primeira compra.
           </p>
         </form>

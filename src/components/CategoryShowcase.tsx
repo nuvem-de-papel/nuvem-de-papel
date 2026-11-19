@@ -28,7 +28,6 @@ export function CategoryShowcase({ grupos }: { grupos: GrupoSetor[] }) {
               <IconeGrupo icone={g.icone} tamanho={56} />
             </div>
             <h3>{g.title}</h3>
-            <p>{g.descricao}</p>
           </a>
         ))}
       </div>
