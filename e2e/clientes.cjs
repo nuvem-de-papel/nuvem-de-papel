@@ -302,7 +302,7 @@ async function main() {
       await presente(page, 'input[aria-label="Nome do cliente"]', true, 30000)
     );
     await page.fill('input[aria-label="Localizar cliente"]', EMAIL_TESTE);
-    const achou = page.locator("ul.ct-ac-list li").filter({ hasText: EMAIL_TESTE });
+    const achou = page.locator(".ct-drop button").filter({ hasText: EMAIL_TESTE });
     const temLi = await achou
       .first()
       .waitFor({ state: "attached", timeout: 15000 })

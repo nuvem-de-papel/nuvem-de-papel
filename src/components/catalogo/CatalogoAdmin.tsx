@@ -218,6 +218,16 @@ export function CatalogoAdmin({ itens, grupos = [] }: { itens: ItemCatalogoAdmin
   const [situacao, setSituacao] = useState<Situacao>("todas");
   const [grade, setGrade] = useState<Grade>("todos");
   const [abertas, setAbertas] = useState<Set<string>>(() => new Set());
+  // Grupos nascem fechados: a tela abre só com os grupos em evidência (19/11/2026).
+  const [gruposAbertos, setGruposAbertos] = useState<Set<string>>(() => new Set());
+  function alternarGrupo(nome: string) {
+    setGruposAbertos((s) => {
+      const n = new Set(s);
+      if (n.has(nome)) n.delete(nome);
+      else n.add(nome);
+      return n;
+    });
+  }
   const [imagem, setImagem] = useState<ItemCatalogoAdmin | null>(null);
   const dialogo = useRef<HTMLDialogElement>(null);
 
@@ -318,7 +328,7 @@ export function CatalogoAdmin({ itens, grupos = [] }: { itens: ItemCatalogoAdmin
       <PageHeader
         titulo="Catálogo"
         subtitulo={`${qtd(ativos)} ativos · ${qtd(itens.length)} cadastrados`}
-        voltarPara="/crm"
+        semVoltar
         meio={
           <div style={{ marginLeft: "auto", alignSelf: "center", display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
             <div role="group" aria-label="Visualização" style={{ display: "inline-flex", border: "1px solid #8C8C8C", borderRadius: 4, overflow: "hidden" }}>
@@ -364,6 +374,16 @@ export function CatalogoAdmin({ itens, grupos = [] }: { itens: ItemCatalogoAdmin
           alignItems: "flex-end",
         }}
       >
+        <button
+          type="button"
+          className="botao-vidro-voltar"
+          onClick={() => {
+            if (setor !== "todos") window.history.back();
+            else window.location.href = "/crm";
+          }}
+        >
+          ← Voltar
+        </button>
         <label style={{ ...rotulo, flex: "1 1 260px" }}>
           Buscar (SKU ou nome)
           <input
@@ -435,16 +455,24 @@ export function CatalogoAdmin({ itens, grupos = [] }: { itens: ItemCatalogoAdmin
             ) : null}
             {blocos.map((b) => (
               <tbody key={b.nome} aria-label={`Grupo ${b.nome}`}>
-                <tr style={{ background: "#F3F3F3" }}>
+                <tr style={{ background: "#F3F3F3", cursor: "pointer" }} onClick={() => alternarGrupo(b.nome)}>
                   <th scope="rowgroup" style={{ ...cabeca, textTransform: "none" }}>
-                    <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                    <button
+                      type="button"
+                      aria-expanded={gruposAbertos.has(b.nome)}
+                      aria-label={`Abrir grupo ${b.nome}`}
+                      style={{ border: 0, background: "none", padding: 0, font: "inherit", color: "inherit", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 8 }}
+                    >
+                      <span aria-hidden="true" style={{ display: "inline-block", width: 12, color: "#6B6B6B" }}>
+                        {gruposAbertos.has(b.nome) ? "▾" : "▸"}
+                      </span>
                       <IconeGrupo icone={b.icone} />
                       {b.nome}
-                    </span>
+                    </button>
                   </th>
                   <th style={{ ...cabecaNum, textTransform: "none" }}>{qtd(somaBloco(b.setores))}</th>
                 </tr>
-                {b.setores.map((s) => (
+                {(gruposAbertos.has(b.nome) ? b.setores : []).map((s) => (
                   <tr key={s} onClick={() => mudarSetor(s, true)} style={{ cursor: "pointer" }}>
                     <td style={{ ...celula, fontWeight: 700, paddingLeft: 34 }}>
                       <button

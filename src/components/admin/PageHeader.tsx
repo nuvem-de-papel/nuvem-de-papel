@@ -10,7 +10,10 @@ export function PageHeader({
   subtitulo,
   voltarPara = "/crm",
   meio,
+  semVoltar = false,
 }: {
+  // opcional: a tela desenha o proprio Voltar (ex.: catalogo admin, 19/11/2026)
+  semVoltar?: boolean;
   titulo: string;
   // opcional: sem subtítulo o h1 fica só com o título (sem " - " sobrando)
   subtitulo?: React.ReactNode;
@@ -30,7 +33,7 @@ export function PageHeader({
         {subtitulo ? <span className="page-header-sub"> - {subtitulo}</span> : null}
       </h1>
       {meio}
-      <button type="button" className="page-header-back" onClick={voltar}>
+      {!semVoltar && <button type="button" className="page-header-back" onClick={voltar}>
         <svg
           width={15}
           height={15}
@@ -46,7 +49,7 @@ export function PageHeader({
           <polyline points="12 19 5 12 12 5" />
         </svg>
         Voltar
-      </button>
+      </button>}
     </div>
   );
 }
