@@ -2102,3 +2102,52 @@ body:has(.admin-shell) .logo-home {
     display: none;
   }
 }
+
+/* ===== Produto, checkout e area do cliente (19/11/2026) ===== */
+.selos-linha { list-style: none; margin: 16px 0 0; padding: 12px 0 0; border-top: 1px solid var(--border); display: flex; flex-wrap: wrap; gap: 10px 20px; }
+.selos-linha li { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: var(--ink); }
+.selos-linha svg { color: var(--pink-600); flex-shrink: 0; }
+.selos-faixa { list-style: none; margin: 0 0 22px; padding: 14px 18px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; background: #FFFFFF; border: 1px solid var(--border); border-radius: 16px; }
+.selos-faixa li { display: grid; grid-template-columns: auto 1fr; column-gap: 10px; align-items: center; font-size: 13px; line-height: 1.25; color: var(--ink); }
+.selos-faixa svg { grid-row: span 2; color: var(--pink-600); }
+.selos-faixa span { color: var(--ink-soft); font-size: 12px; }
+
+.conta-shell { max-width: 1180px; margin: 0 auto; padding: 36px 32px 72px; }
+.conta-topo { margin-bottom: 24px; }
+.conta-ola { margin: 0; font-size: 15px; color: var(--ink-soft); }
+.conta-titulo { margin: 2px 0 10px; font-size: 30px; font-weight: 700; color: var(--ink); }
+.conta-etiquetas { display: flex; flex-wrap: wrap; gap: 8px; }
+.conta-etiquetas span { font-size: 12px; font-weight: 700; padding: 4px 12px; border-radius: 999px; background: #FFFFFF; border: 1px solid var(--border); color: var(--ink); }
+.conta-etiquetas .conta-etiqueta-clube { background: var(--pink-100); border-color: var(--cta); }
+.conta-grade { display: grid; grid-template-columns: 240px 1fr; gap: 24px; align-items: start; }
+.conta-menu { background: #FFFFFF; border: 1px solid var(--border); border-radius: 16px; padding: 10px; position: sticky; top: 88px; }
+.conta-menu ul { list-style: none; margin: 0; padding: 0; }
+.conta-menu a { display: block; padding: 10px 14px; border-radius: 10px; font-size: 14px; font-weight: 600; color: var(--ink); text-decoration: none; }
+.conta-menu a:hover { background: var(--bg-cotton); }
+.conta-menu a[aria-current="page"] { background: var(--pink-100); color: var(--ink); box-shadow: inset 3px 0 0 var(--cta); }
+.conta-menu-sair { border-top: 1px solid var(--border); margin-top: 8px; padding: 12px 14px 4px; }
+.conta-conteudo { min-width: 0; }
+.conta-pagina { padding: 0; }
+.conta-secao { background: #FFFFFF; border: 1px solid var(--border); border-radius: 16px; padding: 24px; }
+.conta-secao h2 { font-size: 20px; margin: 0 0 16px; }
+.conta-vazio { color: var(--ink-soft); font-size: 14px; margin: 12px 0 0; }
+.conta-dados { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px 24px; margin: 0; }
+.conta-dados dt { font-size: 12px; font-weight: 700; text-transform: uppercase; color: var(--ink-soft); }
+.conta-dados dd { margin: 2px 0 0; font-size: 15px; }
+.conta-lista { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.conta-lista li { display: grid; gap: 2px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 12px; font-size: 14px; }
+
+@media (max-width: 900px) {
+  .produto-grade, .checkout-grade { grid-template-columns: 1fr !important; gap: 24px !important; }
+  .checkout-col2 { position: static !important; }
+  .selos-faixa { grid-template-columns: repeat(2, 1fr); }
+  .conta-grade { grid-template-columns: 1fr; }
+  .conta-menu { position: static; }
+  .conta-menu ul { display: flex; overflow-x: auto; gap: 4px; }
+  .conta-menu a { white-space: nowrap; }
+}
+@media (max-width: 560px) {
+  .conta-shell { padding: 20px 16px 56px; }
+  .conta-dados { grid-template-columns: 1fr; }
+  .selos-faixa { padding: 12px; }
+}

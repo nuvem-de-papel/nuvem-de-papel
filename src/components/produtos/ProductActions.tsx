@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import type { VarejoProduct } from "@/lib/products";
 import { useCart } from "@/components/carrinho/CartProvider";
+import { SelosConfianca } from "@/components/loja/SelosConfianca";
 
 function formatPrice(value: number) {
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
@@ -91,7 +92,10 @@ export function ProductActions({
                 return;
               }
               addCarrinho({ id: produto.id, sku: produto.sku, name: produto.name, price: produto.price }, qtd);
-              marcarFeito(setFeitoCarrinho);
+              // o carrinho grava no localStorage num efeito: espera o render antes de sair
+              window.setTimeout(() => {
+                window.location.href = "/checkout";
+              }, 150);
             }}
             style={{
               flex: 1,
@@ -105,10 +109,34 @@ export function ProductActions({
               cursor: "pointer",
             }}
           >
-            {semEstoque ? "Fazer orçamento" : feitoCarrinho ? "Adicionado" : "Adicionar ao carrinho"}
+            {semEstoque ? "Fazer orçamento" : "Comprar"}
           </button>
         </div>
+        {!semEstoque && (
+          <button
+            type="button"
+            onClick={() => {
+              addCarrinho({ id: produto.id, sku: produto.sku, name: produto.name, price: produto.price }, qtd);
+              marcarFeito(setFeitoCarrinho);
+            }}
+            style={{
+              width: "100%",
+              marginTop: 10,
+              height: 42,
+              borderRadius: 999,
+              border: "1.5px solid var(--ink-faint)",
+              background: "#FFFFFF",
+              color: "var(--ink)",
+              fontWeight: 700,
+              fontSize: 14,
+              cursor: "pointer",
+            }}
+          >
+            {feitoCarrinho ? "Adicionado" : "Adicionar ao carrinho"}
+          </button>
+        )}
         <p style={{ margin: "10px 0 0", fontSize: 13, color: "var(--ink-soft)" }}>{formatPrice(produto.price)} por unidade</p>
+        <SelosConfianca variante="linha" />
         {aviso && (
           <p role="status" style={{ fontSize: 12, fontWeight: 700, color: "var(--pink-600)", margin: "8px 0 0", lineHeight: 1.35 }}>
             {aviso}

@@ -73,15 +73,7 @@ export default async function MinhaAssinaturaPage({
   const podeCancelar = assinatura && ["ativa", "pendente"].includes(assinatura.status);
 
   return (
-    <main
-      style={{
-        maxWidth: 760,
-        margin: "0 auto",
-        padding: "40px 24px 72px",
-        background: "var(--bg-cotton)",
-        minHeight: "calc(100vh - 64px)",
-      }}
-    >
+    <main className="conta-pagina">
       <div
         style={{
           display: "flex",

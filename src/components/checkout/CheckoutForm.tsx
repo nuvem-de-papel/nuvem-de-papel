@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useCart } from "@/components/carrinho/CartProvider";
+import { SelosConfianca } from "@/components/loja/SelosConfianca";
 import { cotarFrete, finalizarCheckout, type EnderecoInput, type OpcaoFrete } from "@/app/checkout/actions";
 
 type EnderecoSalvo = {
@@ -226,13 +227,14 @@ export function CheckoutForm({
   return (
     <main style={{ maxWidth: 1080, margin: "0 auto", padding: "48px 32px 72px" }}>
       <h1 className="display" style={{ fontSize: 32, marginBottom: 28 }}>
-        Checkout
+        Finalizar compra
       </h1>
+      <SelosConfianca variante="faixa" />
 
-      <form onSubmit={confirmar} style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 24, alignItems: "start" }}>
+      <form onSubmit={confirmar} className="checkout-grade" style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 24, alignItems: "start" }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
           <section style={CARD}>
-            <h2 style={{ fontSize: 18, marginBottom: 16 }}>Endereço de entrega</h2>
+            <h2 style={{ fontSize: 18, marginBottom: 16 }}>1 - Dados cadastrais e entrega</h2>
 
             {enderecos.length > 0 && (
               <div style={{ marginBottom: 18, display: "flex", flexDirection: "column", gap: 8 }}>
@@ -411,8 +413,11 @@ export function CheckoutForm({
             )}
           </section>
 
-          <section style={CARD}>
-            <h2 style={{ fontSize: 18, marginBottom: 16 }}>Pagamento</h2>
+        </div>
+
+        <aside className="checkout-col2" style={{ ...CARD, position: "sticky", top: 88 }}>
+          <section style={{ marginBottom: 18 }}>
+            <h2 style={{ fontSize: 18, marginBottom: 16 }}>2 - Pagamento</h2>
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               {[
                 { id: "pix", label: "Pix", desc: "Aprovação imediata" },
@@ -446,9 +451,6 @@ export function CheckoutForm({
               ))}
             </div>
           </section>
-        </div>
-
-        <aside style={{ ...CARD, position: "sticky", top: 88 }}>
           <h2 style={{ fontSize: 18, marginBottom: 14 }}>Resumo</h2>
           <p style={{ fontSize: 12.5, color: "var(--ink-soft)", margin: "-6px 0 12px" }}>
             Comprador: <strong>{email}</strong>

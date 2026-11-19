@@ -2,6 +2,12 @@
 
 import { useState, useTransition } from "react";
 import { cadastrarBasicoParaCompra, entrarParaCompra } from "@/app/checkout/cadastro-actions";
+import { useCart } from "@/components/carrinho/CartProvider";
+import { SelosConfianca } from "@/components/loja/SelosConfianca";
+
+function brl(v: number) {
+  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
+}
 
 /**
  * Form de cadastro básico para compra (visitante vira cliente).
@@ -9,6 +15,7 @@ import { cadastrarBasicoParaCompra, entrarParaCompra } from "@/app/checkout/cada
  * porque o /login é da equipe e recusa cliente sem profile.
  */
 export function CadastroBasicoForm() {
+  const { itens, totalValor } = useCart();
   const [modo, setModo] = useState<"criar" | "entrar">("criar");
   const [nome, setNome] = useState("");
   const [email, setEmail] = useState("");
@@ -69,14 +76,12 @@ export function CadastroBasicoForm() {
   };
 
   return (
-    <main
-      className="fundo-animado"
-      style={{
-        maxWidth: 520,
-        margin: "0 auto",
-        padding: "48px 32px 72px",
-      }}
-    >
+    <main style={{ maxWidth: 1080, margin: "0 auto", padding: "48px 32px 72px" }}>
+      <h1 className="display" style={{ fontSize: 30, marginBottom: 18 }}>
+        Finalize sua compra
+      </h1>
+      <SelosConfianca variante="faixa" />
+      <div className="checkout-grade" style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 24, alignItems: "start" }}>
       <div
         style={{
           background: "#FFF",
@@ -85,9 +90,7 @@ export function CadastroBasicoForm() {
           boxShadow: "0 2px 12px rgba(0,0,0,0.08)",
         }}
       >
-        <h1 className="display" style={{ fontSize: 26, marginBottom: 8 }}>
-          Finalize sua compra
-        </h1>
+        <h2 style={{ fontSize: 18, marginBottom: 8 }}>1 - Dados cadastrais</h2>
         <p style={{ color: "var(--ink-soft)", marginBottom: 28, fontSize: 15 }}>
           {entrando
             ? "Entre com o e-mail e a senha do seu cadastro para continuar."
@@ -243,6 +246,29 @@ export function CadastroBasicoForm() {
             </button>
           </div>
         </form>
+      </div>
+      <aside
+        className="checkout-col2"
+        style={{ background: "#FFF", borderRadius: 18, padding: "28px 24px", boxShadow: "0 2px 12px rgba(0,0,0,0.08)", position: "sticky", top: 88 }}
+      >
+        <h2 style={{ fontSize: 18, marginBottom: 8 }}>2 - Pagamento</h2>
+        <p style={{ fontSize: 13.5, color: "var(--ink-soft)", marginBottom: 14 }}>
+          Assim que você se identificar, a entrega e o pagamento (Pix, cartão ou boleto) abrem nesta mesma tela.
+        </p>
+        {itens.map((i) => (
+          <div key={i.id} style={{ display: "flex", justifyContent: "space-between", gap: 12, fontSize: 14, padding: "7px 0", borderBottom: "1px solid var(--border)" }}>
+            <span>
+              {i.qty}× {i.name}
+            </span>
+            <span style={{ fontWeight: 600, whiteSpace: "nowrap" }}>{brl(i.price * i.qty)}</span>
+          </div>
+        ))}
+        <div style={{ display: "flex", justifyContent: "space-between", marginTop: 14, alignItems: "baseline" }}>
+          <span style={{ fontWeight: 700 }}>Subtotal</span>
+          <span className="display" style={{ fontSize: 22 }}>{brl(totalValor)}</span>
+        </div>
+        <p style={{ fontSize: 12, color: "var(--ink-soft)", marginTop: 6 }}>Frete calculado pelo CEP na próxima etapa.</p>
+      </aside>
       </div>
     </main>
   );
