@@ -46,9 +46,10 @@ export function CategoryCarousel({
     if (!track) return;
     const medir = () => {
       const W = track.clientWidth - 4; // padding lateral do track (2px de cada lado)
-      // 19/11/2026 (pedido do Joaquim): no maximo 6 cards inteiros por tela;
+      // 19/11/2026 (pedido do Joaquim): no maximo 5 cards inteiros por tela (a faixa
+      // do 6o virou margem lateral com fundo - .faixa-carrossel);
       // abaixo disso, quantos couberem com a largura base.
-      const n = Math.min(6, Math.max(1, Math.floor((W + GAP) / (BASE * 0.7 + GAP))));
+      const n = Math.min(5, Math.max(1, Math.floor((W + GAP) / (BASE * 0.7 + GAP))));
       const w = (W - (n - 1) * GAP) / n;
       setEncaixe({ n, w });
     };
@@ -173,7 +174,7 @@ export function CategoryCarousel({
 
           <div ref={trackRef} className="carousel-track">
             {lista.map((p) => (
-              <div key={p.id} className="carousel-item" style={encaixar && encaixe ? { flex: `0 0 ${encaixe.w}px` } : undefined}>
+              <div key={p.id} className="carousel-item" style={encaixar && encaixe ? { flex: `0 0 ${encaixe.w}px`, minWidth: 0, maxWidth: encaixe.w } : undefined}>
                 <ProductCard produto={p} />
               </div>
             ))}

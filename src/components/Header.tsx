@@ -168,6 +168,9 @@ export function Header() {
             </ul>
           )}
         </div>
+        <a href="/produtos" className="header-atalho">
+          Produtos
+        </a>
         {naBarra.map((g) => (
           <a key={g.slug} href={`/produtos#${g.slug}`} className="header-atalho">
             <IconeGrupo icone={g.icone} tamanho={18} />
