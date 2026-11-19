@@ -356,6 +356,13 @@ Next.js (App Router) + TypeScript + Supabase/PostgreSQL + Vercel + Mercado Pago 
 4. **Rótulo da conta**: `Entrar` (deslogado) · `Minha conta` (cliente da loja → `/conta/pedidos`) · `Painel` (equipe, destino por papel). No celular (≤ 768 px) o texto some visualmente (fica só o ícone; o nome acessível continua), a busca vai para a 2ª linha inteira e os links vão para o hambúrguer.
 5. **2ª linha provisória**: Home / Produtos / Publicações (+ Meus pedidos logado) até o Joaquim definir o que entra ali. Validado em 18/11: type-check 0, lint 0, build ok; `vendas-v5` 43/43 (H1: 390 px sem rolagem lateral), `vendas` 36/36, `f2` 15/15, `cadastro-basico-smoke-simple` 26/26. O `f3` caiu no C2 por ambiente, não pela barra: com `MERCADOPAGO_ACCESS_TOKEN` de teste no `.env.local` o checkout redireciona para o Mercado Pago e a suíte espera o caminho "pagamento desativado".
 
+## Barra da loja por setores + tela "Setores e menu" (0058 — 19/11/2026)
+
+1. **Pedido** (mockup aprovado pelo Joaquim): a 2ª linha da barra (Home/Produtos/Publicações provisórios) virou **"Todos os setores"** (botão escuro, abre todos os grupos ativos com ícone → `/produtos#<slug>`) + atalhos dos grupos marcados + **"Lançamentos"** à direita (`/#lancamentos`, âncora na seção da home). Carrosséis com `encaixar` mostram **no máximo 6 cards inteiros** (`CategoryCarousel.tsx`, largura mínima 182px por card).
+2. **Migration `0058_grupos_na_barra.sql`** (+preflight/rollback/test): só `catalog_grupos.na_barra boolean not null default false`; semente liga cadernos, papeis-e-agendas, lapis-e-canetas, infantil-e-livros e arte-e-pintura **só se nenhum grupo estiver marcado**. Leitura pública herdada da 0057 (o `Header` é client e lê com o anon).
+3. **Tela `/configuracoes/setores`** (engrenagem → "Setores e menu", gestão): prévia da barra, grupos com ▲▼ (ordem) e checkbox "Na barra" (teto 6), setores **sem grupo em destaque** e select de grupo por setor. Actions em `src/app/configuracoes/setores/actions.ts` com `audit_log` `menu.barra_alterada` / `menu.setor_agrupado`. **Setor novo** digitado no cadastro de produto aparece ali como pendente; escolher o grupo põe o setor na loja sem código nem migration.
+4. **Validado no staging (19/11)**: 0058 preflight ok → migration → teste 3/3; type-check 0, lint 0, build ok; E2E `vendas` 36/36, `f2` 15/15, `lancamento` 19/19, `produtos` 27/27. **Produção recebe a 0058 antes do merge** (o `carregarGrupos` lê `na_barra`; sem a coluna o menu da loja fica vazio).
+
 ## Regras de modelagem de dados (definidas no parecer de migração ConnectionCyber)
 
 Aplicadas desde a primeira migration, para permitir migração futura sem dano estrutural

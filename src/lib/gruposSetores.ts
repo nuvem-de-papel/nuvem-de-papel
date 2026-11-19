@@ -15,6 +15,8 @@ export type GrupoCatalogo = {
   nome: string;
   icone: string;
   ordem: number;
+  /** true = atalho na 2a linha da barra da loja (0058). */
+  naBarra: boolean;
   /** Setores do grupo, na ordem de catalog_setores.ordem. */
   setores: string[];
 };
@@ -56,6 +58,7 @@ type LinhaGrupo = {
   nome: string;
   icone: string;
   ordem: number;
+  na_barra: boolean | null;
   catalog_setores: { nome: string; ordem: number }[] | null;
 };
 
@@ -66,7 +69,7 @@ type LinhaGrupo = {
 export async function carregarGrupos(supabase: SupabaseClient): Promise<GrupoCatalogo[]> {
   const { data, error } = await supabase
     .from("catalog_grupos")
-    .select("id, slug, nome, icone, ordem, catalog_setores(nome, ordem)")
+    .select("id, slug, nome, icone, ordem, na_barra, catalog_setores(nome, ordem)")
     .eq("tenant_id", NUVEM_DE_PAPEL_TENANT_ID)
     .eq("ativo", true)
     .order("ordem", { ascending: true })
@@ -81,6 +84,7 @@ export async function carregarGrupos(supabase: SupabaseClient): Promise<GrupoCat
     nome: g.nome,
     icone: g.icone,
     ordem: g.ordem,
+    naBarra: !!g.na_barra,
     setores: [...(g.catalog_setores ?? [])].sort((a, b) => a.ordem - b.ordem).map((s) => s.nome),
   }));
 }
