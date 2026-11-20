@@ -1193,7 +1193,9 @@ export function ConsoleVendas({
                             ? "Loja online"
                             : p.origem === "manual"
                               ? `Manual · ${p.canal}`
-                              : p.canal}
+                              : p.origem === "corporativo"
+                                ? `Corporativo · ${p.canal}`
+                                : p.canal}
                         </td>
                         <td style={td}>
                           <EtapaPontos
