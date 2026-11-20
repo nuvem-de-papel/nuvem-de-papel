@@ -36,7 +36,7 @@ export default async function HomePage() {
       <CamadasFundo />
       {lancamentos.length > 0 && (
         <section id="lancamentos" className="faixa-carrossel" aria-label="Lançamentos" style={{ scrollMarginTop: 140, width: "100vw", marginLeft: "calc(50% - 50vw)", padding: "34px 56px 18px", boxSizing: "border-box" }}>
-          <CategoryCarousel title="Lançamentos" products={lancamentos} intensidadeCor={10} encaixar />
+          <CategoryCarousel title="Lançamentos" icone="estrela" products={lancamentos} intensidadeCor={10} encaixar />
         </section>
       )}
       <CategoryShowcase grupos={gruposDoMenu(setores)} />
@@ -45,7 +45,7 @@ export default async function HomePage() {
         <div className="faixa-carrossel" style={{ width: "100vw", marginLeft: "calc(50% - 50vw)", padding: "34px 56px 0", boxSizing: "border-box" }}>
           {setores.map((setor) => (
             <div key={setor.slug} style={{ marginBottom: 18 }}>
-              <CategoryCarousel title={setor.title} products={setor.items} cor={setor.cor} corTitulo={setor.corTitulo} intensidadeCor={10} encaixar />
+              <CategoryCarousel title={setor.title} icone={setor.icone} products={setor.items} cor={setor.cor} corTitulo={setor.corTitulo} intensidadeCor={10} encaixar />
             </div>
           ))}
         </div>
@@ -53,13 +53,13 @@ export default async function HomePage() {
 
       {destaque.length > 0 && (
         <div className="faixa-carrossel" style={{ width: "100vw", marginLeft: "calc(50% - 50vw)", padding: "18px 56px 0", boxSizing: "border-box" }}>
-          <CategoryCarousel title="Destaques" products={destaque} intensidadeCor={10} encaixar />
+          <CategoryCarousel title="Destaques" icone="estrela" products={destaque} intensidadeCor={10} encaixar />
         </div>
       )}
 
       {ofertas.length > 0 && (
         <div id="ofertas" className="faixa-carrossel" style={{ scrollMarginTop: 140, width: "100vw", marginLeft: "calc(50% - 50vw)", padding: "18px 56px 72px", boxSizing: "border-box" }}>
-          <CategoryCarousel title="Ofertas" products={ofertas} intensidadeCor={10} encaixar />
+          <CategoryCarousel title="Ofertas" icone="estrela" products={ofertas} intensidadeCor={10} encaixar />
         </div>
       )}
       </div>

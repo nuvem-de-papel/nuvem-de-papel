@@ -3,6 +3,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { VarejoProduct } from "@/lib/products";
 import { ProductCard } from "@/components/ProductCard";
+import { IconeGrupo } from "@/components/catalogo/IconeGrupo";
 
 // Secao de setor em /produtos. Cards iguais aos da home: ProductCard dentro
 // de .carousel-item (mesma classe e mesmo tamanho). So o cabecalho rosa muda.
@@ -14,7 +15,10 @@ export function CategoryCarousel({
   intensidadeCor = 18,
   encaixar = false,
   autoPlayMs = 0,
+  icone,
 }: {
+  /** icone do setor/grupo antes do titulo (chave de ICONES_GRUPO) */
+  icone?: string;
   title: string;
   products: VarejoProduct[];
   /** cor do setor (paleta). Sem cor = visual padrao rosa. */
@@ -83,7 +87,12 @@ export function CategoryCarousel({
       onMouseEnter={() => setPausado(true)}
       onMouseLeave={() => setPausado(false)}
       style={{
-        background: cor ? `color-mix(in srgb, ${cor} ${intensidadeCor}%, #FFFFFF)` : "var(--pink-100)",
+        // 20/11/2026: vidro no tom do setor (cor translucida + blur)
+        background: `color-mix(in srgb, ${cor ?? "#E084AC"} ${Math.max(intensidadeCor * 2.4, 22)}%, transparent)`,
+        backdropFilter: "blur(16px) saturate(160%)",
+        WebkitBackdropFilter: "blur(16px) saturate(160%)",
+        border: "1px solid rgba(255,255,255,0.55)",
+        boxShadow: "0 8px 28px rgba(7,59,76,0.10)",
         borderRadius: 18,
         padding: "22px 24px 14px",
         marginBottom: 18,
@@ -91,7 +100,8 @@ export function CategoryCarousel({
       className="carrossel-caixa"
     >
       <div className="carrossel-topo" style={{ display: "flex", alignItems: "center", gap: 12, margin: "8px 0 14px" }}>
-        <h2 className="display" style={{ fontSize: 21, margin: 0, color: corTitulo ?? "var(--navy)" }}>
+        <h2 className="display" style={{ fontSize: 21, margin: 0, color: corTitulo ?? "var(--navy)", display: "flex", alignItems: "center", gap: 8 }}>
+          {icone && <IconeGrupo icone={icone} tamanho={22} />}
           {title}
         </h2>
         <span
