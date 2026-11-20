@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useCart } from "@/components/carrinho/CartProvider";
 import { BuscaProdutos } from "@/components/busca/BuscaProdutos";
 import { IconeGrupo } from "@/components/catalogo/IconeGrupo";
+import { CepEntrega } from "@/components/loja/CepEntrega";
 import { carregarGrupos, tituloGrupo, type GrupoCatalogo } from "@/lib/gruposSetores";
 
 // Barra do topo (18/11/2026, referencia enviada pelo Joaquim): logo + nome com
@@ -83,6 +84,9 @@ export function Header() {
   const navLinks = [
     ...grupos.map((g) => ({ href: `/produtos#${g.slug}`, label: tituloGrupo(g.nome), bold: false })),
     { href: "/#lancamentos", label: "Lançamentos", bold: true },
+    { href: "/produtos#datas-comemorativas", label: "Datas comemorativas", bold: false },
+    { href: "/#ofertas", label: "Ofertas", bold: false },
+    { href: "/corporativo", label: "Corporativo", bold: false },
     ...(logado ? [{ href: "/conta/pedidos", label: "Meus pedidos", bold: false }] : []),
   ];
 
@@ -105,6 +109,8 @@ export function Header() {
         </a>
 
         <BuscaProdutos />
+
+        <CepEntrega />
 
         <div className="header-acoes">
           <svg className="header-icone" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -181,6 +187,18 @@ export function Header() {
         <a href="/#lancamentos" className="header-atalho header-lancamentos">
           <IconeGrupo icone="estrela" tamanho={18} />
           Lançamentos
+        </a>
+        <a href="/produtos#datas-comemorativas" className="header-atalho">
+          <IconeGrupo icone="estrela" tamanho={18} />
+          Datas comemorativas
+        </a>
+        <a href="/#ofertas" className="header-atalho">
+          <IconeGrupo icone="estrela" tamanho={18} />
+          Ofertas
+        </a>
+        <a href="/corporativo" className="header-atalho">
+          <IconeGrupo icone="menu" tamanho={18} />
+          Corporativo
         </a>
       </nav>
 
