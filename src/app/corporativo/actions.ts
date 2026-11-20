@@ -20,6 +20,9 @@ type Entrada = {
   email: string;
   telefone: string;
   senha: string;
+  // Logado: a tela mostra "logado como X" e exige esta confirmacao, para a
+  // empresa nao cair no cadastro de outra pessoa (teste de producao 20/11).
+  confirmoLogado?: boolean;
 };
 
 const soDigitos = (v: string) => (v ?? "").replace(/\D/g, "");
@@ -30,7 +33,7 @@ function validar(e: Entrada, logado: boolean): string | null {
   if (!cnpjValido(e.cnpj)) return "CNPJ inválido (confira os dígitos).";
   const tel = soDigitos(e.telefone);
   if (tel.length < 10 || tel.length > 11) return "Telefone inválido (DDD + número).";
-  if (logado) return null;
+  if (logado) return e.confirmoLogado ? null : "Confirme que a empresa fica ligada ao cadastro com que você está logado.";
   if ((e.contato ?? "").trim().length < 3) return "Informe o nome de quem vai comprar (mínimo 3 letras).";
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test((e.email ?? "").trim())) return "E-mail inválido.";
   if (!e.senha || e.senha.length < 6) return "A senha deve ter pelo menos 6 caracteres.";
@@ -96,7 +99,11 @@ export async function solicitarContaCorporativa(entrada: Entrada): Promise<Resul
   const cnpj = soDigitos(entrada.cnpj);
   const telefone = soDigitos(entrada.telefone);
   if (await cnpjJaUsado(admin, cnpj)) {
-    return { ok: false, erro: "Este CNPJ já tem conta corporativa. Peça acesso ao administrador da empresa." };
+    return {
+      ok: false,
+      jaCadastrado: true,
+      erro: "Este CNPJ já tem conta corporativa. Use \"Já tenho conta\" e entre com o CNPJ ou o e-mail de acesso.",
+    };
   }
 
   // Caso 1: ja logado como cliente da loja -> a empresa usa o cadastro dele.
@@ -130,7 +137,12 @@ export async function solicitarContaCorporativa(entrada: Entrada): Promise<Resul
       return { ok: false, erro: "Não foi possível atualizar seu cadastro. Tente novamente." };
     }
     const r = await criarEmpresa(admin, user.id, cliente.id, razao, cnpj);
-    return r.ok ? { ok: true, destino: "/corporativo" } : r;
+    if (!r.ok) {
+      // Devolve o cadastro como estava: a empresa nao ficou de pe.
+      await admin.from("customers").update({ documento: cliente.documento, telefone: cliente.telefone }).eq("id", cliente.id);
+      return r;
+    }
+    return { ok: true, destino: "/corporativo" };
   }
 
   // Caso 2: visitante -> cria login + cadastro da empresa + vinculo admin.
@@ -143,7 +155,7 @@ export async function solicitarContaCorporativa(entrada: Entrada): Promise<Resul
   });
   if (authError || !authData.user) {
     if (authError?.code === "email_exists" || /already (been )?registered/i.test(authError?.message ?? "")) {
-      return { ok: false, jaCadastrado: true, erro: "Este e-mail já tem cadastro. Entre com sua senha e solicite a conta da empresa." };
+      return { ok: false, jaCadastrado: true, erro: "Este e-mail já tem cadastro. Entre com ele e a senha; depois de entrar, cadastre a empresa." };
     }
     console.error("createUser corporativo:", authError);
     return { ok: false, erro: "Não foi possível criar seu acesso agora. Tente novamente." };
@@ -180,6 +192,49 @@ export async function solicitarContaCorporativa(entrada: Entrada): Promise<Resul
 
   const { error: loginError } = await supabase.auth.signInWithPassword({ email, password: entrada.senha });
   if (loginError) return { ok: false, erro: "Empresa cadastrada. Entre com seu e-mail e senha para acompanhar." };
+  return { ok: true, destino: "/corporativo" };
+}
+
+// ------------------------------------------------------------------------
+// Entrar na conta corporativa (20/11/2026): o login e o MESMO da loja
+// (e-mail + senha). Aqui tambem aceita o CNPJ: o servidor acha o login
+// administrador da empresa e entra com a senha dele. Resposta generica em
+// qualquer falha para nao revelar se o CNPJ ou o e-mail existem.
+
+const LOGIN_INVALIDO = "E-mail/CNPJ ou senha inválidos.";
+
+export async function entrarCorporativo(identificador: string, senha: string): Promise<ResultadoCorporativo> {
+  const id = (identificador ?? "").trim();
+  if (!id || !senha) return { ok: false, erro: "Informe o e-mail ou CNPJ e a senha." };
+  let email = id.toLowerCase();
+  if (!id.includes("@")) {
+    const cnpj = soDigitos(id);
+    if (!cnpjValido(cnpj)) return { ok: false, erro: "Digite um e-mail ou um CNPJ válido." };
+    const admin = createAdminClient();
+    const { data: conta } = await admin
+      .from("corporate_accounts")
+      .select("id")
+      .eq("tenant_id", NUVEM_DE_PAPEL_TENANT_ID)
+      .eq("cnpj", cnpj)
+      .maybeSingle();
+    if (!conta) return { ok: false, erro: LOGIN_INVALIDO };
+    const { data: buyer } = await admin
+      .from("corporate_buyers")
+      .select("auth_user_id")
+      .eq("account_id", conta.id)
+      .eq("papel", "admin")
+      .eq("ativo", true)
+      .order("created_at")
+      .limit(1)
+      .maybeSingle();
+    if (!buyer) return { ok: false, erro: LOGIN_INVALIDO };
+    const { data: u } = await admin.auth.admin.getUserById(buyer.auth_user_id);
+    if (!u?.user?.email) return { ok: false, erro: LOGIN_INVALIDO };
+    email = u.user.email;
+  }
+  const supabase = createClient();
+  const { error } = await supabase.auth.signInWithPassword({ email, password: senha });
+  if (error) return { ok: false, erro: LOGIN_INVALIDO };
   return { ok: true, destino: "/corporativo" };
 }
 

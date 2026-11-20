@@ -167,8 +167,9 @@ export default async function CorporativoPage() {
   let empresa: Empresa | null = null;
   let papel = "";
   let equipe = false;
+  let nomeCliente = "";
   if (user) {
-    const [{ data: vinculo }, { data: perfil }] = await Promise.all([
+    const [{ data: vinculo }, { data: perfil }, { data: cli }] = await Promise.all([
       admin
         .from("corporate_buyers")
         .select(
@@ -177,7 +178,14 @@ export default async function CorporativoPage() {
         .eq("auth_user_id", user.id)
         .maybeSingle(),
       admin.from("profiles").select("id").eq("id", user.id).maybeSingle(),
+      admin
+        .from("customers")
+        .select("name")
+        .eq("tenant_id", NUVEM_DE_PAPEL_TENANT_ID)
+        .eq("auth_user_id", user.id)
+        .maybeSingle(),
     ]);
+    nomeCliente = (cli as { name?: string } | null)?.name ?? "";
     const v = vinculo as { papel?: string; ativo?: boolean; account?: Empresa | Empresa[] } | null;
     const conta = v?.account;
     empresa = (Array.isArray(conta) ? conta[0] : conta) ?? null;
@@ -301,14 +309,13 @@ export default async function CorporativoPage() {
         </section>
       ) : (
         <section className="conta-secao">
-          <h2>Solicitar conta corporativa</h2>
+          <h2>Acesso corporativo</h2>
           <p>
             {user
-              ? "Seu login atual vira o acesso de administrador da empresa."
-              : "Cadastre a empresa e o acesso de quem vai comprar. Já tem cadastro na loja? "}
-            {!user && <Link href="/login?next=/corporativo">Entre primeiro</Link>}
+              ? "Cadastre a empresa no seu login atual: ele vira o acesso de administrador dela."
+              : "Já tem conta corporativa? Entre com o e-mail ou o CNPJ e a senha. Primeira vez? Cadastre a empresa e o acesso de quem vai comprar."}
           </p>
-          <SolicitarCorporativoForm logado={!!user} />
+          <SolicitarCorporativoForm logadoComo={user ? { nome: nomeCliente, email: user.email ?? "" } : null} />
         </section>
       )}
     </main>

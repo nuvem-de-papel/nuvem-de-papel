@@ -2,7 +2,11 @@
  * (A) visitante pede conta -> empresa 'pendente', limite 0, login vira admin
  * (B) CNPJ repetido recusado · (C) etiqueta na /conta
  * (D) gestao aprova com limite/prazo · (E) bloqueio exige motivo
- * (F) cliente ve a situacao nova · limpeza no fim (so staging).
+ * (F) cliente ve a situacao nova
+ * (G) entrar pelo CNPJ (senha errada recusa, certa entra) e botao Mostrar senha
+ * (H) logado sem empresa: tela diz quem esta logado e exige confirmacao
+ * limpeza no fim (so staging). G/H entraram em 20/11/2026 apos o teste de
+ * producao em que a empresa caiu no cadastro de outra pessoa logada.
  */
 const fs = require("fs");
 const path = require("path");
@@ -40,6 +44,8 @@ function gerarCnpj() {
   return base.concat(d1, d2).join("");
 }
 const CNPJ = gerarCnpj();
+const CNPJ_H = gerarCnpj();
+const EMAIL_H = `corp.h.${EPOCH}@teste.local`;
 
 let total = 0;
 let falhas = 0;
@@ -72,11 +78,16 @@ async function conta() {
 async function main() {
   const browser = await chromium.launch({ headless: true, channel: "msedge" });
   let userId = null;
+  let userIdH = null;
   try {
     // A) visitante pede a conta
     const ctxC = await browser.newContext();
     const pc = await ctxC.newPage();
     await pc.goto(BASE + "/corporativo", { waitUntil: "domcontentloaded" });
+    const abaEntrar = pc.getByRole("tab", { name: "Já tenho conta corporativa" });
+    await abaEntrar.waitFor({ timeout: 15000 });
+    check("A0 visitante abre em \"Já tenho conta\"", (await abaEntrar.getAttribute("aria-selected")) === "true");
+    await pc.getByRole("tab", { name: "Cadastrar minha empresa" }).click();
     const form = pc.locator('form[aria-label="Solicitar conta corporativa"]');
     await form.getByLabel("Razão social").fill(RAZAO);
     await form.getByLabel("CNPJ").fill(CNPJ);
@@ -112,6 +123,7 @@ async function main() {
     const ctxB = await browser.newContext();
     const pb = await ctxB.newPage();
     await pb.goto(BASE + "/corporativo", { waitUntil: "domcontentloaded" });
+    await pb.getByRole("tab", { name: "Cadastrar minha empresa" }).click();
     const fb = pb.locator('form[aria-label="Solicitar conta corporativa"]');
     await fb.getByLabel("Razão social").fill("OUTRA EMPRESA E2E");
     await fb.getByLabel("CNPJ").fill(CNPJ);
@@ -120,9 +132,11 @@ async function main() {
     await fb.getByLabel("E-mail de acesso").fill(`corp2.${EPOCH}@teste.local`);
     await fb.getByLabel("Senha").fill(SENHA);
     await fb.locator('button[type="submit"]').click();
-    const erroB = pb.locator('form[aria-label="Solicitar conta corporativa"] [role="alert"]');
+    const erroB = pb.locator('[role="alert"]', { hasText: "já tem conta corporativa" });
     await erroB.waitFor({ timeout: 15000 });
-    check("B1 CNPJ repetido recusado", (await erroB.innerText()).includes("já tem conta corporativa"));
+    check("B1 CNPJ repetido recusado", (await erroB.count()) === 1);
+    const abaB = pb.getByRole("tab", { name: "Já tenho conta corporativa" });
+    check("B2 recusa leva para \"Já tenho conta\"", (await abaB.getAttribute("aria-selected")) === "true");
     await ctxB.close();
 
     // C) etiqueta na area da conta
@@ -178,6 +192,66 @@ async function main() {
     const txtF = await pc.locator('section[aria-label="Situação da conta corporativa"]').innerText();
     check("F1 cliente ve bloqueio e motivo", txtF.includes("Cadastro em revisao E2E") && (await pc.locator(".ct-pill-corp-bloqueada").count()) === 1);
     await ctxC.close();
+
+    // G) entrar pelo CNPJ (mesmo login da loja)
+    const ctxG = await browser.newContext();
+    const pg = await ctxG.newPage();
+    await pg.goto(BASE + "/corporativo", { waitUntil: "domcontentloaded" });
+    const fg = pg.locator('form[aria-label="Entrar na conta corporativa"]');
+    await fg.waitFor({ timeout: 15000 });
+    const senhaG = fg.getByLabel("Senha");
+    await senhaG.fill("senha-errada-1");
+    await fg.getByRole("button", { name: "Mostrar" }).click();
+    const tipoVisivel = await senhaG.getAttribute("type");
+    await fg.getByRole("button", { name: "Ocultar" }).click();
+    check("G1 botao Mostrar revela e esconde a senha", tipoVisivel === "text" && (await senhaG.getAttribute("type")) === "password");
+    await fg.getByLabel("E-mail ou CNPJ").fill(CNPJ);
+    await fg.locator('button[type="submit"]').click();
+    const erroG = fg.locator('[role="alert"]');
+    await erroG.waitFor({ timeout: 15000 });
+    check("G2 senha errada recusa sem dizer se o CNPJ existe", (await erroG.innerText()).includes("E-mail/CNPJ ou senha inválidos"));
+    await senhaG.fill(SENHA);
+    await fg.locator('button[type="submit"]').click();
+    const secaoG = pg.locator('section[aria-label="Situação da conta corporativa"]');
+    await secaoG.waitFor({ timeout: 25000 });
+    check("G3 CNPJ + senha certa entra na empresa", (await secaoG.innerText()).includes(RAZAO));
+    await ctxG.close();
+
+    // H) cliente logado SEM empresa: confirmacao obrigatoria
+    const { data: novoH, error: errH } = await db.auth.admin.createUser({ email: EMAIL_H, password: SENHA, email_confirm: true });
+    if (errH) throw errH;
+    userIdH = novoH.user.id;
+    const { error: errCliH } = await db.from("customers").insert({
+      tenant_id: "00000000-0000-0000-0000-000000000001",
+      name: "Cliente Logado E2E",
+      email: EMAIL_H,
+      auth_user_id: userIdH,
+    });
+    if (errCliH) throw errCliH;
+    const ctxH = await browser.newContext();
+    const ph = await ctxH.newPage();
+    await ph.goto(BASE + "/corporativo", { waitUntil: "domcontentloaded" });
+    const fe = ph.locator('form[aria-label="Entrar na conta corporativa"]');
+    await fe.getByLabel("E-mail ou CNPJ").fill(EMAIL_H);
+    await fe.getByLabel("Senha").fill(SENHA);
+    await fe.locator('button[type="submit"]').click();
+    const caixaH = ph.locator('[aria-label="Cadastro logado"]');
+    await caixaH.waitFor({ timeout: 25000 });
+    const txtH = await caixaH.innerText();
+    check("H1 tela diz com quem esta logado", txtH.includes("Cliente Logado E2E") && txtH.includes(EMAIL_H));
+    const fh = ph.locator('form[aria-label="Solicitar conta corporativa"]');
+    await fh.getByLabel("Razão social").fill(`E2E CORP H ${EPOCH} LTDA`);
+    await fh.getByLabel("CNPJ").fill(CNPJ_H);
+    await fh.getByLabel("Telefone da empresa").fill("11988776655");
+    const botaoH = fh.locator('button[type="submit"]');
+    check("H2 sem confirmar o botao fica travado", await botaoH.isDisabled());
+    await fh.getByRole("checkbox").check();
+    await botaoH.click();
+    await ph.locator('section[aria-label="Situação da conta corporativa"]').waitFor({ timeout: 25000 });
+    const { data: contaH } = await db.from("corporate_accounts").select("id, customer_id").eq("cnpj", CNPJ_H).maybeSingle();
+    const { data: cliH } = await db.from("customers").select("auth_user_id").eq("id", contaH?.customer_id ?? "").maybeSingle();
+    check("H3 confirmado: empresa ligada ao cadastro logado", cliH?.auth_user_id === userIdH);
+    await ctxH.close();
   } finally {
     // limpeza (audit_log fica como trilha, igual as outras suites)
     const c = await conta();
@@ -187,6 +261,15 @@ async function main() {
       await db.from("customers").delete().eq("id", c.customer_id);
     }
     if (userId) await db.auth.admin.deleteUser(userId);
+    const { data: cH } = await db.from("corporate_accounts").select("id").eq("cnpj", CNPJ_H).maybeSingle();
+    if (cH) {
+      await db.from("corporate_buyers").delete().eq("account_id", cH.id);
+      await db.from("corporate_accounts").delete().eq("id", cH.id);
+    }
+    if (userIdH) {
+      await db.from("customers").delete().eq("auth_user_id", userIdH);
+      await db.auth.admin.deleteUser(userIdH);
+    }
     await browser.close();
   }
   console.log(`TOTAL ${total} | PASS ${total - falhas} | FAIL ${falhas}`);
