@@ -2267,3 +2267,34 @@ body:has(.admin-shell) .wchat { display: none; }
 .wchat-rodape { margin: 0; padding: 0 16px 12px; background: #F4F1F6; text-align: center; font-size: 10px; line-height: 1.4; color: #5b6b7a; }
 @media (min-width: 768px) { .wchat { right: 24px; bottom: 24px; } }
 @media (prefers-reduced-motion: reduce) { .wchat-digitando i { animation: none; } .wchat-botao { transition: none; } }
+
+/* Autoatendimento do cliente (20/11/2026) */
+.conta-form { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px 18px; margin-top: 8px; }
+.conta-campo { display: grid; gap: 4px; font-size: 12px; font-weight: 700; text-transform: uppercase; color: var(--ink-soft); }
+.conta-campo input { font: inherit; font-size: 15px; text-transform: none; font-weight: 400; color: var(--navy); padding: 9px 12px; border: 1px solid var(--border); border-radius: 10px; background: #FFFFFF; }
+.conta-form-acoes { grid-column: 1 / -1; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.conta-botao { background: #E084AC; color: #FFFFFF; border: 0; border-radius: 10px; padding: 10px 18px; font-weight: 700; cursor: pointer; }
+.conta-botao:hover { background: #D06A97; }
+.conta-botao:disabled, .conta-botao-sec:disabled { opacity: .6; cursor: default; }
+.conta-botao-sec { background: #FFFFFF; color: #073B4C; border: 1px solid #073B4C; border-radius: 10px; padding: 10px 18px; font-weight: 700; cursor: pointer; }
+.conta-ok { color: var(--blue-600); font-weight: 600; font-size: 14px; margin: 8px 0 0; }
+.conta-erro { color: #B3261E; font-weight: 600; font-size: 14px; margin: 8px 0 0; }
+.conta-lista-acoes { display: flex; gap: 12px; margin-top: 6px; }
+.conta-lista-acoes button { background: none; border: 0; color: #073B4C; font-weight: 700; text-decoration: underline; cursor: pointer; padding: 0; }
+.conta-secao + .conta-secao { margin-top: 18px; }
+.pedido-painel-linha { padding: 0 22px 10px; }
+.pedido-abrir-painel { background: #073B4C; color: #FFFFFF; border: 1px solid #E084AC; border-radius: 10px; padding: 7px 14px; font-weight: 700; cursor: pointer; }
+.pedido-painel-fundo { position: fixed; inset: 0; background: rgba(0,0,0,.35); z-index: 90; display: flex; justify-content: flex-end; }
+.pedido-painel { width: min(420px, 100%); height: 100%; overflow-y: auto; background: #FFFFFF; padding: 22px; box-shadow: -8px 0 24px rgba(0,0,0,.18); }
+.pedido-painel header { display: flex; justify-content: space-between; align-items: center; }
+.pedido-painel header h2 { font-size: 20px; margin: 0; color: #073B4C; }
+.pedido-painel header button { background: none; border: 0; font-size: 26px; cursor: pointer; color: #073B4C; }
+.pedido-tempo { list-style: none; margin: 18px 0; padding: 0 0 0 18px; border-left: 2px solid var(--border); display: grid; gap: 14px; }
+.pedido-tempo li { position: relative; color: var(--ink-soft); font-size: 14px; display: grid; }
+.pedido-tempo li::before { content: ""; position: absolute; left: -25px; top: 3px; width: 12px; height: 12px; border-radius: 50%; background: #FFFFFF; border: 2px solid var(--border); }
+.pedido-tempo li.feito { color: #073B4C; font-weight: 700; }
+.pedido-tempo li.feito::before { background: #E084AC; border-color: #E084AC; }
+.pedido-tempo small { font-weight: 400; color: var(--ink-soft); }
+.pedido-cancelado { margin: 18px 0; color: var(--ink-soft); font-weight: 600; }
+.pedido-painel-acoes { display: flex; flex-wrap: wrap; gap: 10px; }
+@media (max-width: 760px) { .conta-form { grid-template-columns: 1fr; } }
