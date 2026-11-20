@@ -98,7 +98,7 @@ export default async function PaginaProdutoPage({
             </>
           )}
 
-          <ProductActions produto={selecionado} grande />
+          <ProductActions produto={selecionado} grande selos />
         </div>
       </div>
 
