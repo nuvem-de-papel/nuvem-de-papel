@@ -6,6 +6,7 @@ import { criarFornecedor } from "@/app/compras/actions";
 import { alternarStatus } from "@/app/configuracoes/usuarios/actions";
 import {
   buscarGtinExterno,
+  decidirContaCorporativa,
   gerarDescricaoProduto,
   importarProdutoFornecedor,
   removerCliente,
@@ -13,6 +14,7 @@ import {
   salvarEmpresa,
   salvarProduto,
   type ClienteInput,
+  type DecisaoCorporativa,
   type EmpresaInput,
   type ProdutoInput,
 } from "@/app/configuracoes/cadastro/actions";
@@ -307,6 +309,20 @@ export type RevendaCad = {
   created_at: string;
 };
 
+// 0059: conta corporativa (pedido PJ) - gestao aprova com limite e prazo.
+export type CorporativaCad = {
+  id: string;
+  razaoSocial: string;
+  cnpj: string;
+  status: string;
+  limite: number;
+  prazoDias: number;
+  motivo: string | null;
+  criadoEm: string;
+  email: string;
+  telefone: string;
+};
+
 // F8.1: empresa emitente e produto passaram a persistir (antes eram
 // formulários de exemplo); a page de /configuracoes/cadastro busca no
 // banco e entrega por props.
@@ -531,6 +547,7 @@ function dataCurta(iso: string): string {
 export function CadastrosTelaUnica({
   fornecedoresReais = [],
   revendas = [],
+  corporativas = [],
   empresa = null,
   produtos = [],
   clientes = [],
@@ -539,6 +556,7 @@ export function CadastrosTelaUnica({
 }: {
   fornecedoresReais?: FornecedorCad[];
   revendas?: RevendaCad[];
+  corporativas?: CorporativaCad[];
   empresa?: EmpresaCad | null;
   produtos?: ProdutoCad[];
   clientes?: ClienteCad[];
@@ -2332,6 +2350,40 @@ export function CadastrosTelaUnica({
     });
   }
 
+  // ---- contas corporativas (0059) -----------------------------------------
+  const [corpEditando, setCorpEditando] = useState<{ id: string; decisao: DecisaoCorporativa } | null>(null);
+  const [corpLimite, setCorpLimite] = useState("0,00");
+  const [corpPrazo, setCorpPrazo] = useState("0");
+  const [corpMotivo, setCorpMotivo] = useState("");
+
+  function abrirDecisao(c: CorporativaCad, decisao: DecisaoCorporativa) {
+    setCorpEditando({ id: c.id, decisao });
+    setCorpLimite(c.limite.toFixed(2).replace(".", ","));
+    setCorpPrazo(String(c.prazoDias));
+    setCorpMotivo("");
+  }
+
+  function confirmarDecisao() {
+    if (!corpEditando) return;
+    const limite = Number(corpLimite.replace(/[^\d,.-]/g, "").replace(/\./g, "").replace(",", "."));
+    startTransition(async () => {
+      const r = await decidirContaCorporativa({
+        id: corpEditando.id,
+        decisao: corpEditando.decisao,
+        limite: Number.isFinite(limite) ? limite : -1,
+        prazoDias: Number(corpPrazo),
+        motivo: corpMotivo,
+      });
+      if (r.ok) {
+        setFeedback({ tipo: "ok", texto: r.aviso ?? "Decisão gravada." });
+        setCorpEditando(null);
+        router.refresh();
+      } else {
+        setFeedback({ tipo: "err", texto: r.erro });
+      }
+    });
+  }
+
   const telaFornecedor = (
     <div className="ct-screen">
       <div className="ct-window">
@@ -2522,6 +2574,138 @@ export function CadastrosTelaUnica({
                     </td>
                   </tr>
                 ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+
+        <div className="ct-sec" aria-label="Contas corporativas">
+          <div className="ct-sec-title">
+            <h2>Contas corporativas</h2>
+            <a className="ct-act" href="/corporativo">
+              Ver página corporativa
+            </a>
+          </div>
+          {corporativas.length === 0 ? (
+            <p className="ct-empty">
+              Nenhuma empresa pediu conta ainda — pedidos feitos em /corporativo aparecem aqui. O limite de
+              crédito nasce em R$ 0,00 e só muda na aprovação.
+            </p>
+          ) : (
+            <table className="ct-tbl">
+              <thead>
+                <tr>
+                  <th>Empresa</th>
+                  <th>CNPJ</th>
+                  <th>Contato</th>
+                  <th>Pedido em</th>
+                  <th>Condição</th>
+                  <th>Status</th>
+                  <th aria-label="Ações" />
+                </tr>
+              </thead>
+              <tbody>
+                {corporativas.map((c) => {
+                  const editando = corpEditando?.id === c.id ? corpEditando.decisao : null;
+                  const ativando = editando === "aprovar" || editando === "reativar";
+                  return (
+                    <tr key={c.id}>
+                      <td>{c.razaoSocial}</td>
+                      <td>{c.cnpj.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5")}</td>
+                      <td>
+                        {c.email}
+                        {c.telefone ? <><br />{c.telefone}</> : null}
+                      </td>
+                      <td>{dataCurta(c.criadoEm)}</td>
+                      <td>
+                        {c.status === "ativa"
+                          ? `${c.limite.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })} · ${
+                              c.prazoDias > 0 ? `${c.prazoDias} dias` : "à vista"
+                            }`
+                          : "-"}
+                      </td>
+                      <td>
+                        <span className={`ct-pill ${c.status === "ativa" ? "ok" : c.status === "pendente" ? "wait" : "bad"}`}>
+                          {c.status === "ativa"
+                            ? "Ativa"
+                            : c.status === "pendente"
+                              ? "Aguardando aprovação"
+                              : c.status === "bloqueada"
+                                ? "Bloqueada"
+                                : "Recusada"}
+                        </span>
+                        {c.motivo && c.status !== "ativa" ? <div style={{ fontSize: 12, marginTop: 4 }}>{c.motivo}</div> : null}
+                      </td>
+                      <td>
+                        {editando ? (
+                          <div className="ct-actions" style={{ flexWrap: "wrap", gap: 6 }}>
+                            {ativando ? (
+                              <>
+                                <input
+                                  aria-label={`Limite de crédito ${c.razaoSocial}`}
+                                  value={corpLimite}
+                                  onChange={(e) => setCorpLimite(e.target.value)}
+                                  inputMode="decimal"
+                                  style={{ width: 110 }}
+                                />
+                                <input
+                                  aria-label={`Prazo em dias ${c.razaoSocial}`}
+                                  value={corpPrazo}
+                                  onChange={(e) => setCorpPrazo(e.target.value.replace(/\D/g, "").slice(0, 3))}
+                                  inputMode="numeric"
+                                  style={{ width: 60 }}
+                                />
+                              </>
+                            ) : (
+                              <input
+                                aria-label={`Motivo ${c.razaoSocial}`}
+                                placeholder="Motivo (mín. 5 letras)"
+                                value={corpMotivo}
+                                onChange={(e) => setCorpMotivo(e.target.value)}
+                                maxLength={500}
+                                style={{ width: 200 }}
+                              />
+                            )}
+                            <button
+                              type="button"
+                              className={`ct-act ${ativando ? "primary" : "danger"}`}
+                              disabled={salvando || (!ativando && corpMotivo.trim().length < 5)}
+                              onClick={confirmarDecisao}
+                            >
+                              Confirmar
+                            </button>
+                            <button type="button" className="ct-act" disabled={salvando} onClick={() => setCorpEditando(null)}>
+                              Cancelar
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="ct-actions">
+                            {c.status === "pendente" && (
+                              <>
+                                <button type="button" className="ct-act primary" disabled={salvando} onClick={() => abrirDecisao(c, "aprovar")}>
+                                  Aprovar
+                                </button>
+                                <button type="button" className="ct-act danger" disabled={salvando} onClick={() => abrirDecisao(c, "recusar")}>
+                                  Recusar
+                                </button>
+                              </>
+                            )}
+                            {c.status === "ativa" && (
+                              <button type="button" className="ct-act danger" disabled={salvando} onClick={() => abrirDecisao(c, "bloquear")}>
+                                Bloquear
+                              </button>
+                            )}
+                            {(c.status === "bloqueada" || c.status === "recusada") && (
+                              <button type="button" className="ct-act" disabled={salvando} onClick={() => abrirDecisao(c, "reativar")}>
+                                Reativar
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           )}

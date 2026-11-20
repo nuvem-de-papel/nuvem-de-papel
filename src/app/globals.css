@@ -2357,3 +2357,9 @@ body:has(.admin-shell) .wchat { display: none; }
 .inicio-pedidos { list-style: none; padding: 0; margin: 0 0 12px; }
 .inicio-pedidos li { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 14px; }
 @media (max-width: 760px) { .inicio-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } .inicio-cols { grid-template-columns: 1fr; } }
+
+/* Conta corporativa (0059 - 20/11/2026) */
+.ct-pill-corp { display: inline-block; padding: 3px 12px; border-radius: 999px; font-size: 12px; font-weight: 700; text-transform: uppercase; }
+.ct-pill-corp-pendente { background: #FFF3CD; color: #7A5B00; }
+.ct-pill-corp-ativa { background: #D7F2E3; color: #0B6B3A; }
+.ct-pill-corp-bloqueada, .ct-pill-corp-recusada { background: #FBE0E0; color: #B3261E; }

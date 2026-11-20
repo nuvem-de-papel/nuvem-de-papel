@@ -13,6 +13,7 @@ import {
   type LocalEstoqueCad,
   type ProdutoCad,
   type RevendaCad,
+  type CorporativaCad,
 } from "@/components/conta/CadastrosTelaUnica";
 
 export const dynamic = "force-dynamic";
@@ -125,6 +126,32 @@ export default async function CadastroPage() {
     status: r.status,
     created_at: r.created_at,
   }));
+
+  // 0059: contas corporativas (pedidos PJ) para a gestao decidir.
+  const { data: corpRows } = await admin
+    .from("corporate_accounts")
+    .select("id, razao_social, cnpj, status, limite_credito, prazo_dias, motivo, created_at, cliente:customers(name, email, telefone)")
+    .eq("tenant_id", NUVEM_DE_PAPEL_TENANT_ID)
+    .order("created_at", { ascending: false })
+    .limit(300);
+  const corporativas: CorporativaCad[] = (corpRows ?? []).map((c) => {
+    const cli = (Array.isArray(c.cliente) ? c.cliente[0] : c.cliente) as
+      | { name: string | null; email: string | null; telefone: string | null }
+      | null
+      | undefined;
+    return {
+      id: c.id,
+      razaoSocial: c.razao_social,
+      cnpj: c.cnpj,
+      status: c.status,
+      limite: Number(c.limite_credito ?? 0),
+      prazoDias: c.prazo_dias ?? 0,
+      motivo: c.motivo,
+      criadoEm: c.created_at,
+      email: cli?.email ?? "",
+      telefone: cli?.telefone ?? "",
+    };
+  });
 
   // F8.1: emitente real (antes era formulário de exemplo)
   const emp = empRes.data;
@@ -350,6 +377,7 @@ export default async function CadastroPage() {
     <CadastrosTelaUnica
       fornecedoresReais={fornecedoresReais}
       revendas={revendas}
+      corporativas={corporativas}
       empresa={empresa}
       produtos={produtos}
       clientes={clientes}
