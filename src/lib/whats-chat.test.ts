@@ -3,13 +3,12 @@ import assert from "node:assert/strict";
 import { MARCA_CHAT, OPCOES_CHAT, emAtendimento, linkWhatsChat, montarMensagemWhats, urlDoProduto } from "./whats-chat";
 
 test("horario de atendimento em Brasilia (UTC-3)", () => {
-  assert.equal(emAtendimento(new Date("2026-11-03T15:00:00Z")), true);
-  assert.equal(emAtendimento(new Date("2026-11-03T11:30:00Z")), false);
-  assert.equal(emAtendimento(new Date("2026-11-06T20:59:00Z")), true);
-  assert.equal(emAtendimento(new Date("2026-11-06T21:00:00Z")), false);
-  assert.equal(emAtendimento(new Date("2026-11-07T13:00:00Z")), true);
-  assert.equal(emAtendimento(new Date("2026-11-07T16:00:00Z")), false);
-  assert.equal(emAtendimento(new Date("2026-11-08T15:00:00Z")), false);
+  assert.equal(emAtendimento(new Date("2026-11-03T11:00:00Z")), true); // ter 8h
+  assert.equal(emAtendimento(new Date("2026-11-03T10:59:00Z")), false); // ter 7h59
+  assert.equal(emAtendimento(new Date("2026-11-06T21:29:00Z")), true); // sex 18h29
+  assert.equal(emAtendimento(new Date("2026-11-06T21:30:00Z")), false); // sex 18h30
+  assert.equal(emAtendimento(new Date("2026-11-07T20:00:00Z")), true); // sab 17h
+  assert.equal(emAtendimento(new Date("2026-11-08T15:00:00Z")), false); // dom
 });
 
 test("mensagem leva a pagina do produto, sem query nem hash", () => {
