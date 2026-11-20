@@ -25,7 +25,7 @@ function destinoParaPapel(role: string): string {
 // as areas da equipe seguem barradas pelo middleware (exige profile ativo).
 function destinoCliente(): string {
   const raw = new URLSearchParams(window.location.search).get("next");
-  if (raw && (raw.startsWith("/conta") || raw.startsWith("/checkout"))) return raw;
+  if (raw && (raw.startsWith("/conta") || raw.startsWith("/checkout") || raw.startsWith("/corporativo"))) return raw;
   return "/conta/pedidos";
 }
 
