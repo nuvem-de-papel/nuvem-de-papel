@@ -3,7 +3,8 @@
 // Painel lateral do pedido (20/11/2026): linha do tempo, imprimir, pagar agora,
 // comprar de novo e pedir nota. Nenhum botao muda status — so acaoPedido(),
 // que audita e devolve link/ok.
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { acaoPedido, type AcaoPedido } from "@/app/conta/actions";
 import { useCart } from "@/components/carrinho/CartProvider";
@@ -33,6 +34,19 @@ export function PedidoPainel({
   const nivel = NIVEL[status] ?? -1;
   const pago = nivel >= 1;
 
+  // So um painel aberto por vez: abrir um avisa os outros para fechar.
+  const [slot, setSlot] = useState<HTMLElement | null>(null);
+  useEffect(() => {
+    setSlot(document.getElementById("pedido-painel-slot"));
+    const fechar = (e: Event) => { if ((e as CustomEvent).detail !== id) setAberto(false); };
+    window.addEventListener("pedido-painel-abrir", fechar);
+    return () => window.removeEventListener("pedido-painel-abrir", fechar);
+  }, [id]);
+  useEffect(() => {
+    slot?.classList.toggle("com-pedido", aberto);
+    if (aberto) window.dispatchEvent(new CustomEvent("pedido-painel-abrir", { detail: id }));
+  }, [aberto, slot, id]);
+
   function rodar(a: AcaoPedido) {
     setMsg("");
     start(async () => {
@@ -53,9 +67,8 @@ export function PedidoPainel({
       <button type="button" className="pedido-abrir-painel" aria-label={`Acompanhar pedido ${codigo}`} onClick={() => setAberto(true)}>
         Acompanhar
       </button>
-      {aberto && (
-        <div className="pedido-painel-fundo" onClick={() => setAberto(false)}>
-          <aside role="dialog" aria-label={`Pedido ${codigo}`} className="pedido-painel doc-print" onClick={(e) => e.stopPropagation()}>
+      {aberto && slot && createPortal(
+          <aside role="dialog" aria-label={`Pedido ${codigo}`} className="pedido-painel doc-print">
             <header>
               <h2>Pedido {codigo}</h2>
               <button type="button" aria-label="Fechar painel" data-no-print onClick={() => setAberto(false)}>×</button>
@@ -97,8 +110,8 @@ export function PedidoPainel({
               </tbody>
             </table>
             {msg && <p role="status" className="conta-ok">{msg}</p>}
-          </aside>
-        </div>
+          </aside>,
+          slot
       )}
     </>
   );

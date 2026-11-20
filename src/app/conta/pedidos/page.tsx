@@ -171,6 +171,9 @@ export default async function MeusPedidosPage({
 
       {/* Lista unica (19/11/2026): uma caixa so, um pedido por linha, status a direita;
           clicar no pedido abre os itens (details/summary, sem JS). */}
+      {/* 20/11/2026: o "Acompanhar" abre numa caixa a direita, na mesma altura
+          (portal em #pedido-painel-slot); a lista mostra 5 pedidos e rola o resto. */}
+      <div className="pedidos-layout">
       <section className="pedidos-caixa" aria-label="Meus pedidos">
         <header className="pedidos-caixa-topo">
           <h1 className="display">Meus pedidos</h1>
@@ -188,6 +191,7 @@ export default async function MeusPedidosPage({
           </div>
         )}
 
+        <div className="pedidos-lista">
         {pedidos.map((p) => {
           const st = STATUS[p.status] ?? { label: p.status, bg: "var(--bg-cotton)", fg: "var(--ink-soft)" };
           const itens = p.order_items ?? [];
@@ -256,7 +260,12 @@ export default async function MeusPedidosPage({
             </details>
           );
         })}
+        </div>
       </section>
+      <aside id="pedido-painel-slot" className="pedido-painel-slot" aria-label="Acompanhamento do pedido">
+        <p className="pedido-painel-dica">Clique em <strong>Acompanhar</strong> num pedido para ver a linha do tempo e as ações aqui.</p>
+      </aside>
+      </div>
     </main>
   );
 }

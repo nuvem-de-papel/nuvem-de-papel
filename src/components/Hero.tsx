@@ -132,9 +132,10 @@ export function Hero({ vitrine = [] }: { vitrine?: VarejoProduct[] }) {
   const [mode, setMode] = useState<"video" | "static" | null>(null);
 
   useEffect(() => {
-    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    // 20/11/2026: so o Save-Data cai na cena estatica. Notebooks com "efeitos de
+    // animacao" desligados no Windows (prefers-reduced-motion) viam o hero antigo.
     const conn = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection;
-    setMode(reduce || conn?.saveData ? "static" : "video");
+    setMode(conn?.saveData ? "static" : "video");
   }, []);
 
   useEffect(() => {
