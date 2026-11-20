@@ -5,13 +5,13 @@ import { createClient } from "@/lib/supabase/client";
 
 // Saida do cliente da loja (a equipe sai pelo AdminShell). Recarrega a
 // pagina inteira para o header e o carrinho lerem a sessao ja encerrada.
-export function SairButton() {
+export function SairButton({ destino = "/" }: { destino?: string } = {}) {
   const [saindo, setSaindo] = useState(false);
 
   async function sair() {
     setSaindo(true);
     await createClient().auth.signOut();
-    window.location.href = "/";
+    window.location.href = destino;
   }
 
   return (
