@@ -783,3 +783,9 @@ produção desde o PR #38.
 1. `/conta` (`src/app/conta/page.tsx`, item "Início" no `ContaMenu`; "Minha conta" do cabecalho aponta para ca): KPIs pedidos no ano, em andamento, gasto no ano e ticket medio (faturado = pago/processando/em_rota/entregue), grafico SVG de gasto em 6 meses e pedidos recentes. Sem assinatura: convite ao Clube com a economia que o plano Papel (5%) teria dado. Com Clube: barra de nivel (Bronze 0, Prata 500, Ouro 1500, Diamante 3000 pontos, `customers.tier/points`), economia = soma de `orders.discount_amount` e cartao com link para `/conta/assinatura`.
 2. **Bug corrigido**: `club_subscriptions` usa `profile_id` (0012), nao `user_id` - o layout da conta filtrava `user_id` e a etiqueta do Clube nunca aparecia.
 3. Validado: type-check 0, lint 0, build ok; E2E cadastro-basico 26/26 (check 8 agora espera `/conta`), f3 20/20, vendas 36/36. Sem migration. Proximas etapas: 0059 corporativo, painel PJ, alerta WhatsApp.
+
+## Banners de carrossel em vidro + icone do setor (20/11/2026)
+
+1. `CategoryCarousel`: fundo em vidro no tom do setor (`color-mix` da cor com transparente + `backdrop-filter: blur(16px) saturate(160%)`, borda branca translucida); sem cor = rosa `#E084AC`. Prop nova `icone` (chave de `ICONES_GRUPO`) desenha o icone antes do titulo; home/produtos passam o icone do grupo, Lancamentos/Destaques/Ofertas/Combina com usam `estrela`.
+2. "Combina com" (`/produtos/[sku]`) ganhou `.faixa-carrossel`: 5 cards do mesmo tamanho da home e de `/produtos`.
+3. Validado: type-check 0, build ok; E2E lancamento 19/19, vendas 36/36. Sem migration.

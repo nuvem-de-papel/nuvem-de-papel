@@ -103,8 +103,8 @@ export default async function PaginaProdutoPage({
       </div>
 
     </main>
-    <div style={{ width: "100vw", marginLeft: "calc(50% - 50vw)", padding: "18px 56px 72px", boxSizing: "border-box" }}>
-      <CategoryCarousel title="Combina com" products={combina} intensidadeCor={10} encaixar autoPlayMs={4000} />
+    <div className="faixa-carrossel" style={{ width: "100vw", marginLeft: "calc(50% - 50vw)", padding: "18px 56px 72px", boxSizing: "border-box" }}>
+      <CategoryCarousel title="Combina com" icone="estrela" products={combina} intensidadeCor={10} encaixar autoPlayMs={4000} />
     </div>
     </>
   );
