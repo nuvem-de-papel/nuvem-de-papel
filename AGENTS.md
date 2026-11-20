@@ -744,3 +744,8 @@ produção desde o PR #38.
 
 1. `/conta/pedidos`: uma caixa so (`section.pedidos-caixa`) com titulo/contagem no topo (alinhada ao topo do menu lateral) e um pedido por linha (`details.pedido-linha`): codigo, data, qtd de itens, cidade e pagamento a esquerda; status + total a direita; clicar abre os itens, frete, desconto e total (sem JS). Cabecalho da conta passou de "aqui é a sua conta" para "sua conta".
 2. Validado: type-check 0, lint 0, build ok; E2E f3 20/20, cadastro-basico 26/26, vendas 36/36. Sem migration.
+
+## Selos so na pagina do produto (19/11/2026)
+
+1. `ProductActions` ganhou a prop `selos` (padrao false): os selos 12x/frete/compra segura aparecem so em `/produtos/[sku]`; cards da home/vitrine/carrossel ficam limpos. E2E f3 20/20, lancamento 19/19.
+

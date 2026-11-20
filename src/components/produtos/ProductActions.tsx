@@ -35,10 +35,13 @@ function iconeStyle(feito: boolean, apagado: boolean) {
 export function ProductActions({
   produto,
   grande = false,
+  selos = false,
   somenteBotoes = false,
 }: {
   produto: VarejoProduct;
   grande?: boolean;
+  // selos de pagamento/frete so na pagina do produto, nunca nos cards (19/11/2026)
+  selos?: boolean;
   somenteBotoes?: boolean;
 }) {
   const { addItem: addCarrinho } = useCart();
@@ -136,7 +139,7 @@ export function ProductActions({
           </button>
         )}
         <p style={{ margin: "10px 0 0", fontSize: 13, color: "var(--ink-soft)" }}>{formatPrice(produto.price)} por unidade</p>
-        <SelosConfianca variante="linha" />
+        {selos && <SelosConfianca variante="linha" />}
         {aviso && (
           <p role="status" style={{ fontSize: 12, fontWeight: 700, color: "var(--pink-600)", margin: "8px 0 0", lineHeight: 1.35 }}>
             {aviso}
