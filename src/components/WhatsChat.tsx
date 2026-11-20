@@ -25,9 +25,13 @@ const IconeX = ({ t = 16 }: { t?: number }) => (
     <line x1="6" y1="6" x2="18" y2="18" />
   </svg>
 );
+// Fone de atendimento (nao e o logo do WhatsApp: aqui so direciona o assunto).
 const IconeBalao = () => (
   <svg width={26} height={26} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-    <path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z" />
+    <path d="M3 14v-3a9 9 0 0 1 18 0v3" />
+    <path d="M21 15a2 2 0 0 1-2 2h-1v-6h1a2 2 0 0 1 2 2z" />
+    <path d="M3 15a2 2 0 0 0 2 2h1v-6H5a2 2 0 0 0-2 2z" />
+    <path d="M18 17v1a3 3 0 0 1-3 3h-3" />
   </svg>
 );
 const IconeSeta = () => (
