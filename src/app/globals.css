@@ -2363,3 +2363,25 @@ body:has(.admin-shell) .wchat { display: none; }
 .ct-pill-corp-pendente { background: #FFF3CD; color: #7A5B00; }
 .ct-pill-corp-ativa { background: #D7F2E3; color: #0B6B3A; }
 .ct-pill-corp-bloqueada, .ct-pill-corp-recusada { background: #FBE0E0; color: #B3261E; }
+
+/* Pedido corporativo - painel do comprador (0060 - 20/11/2026) */
+.corp-pedido { display: grid; gap: 14px; }
+.corp-achados { list-style: none; margin: 0; padding: 0; border: 1px solid var(--border); border-radius: 12px; background: #FFFFFF; max-height: 320px; overflow-y: auto; }
+.corp-achados li { display: grid; grid-template-columns: 1fr auto auto; gap: 12px; align-items: center; padding: 8px 12px; border-bottom: 1px solid var(--border); font-size: 14px; }
+.corp-achados li:last-child { border-bottom: 0; }
+.corp-tabela { width: 100%; border-collapse: collapse; background: #FFFFFF; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; font-size: 14px; }
+.corp-tabela th, .corp-tabela td { padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--border); }
+.corp-tabela th { background: #F4F6F7; color: #073B4C; font-weight: 600; }
+.corp-tabela td { font-variant-numeric: tabular-nums; }
+.corp-tabela input[type="number"] { width: 90px; padding: 4px 6px; border: 1px solid var(--border); border-radius: 8px; }
+.corp-remover { background: none; border: 0; color: #B3261E; font-size: 20px; cursor: pointer; line-height: 1; }
+.corp-vencido { color: #B3261E; font-weight: 700; }
+.corp-entrega { border: 1px solid var(--border); border-radius: 12px; padding: 10px 14px; display: grid; gap: 8px; }
+.corp-entrega legend { font-weight: 600; color: #073B4C; padding: 0 6px; }
+.corp-entrega > label { display: inline-flex; gap: 6px; align-items: center; margin-right: 16px; }
+.corp-resumo { display: flex; flex-wrap: wrap; gap: 18px; justify-content: space-between; background: #FFFFFF; border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; }
+@media (max-width: 760px) {
+  .corp-achados li { grid-template-columns: 1fr auto; }
+  .corp-achados li > span:first-child { grid-column: 1 / -1; }
+  .corp-tabela { display: block; overflow-x: auto; }
+}
