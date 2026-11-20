@@ -754,5 +754,5 @@ produção desde o PR #38.
 
 1. Pacote `I:\Projetos\_whatsapp-docs\pacote-whatschat` (origem Smagnoto) adaptado: botao verde no canto inferior direito, balao "Posso ajudar?" apos 7 s (dispensado fica em `sessionStorage`), conversa com roteiro fixo e botao "Continuar no WhatsApp" (`wa.me/5519993631145?text=...`). Sem IA, sem API, sem gravar dado. Na pagina `/produtos/<sku>` a mensagem leva a URL do produto.
 2. Arquivos: `src/lib/whats-chat.ts` (numero, horario, roteiro `OPCOES_CHAT`, `emAtendimento` em Brasilia), `src/components/WhatsChat.tsx` (montado no `layout.tsx` raiz), CSS `.wchat-*` em `globals.css` (sem Tailwind/lucide - o projeto nao usa; icones SVG inline). Escondido no painel por `body:has(.admin-shell)`. O flutuante social (`FloatingSocial`) continua igual (E2E N9).
-3. Horario exibido = **seg a sex 9h-18h, sab 9h-12h** (padrao do pacote; trocar em `MARCA_CHAT.horario` + `emAtendimento` quando o Joaquim confirmar o real).
+3. Horario exibido = **seg a sab 8h-18h30** (confirmado pelo Joaquim 19/11/2026; `MARCA_CHAT.horario` + `emAtendimento`).
 4. Teste unitario: `node --experimental-strip-types --import ./scripts/registrar-ts.mjs --test src/lib/whats-chat.test.ts` (3/3). E2E vendas 36/36, f2 15/15.

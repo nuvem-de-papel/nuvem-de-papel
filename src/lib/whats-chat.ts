@@ -6,7 +6,7 @@ export const MARCA_CHAT = {
   nome: "Nuvem de Papel",
   // mesmo numero do rodape/flutuante (Footer.tsx WHATSAPP_URL)
   whatsapp: "https://wa.me/5519993631145",
-  horario: "Seg a sex, 9h às 18h · Sáb, 9h às 12h",
+  horario: "Seg a sáb, 8h às 18h30",
 } as const;
 
 export type OpcaoChat = {
@@ -52,21 +52,21 @@ export const OPCOES_CHAT: readonly OpcaoChat[] = [
   },
 ];
 
-/** Dentro do horario de atendimento em Brasilia: seg a sex 9h-18h, sab 9h-12h. */
+/** Dentro do horario de atendimento em Brasilia: seg a sab 8h-18h30. */
 export function emAtendimento(agora: Date): boolean {
   const p: Record<string, string> = {};
   for (const x of new Intl.DateTimeFormat("en-US", {
     timeZone: "America/Sao_Paulo",
     weekday: "short",
     hour: "numeric",
+    minute: "numeric",
     hourCycle: "h23",
   }).formatToParts(agora)) {
     p[x.type] = x.value;
   }
-  const hora = Number(p.hour) % 24;
-  if (p.weekday === "Sat") return hora >= 9 && hora < 12;
+  const min = (Number(p.hour) % 24) * 60 + Number(p.minute);
   if (p.weekday === "Sun") return false;
-  return hora >= 9 && hora < 18;
+  return min >= 8 * 60 && min < 18 * 60 + 30;
 }
 
 /** So pagina de produto entra na mensagem; query e hash ficam de fora. */
