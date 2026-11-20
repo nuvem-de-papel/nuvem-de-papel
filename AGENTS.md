@@ -756,3 +756,9 @@ produção desde o PR #38.
 2. Arquivos: `src/lib/whats-chat.ts` (numero, horario, roteiro `OPCOES_CHAT`, `emAtendimento` em Brasilia), `src/components/WhatsChat.tsx` (montado no `layout.tsx` raiz), CSS `.wchat-*` em `globals.css` (sem Tailwind/lucide - o projeto nao usa; icones SVG inline). Escondido no painel por `body:has(.admin-shell)`. O flutuante social (`FloatingSocial`) continua igual (E2E N9).
 3. Horario exibido = **seg a sab 8h-18h30** (confirmado pelo Joaquim 19/11/2026; `MARCA_CHAT.horario` + `emAtendimento`).
 4. Teste unitario: `node --experimental-strip-types --import ./scripts/registrar-ts.mjs --test src/lib/whats-chat.test.ts` (3/3). E2E vendas 36/36, f2 15/15.
+
+## Conta do cliente: foto + linha unica; icone do atendimento (19/11/2026)
+
+1. `/conta/*`: acima do menu lateral, foto do cliente (`ContaFoto.tsx`, botao "inserir/trocar foto"); a direita, numa linha so: "Olá, {nome} · sua conta · Conta pessoa física|revenda (PJ)". Upload pela action `trocarFotoCliente` (`src/app/conta/foto-actions.ts`): JPG/PNG/WEBP ate 2 MB, bucket publico `produtos` (0056) em `clientes/<id>-<ts>.<ext>`, grava `customers.foto_url` (0029) so do proprio `auth_user_id`, audit `cliente.foto_alterada`. `next.config` ganhou `serverActions.bodySizeLimit = 3mb`.
+2. WhatsChat: botao navy `#073B4C` com borda rosa e icone de fone (nao e o logo do WhatsApp — o chat so direciona; o verde fica no flutuante social).
+3. Validado: type-check 0, lint 0, build ok; E2E cadastro-basico ok, f3 20/20, vendas 36/36. Sem migration.
