@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { Header } from "@/components/Header";
 import { Footer, FloatingSocial } from "@/components/Footer";
+import { WhatsChat } from "@/components/WhatsChat";
 import { CartProvider } from "@/components/carrinho/CartProvider";
 import { OrcamentoProvider } from "@/components/orcamento/OrcamentoProvider";
 import { getBrandingCssVars } from "@/lib/branding";
@@ -30,6 +31,7 @@ export default async function RootLayout({
           <OrcamentoProvider>
           <Header />
           <FloatingSocial />
+          <WhatsChat />
           {children}
           <Footer />
         </OrcamentoProvider>
