@@ -9,6 +9,7 @@ import { SairButton } from "@/components/conta/SairButton";
 export function ContaMenu({ clube }: { clube: boolean }) {
   const atual = usePathname();
   const itens = [
+    { href: "/conta", rotulo: "Início" },
     { href: "/conta/cadastro", rotulo: "Meu cadastro" },
     { href: "/conta/enderecos", rotulo: "Endereços" },
     { href: "/conta/pedidos", rotulo: "Pedidos" },

@@ -128,11 +128,11 @@ async function main() {
     check(await page.getByRole("heading", { name: "Finalize sua compra" }).count() === 0, "Form de cadastro sumiu");
     check(await logado.count() > 0, "Checkout logado (endereço ou 'em breve') presente");
 
-    // 8. Cabeçalho do cliente: "Minha conta" -> /conta/pedidos (nunca "Painel")
+    // 8. Cabeçalho do cliente: "Minha conta" -> /conta (Inicio, 20/11) (nunca "Painel")
     log("8. Conferindo cabeçalho do cliente...");
     const minhaConta = page.getByRole("link", { name: "Minha conta" }).first();
     await minhaConta.waitFor({ state: "attached", timeout: 10000 });
-    check(await minhaConta.getAttribute("href") === "/conta/pedidos", "Cabeçalho: 'Minha conta' -> /conta/pedidos");
+    check(await minhaConta.getAttribute("href") === "/conta", "Cabeçalho: 'Minha conta' -> /conta");
     check(await page.getByRole("link", { name: "Painel" }).count() === 0, "Cabeçalho: sem botão 'Painel'");
 
     // 9. Sair e voltar como cliente que já tem cadastro
