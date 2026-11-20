@@ -2285,6 +2285,16 @@ body:has(.admin-shell) .wchat { display: none; }
 .conta-form { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px 18px; margin-top: 8px; }
 .conta-campo { display: grid; gap: 4px; font-size: 12px; font-weight: 700; text-transform: uppercase; color: var(--ink-soft); }
 .conta-campo input { font: inherit; font-size: 15px; text-transform: none; font-weight: 400; color: var(--navy); padding: 9px 12px; border: 1px solid var(--border); border-radius: 10px; background: #FFFFFF; }
+/* Campo de senha com Mostrar/Ocultar (20/11/2026) */
+.campo-senha { position: relative; display: block; }
+.campo-senha input { width: 100%; padding-right: 76px; box-sizing: border-box; }
+.campo-senha-ver { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); background: none; border: 0; padding: 6px 8px; font: inherit; font-size: 12px; font-weight: 700; text-transform: none; color: var(--navy); cursor: pointer; }
+/* /corporativo: escolha entrar x cadastrar (20/11/2026) */
+.corp-escolha { display: flex; gap: 8px; flex-wrap: wrap; margin: 4px 0 16px; }
+.corp-escolha button { font: inherit; font-weight: 700; font-size: 14px; padding: 9px 18px; border-radius: 999px; border: 1px solid var(--border); background: #FFFFFF; color: var(--navy); cursor: pointer; }
+.corp-escolha button[aria-selected="true"] { background: var(--navy); color: #FFFFFF; border-color: var(--navy); }
+.corp-logado { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 10px 14px; border: 1px solid var(--border); border-radius: 10px; background: #FFF8E6; margin: 0 0 14px; }
+.corp-confirmo { display: flex; gap: 8px; align-items: flex-start; font-size: 14px; color: var(--navy); }
 .conta-form-acoes { grid-column: 1 / -1; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .conta-botao { background: #E084AC; color: #FFFFFF; border: 0; border-radius: 10px; padding: 10px 18px; font-weight: 700; cursor: pointer; }
 .conta-botao:hover { background: #D06A97; }
