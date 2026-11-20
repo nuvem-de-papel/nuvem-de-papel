@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useSemAnimacao } from "@/components/acessibilidade/useSemAnimacao";
 import type { VarejoProduct } from "@/lib/products";
 import { ProductCard } from "@/components/ProductCard";
 import { IconeGrupo } from "@/components/catalogo/IconeGrupo";
@@ -37,6 +38,7 @@ export function CategoryCarousel({
   const BASE = 260;
   const [encaixe, setEncaixe] = useState<{ n: number; w: number } | null>(null);
   const [pausado, setPausado] = useState(false);
+  const semAnimacao = useSemAnimacao();
   const [busca, setBusca] = useState("");
   const normBusca = (texto: string) => texto.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
   const termo = normBusca(busca.trim());
@@ -77,10 +79,10 @@ export function CategoryCarousel({
   const scrollRef = useRef(scroll);
   scrollRef.current = scroll;
   useEffect(() => {
-    if (!autoPlayMs || pausado || lista.length <= 1) return;
+    if (!autoPlayMs || pausado || semAnimacao || lista.length <= 1) return;
     const id = window.setInterval(() => scrollRef.current(1), autoPlayMs);
     return () => window.clearInterval(id);
-  }, [autoPlayMs, pausado, lista.length]);
+  }, [autoPlayMs, pausado, semAnimacao, lista.length]);
 
   return (
     <section
