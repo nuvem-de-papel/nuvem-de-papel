@@ -762,3 +762,11 @@ produção desde o PR #38.
 1. `/conta/*`: acima do menu lateral, foto do cliente (`ContaFoto.tsx`, botao "inserir/trocar foto"); a direita, numa linha so: "Olá, {nome} · sua conta · Conta pessoa física|revenda (PJ)". Upload pela action `trocarFotoCliente` (`src/app/conta/foto-actions.ts`): JPG/PNG/WEBP ate 2 MB, bucket publico `produtos` (0056) em `clientes/<id>-<ts>.<ext>`, grava `customers.foto_url` (0029) so do proprio `auth_user_id`, audit `cliente.foto_alterada`. `next.config` ganhou `serverActions.bodySizeLimit = 3mb`.
 2. WhatsChat: botao navy `#073B4C` com borda rosa e icone de fone (nao e o logo do WhatsApp — o chat so direciona; o verde fica no flutuante social).
 3. Validado: type-check 0, lint 0, build ok; E2E cadastro-basico ok, f3 20/20, vendas 36/36. Sem migration.
+
+## Autoatendimento do cliente (20/11/2026)
+
+1. **Regra dura**: o cliente edita os PROPRIOS dados livremente, mas **nunca muda status de pedido**; toda acao grava `audit_log` com before/after ("inventario de troca"). Actions em `src/app/conta/actions.ts` (busca o cliente por `customers.auth_user_id`, confere `orders.user_id`).
+2. **Meu cadastro** (`/conta/cadastro`, `CadastroForm.tsx`): nome, e-mail (troca tambem no Auth, com rollback se o `customers` falhar), telefone, WhatsApp, nascimento; CPF/CNPJ travado (fala com a loja). Audit `cliente.dados_alterados` so com os campos que mudaram; lista "Historico de alteracoes" le os `cliente.*` do proprio usuario.
+3. **Enderecos** (`EnderecosEditor.tsx`): incluir/editar/remover com ViaCEP no blur (`localidade`); audit `cliente.endereco_criado|alterado|removido`.
+4. **Painel do pedido** (`PedidoPainel.tsx`, botao "Acompanhar" em cada linha de `/conta/pedidos`): linha do tempo criado→pago→separacao→enviado→entregue, **Pagar agora** (so `aguardando_pagamento` com `mp_init_point`, audit `pedido.pagamento_retomado`), **Comprar de novo** (so `cancelado`, devolve os itens ao carrinho e vai ao checkout, audit `pedido.refeito`), **Pedir nota fiscal** (so pago em diante, 1 vez por pedido, audit `pedido.nf_solicitada` — a loja ve no audit log) e **Imprimir** (`window.print` com `.doc-print`, audit `pedido.impresso`). Rastreio ficou para a fase 4.
+5. Validado: type-check 0, lint 0, build ok; E2E cadastro-basico ok, f3 20/20, vendas 36/36. Sem migration.

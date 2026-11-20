@@ -3,51 +3,87 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { NUVEM_DE_PAPEL_TENANT_ID } from "@/lib/tenant";
 import { ContaSecao } from "@/components/conta/ContaSecao";
+import { CadastroForm } from "@/components/conta/CadastroForm";
 
 export const dynamic = "force-dynamic";
 
-function telefone(v: string | null) {
-  const d = (v ?? "").replace(/\D/g, "");
-  if (d.length === 11) return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
-  if (d.length === 10) return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`;
-  return v || "—";
-}
+// Autoatendimento (20/11/2026): o cliente edita os proprios dados; CPF/CNPJ fica
+// travado (identidade fiscal). Toda troca vira linha `cliente.*` no audit_log,
+// listada abaixo como "Historico de alteracoes".
+const ROTULO: Record<string, string> = {
+  name: "Nome", email: "E-mail", telefone: "Telefone", whatsapp: "WhatsApp", nascimento: "Nascimento",
+  foto_url: "Foto",
+};
+const ACAO: Record<string, string> = {
+  "cliente.dados_alterados": "Dados alterados",
+  "cliente.foto_alterada": "Foto alterada",
+  "cliente.endereco_criado": "Endereço incluído",
+  "cliente.endereco_alterado": "Endereço alterado",
+  "cliente.endereco_removido": "Endereço removido",
+};
 
 export default async function MeuCadastroPage() {
-  const supabase = createClient();
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await createClient().auth.getUser();
   if (!user) redirect("/login?next=/conta/cadastro");
 
-  const { data: c } = await createAdminClient()
+  const admin = createAdminClient();
+  const { data: c } = await admin
     .from("customers")
-    .select("name, email, documento, telefone, whatsapp, nascimento, created_at")
+    .select("name, email, documento, telefone, whatsapp, nascimento")
     .eq("tenant_id", NUVEM_DE_PAPEL_TENANT_ID)
     .eq("auth_user_id", user.id)
     .maybeSingle();
+  const { data: hist } = await admin
+    .from("audit_log")
+    .select("id, action, before, after, created_at")
+    .eq("tenant_id", NUVEM_DE_PAPEL_TENANT_ID)
+    .eq("actor_user_id", user.id)
+    .like("action", "cliente.%")
+    .order("created_at", { ascending: false })
+    .limit(30);
 
-  const linhas: [string, string][] = [
-    ["Nome", c?.name ?? "—"],
-    ["E-mail", c?.email ?? user.email ?? "—"],
-    ["CPF/CNPJ", c?.documento || "—"],
-    ["Telefone", telefone(c?.telefone ?? null)],
-    ["WhatsApp", telefone(c?.whatsapp ?? null)],
-    ["Nascimento", c?.nascimento ? new Date(`${c.nascimento}T12:00:00`).toLocaleDateString("pt-BR") : "—"],
-    ["Cliente desde", c?.created_at ? new Date(c.created_at).toLocaleDateString("pt-BR") : "—"],
-  ];
+  const resumo = (h: { action: string; before: unknown; after: unknown }) => {
+    if (h.action !== "cliente.dados_alterados") return "";
+    const a = (h.before ?? {}) as Record<string, unknown>;
+    const d = (h.after ?? {}) as Record<string, unknown>;
+    return Object.keys(d)
+      .map((k) => `${ROTULO[k] ?? k}: ${String(a[k] ?? "—")} → ${String(d[k] ?? "—")}`)
+      .join(" · ");
+  };
 
   return (
-    <ContaSecao titulo="Meu cadastro">
-      <dl className="conta-dados">
-        {linhas.map(([k, v]) => (
-          <div key={k}>
-            <dt>{k}</dt>
-            <dd>{v}</dd>
-          </div>
-        ))}
-      </dl>
-      <p className="conta-vazio">Para corrigir algum dado, fale com a loja pelo WhatsApp.</p>
-    </ContaSecao>
+    <>
+      <ContaSecao titulo="Meu cadastro">
+        <p className="conta-vazio" style={{ margin: "0 0 14px" }}>
+          CPF/CNPJ: <strong>{c?.documento || "—"}</strong> (para trocar, fale com a loja)
+        </p>
+        <CadastroForm
+          inicial={{
+            nome: c?.name ?? "",
+            email: c?.email ?? user.email ?? "",
+            telefone: c?.telefone ?? "",
+            whatsapp: c?.whatsapp ?? "",
+            nascimento: c?.nascimento ?? "",
+          }}
+        />
+      </ContaSecao>
+      <ContaSecao titulo="Histórico de alterações">
+        {(hist ?? []).length === 0 ? (
+          <p className="conta-vazio">Nenhuma alteração registrada.</p>
+        ) : (
+          <ul className="conta-lista" aria-label="Histórico de alterações">
+            {(hist ?? []).map((h) => (
+              <li key={h.id}>
+                <strong>{ACAO[h.action] ?? h.action}</strong>
+                <span className="pedido-sub">{new Date(h.created_at).toLocaleString("pt-BR")}</span>
+                {resumo(h) && <span>{resumo(h)}</span>}
+              </li>
+            ))}
+          </ul>
+        )}
+      </ContaSecao>
+    </>
   );
 }

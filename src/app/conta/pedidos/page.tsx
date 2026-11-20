@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { mpConfigurado } from "@/lib/mercadopago";
+import { PedidoPainel } from "@/components/conta/PedidoPainel";
 import { reconciliarPedido, type ResultadoReconciliacao } from "@/lib/pagamento-confirmar";
 
 export const dynamic = "force-dynamic";
@@ -51,7 +52,8 @@ type LinhaPedido = {
   payment_method: string | null;
   created_at: string;
   address_snapshot: { cidade?: string; uf?: string } | null;
-  order_items: { sku: string; name: string; unit_price: number | string; quantity: number; total: number | string }[];
+  mp_init_point: string | null;
+  order_items: { item_id: string | null; sku: string; name: string; unit_price: number | string; quantity: number; total: number | string }[];
 };
 
 // Reconciliação na volta do cliente (17/11/2026): se o aviso do MP não
@@ -115,11 +117,17 @@ export default async function MeusPedidosPage({
   const { data } = await supabase
     .from("orders")
     .select(
-      "id, status, total_amount, frete, discount_amount, payment_method, created_at, address_snapshot, order_items(sku, name, unit_price, quantity, total)"
+      "id, status, total_amount, frete, discount_amount, payment_method, created_at, address_snapshot, mp_init_point, order_items(item_id, sku, name, unit_price, quantity, total)"
     )
     .order("created_at", { ascending: false });
 
   const pedidos = (data ?? []) as unknown as LinhaPedido[];
+  const { data: nfs } = await createAdminClient()
+    .from("audit_log")
+    .select("entity_id")
+    .eq("actor_user_id", user.id)
+    .eq("action", "pedido.nf_solicitada");
+  const nfSet = new Set((nfs ?? []).map((n) => n.entity_id as string));
 
   return (
     <main className="conta-pagina">      {searchParams.novo && (
@@ -205,6 +213,17 @@ export default async function MeusPedidosPage({
                   <strong>{brl(Number(p.total_amount))}</strong>
                 </span>
               </summary>
+              <div className="pedido-painel-linha">
+                <PedidoPainel
+                  id={p.id}
+                  codigo={p.id.slice(0, 8).toUpperCase()}
+                  status={p.status}
+                  criadoEm={p.created_at}
+                  temLink={!!p.mp_init_point}
+                  nfSolicitada={nfSet.has(p.id)}
+                  itens={itens.map((it) => ({ item_id: it.item_id, sku: it.sku, name: it.name, unit_price: Number(it.unit_price), quantity: Number(it.quantity) }))}
+                />
+              </div>
               <table className="pedido-itens">
                 <tbody>
                   {itens.map((it, idx) => (
