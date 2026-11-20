@@ -1120,3 +1120,112 @@ export async function removerCliente(input: { id: string }): Promise<ResultadoAc
   revalidatePath("/vendas");
   return { ok: true };
 }
+
+// ---- Conta corporativa (0059 - 20/11/2026) ------------------------------
+// Gestao decide o pedido PJ: aprovar (com limite e prazo), recusar, bloquear
+// ou reativar. Limite nasce 0 (fail-closed) e so muda aqui. Audit
+// corporativo.<decisao> com antes/depois.
+
+export type DecisaoCorporativa = "aprovar" | "recusar" | "bloquear" | "reativar";
+
+const STATUS_DECISAO: Record<DecisaoCorporativa, string> = {
+  aprovar: "ativa",
+  recusar: "recusada",
+  bloquear: "bloqueada",
+  reativar: "ativa",
+};
+
+const DE_DECISAO: Record<DecisaoCorporativa, string[]> = {
+  aprovar: ["pendente"],
+  recusar: ["pendente"],
+  bloquear: ["ativa"],
+  reativar: ["bloqueada", "recusada"],
+};
+
+export async function decidirContaCorporativa(input: {
+  id: string;
+  decisao: DecisaoCorporativa;
+  limite?: number;
+  prazoDias?: number;
+  motivo?: string;
+}): Promise<ResultadoAcao> {
+  const gestor = await gestaoAtual();
+  if (!gestor) return { ok: false, erro: "Sem permissão." };
+  const decisao = input.decisao;
+  if (!(decisao in STATUS_DECISAO)) return { ok: false, erro: "Decisão inválida." };
+
+  const motivo = (input.motivo ?? "").trim();
+  const ativando = decisao === "aprovar" || decisao === "reativar";
+  if (!ativando && motivo.length < 5) return { ok: false, erro: "Informe o motivo (mínimo 5 letras)." };
+  if (motivo.length > 500) return { ok: false, erro: "Motivo com no máximo 500 caracteres." };
+
+  const limite = Number(input.limite ?? 0);
+  const prazo = Number(input.prazoDias ?? 0);
+  if (ativando) {
+    if (!Number.isFinite(limite) || limite < 0 || limite > 10_000_000) {
+      return { ok: false, erro: "Limite de crédito entre 0 e 10.000.000." };
+    }
+    if (!Number.isInteger(prazo) || prazo < 0 || prazo > 120) {
+      return { ok: false, erro: "Prazo entre 0 e 120 dias (0 = à vista)." };
+    }
+  }
+
+  const admin = createAdminClient();
+  const { data: antes } = await admin
+    .from("corporate_accounts")
+    .select("id, razao_social, cnpj, status, limite_credito, prazo_dias, motivo, aprovado_em")
+    .eq("tenant_id", NUVEM_DE_PAPEL_TENANT_ID)
+    .eq("id", input.id)
+    .maybeSingle();
+  if (!antes) return { ok: false, erro: "Conta corporativa não encontrada." };
+  if (!DE_DECISAO[decisao].includes(antes.status)) {
+    return { ok: false, erro: `Conta está "${antes.status}" — essa ação não se aplica.` };
+  }
+
+  const agora = new Date().toISOString();
+  const patch: Record<string, unknown> = {
+    status: STATUS_DECISAO[decisao],
+    motivo: motivo || null,
+    updated_at: agora,
+  };
+  if (ativando) {
+    patch.limite_credito = Math.round(limite * 100) / 100;
+    patch.prazo_dias = prazo;
+    patch.aprovado_em = antes.aprovado_em ?? agora;
+    patch.aprovado_por = gestor.id;
+  }
+
+  // Guarda de concorrencia: so troca se o status ainda e o lido.
+  const { data: depois, error } = await admin
+    .from("corporate_accounts")
+    .update(patch)
+    .eq("id", antes.id)
+    .eq("status", antes.status)
+    .select("id, status, limite_credito, prazo_dias, motivo")
+    .maybeSingle();
+  if (error) return { ok: false, erro: "Não foi possível gravar a decisão." };
+  if (!depois) return { ok: false, erro: "A conta mudou enquanto você decidia. Recarregue a tela." };
+
+  const acao = decisao === "aprovar" ? "aprovado" : decisao === "recusar" ? "recusado" : decisao === "bloquear" ? "bloqueado" : "reativado";
+  await admin.from("audit_log").insert({
+    tenant_id: NUVEM_DE_PAPEL_TENANT_ID,
+    actor_user_id: gestor.id,
+    action: `corporativo.${acao}`,
+    entity: "corporate_accounts",
+    entity_id: antes.id,
+    before: antes,
+    after: depois,
+  });
+  revalidatePath("/configuracoes/cadastro");
+  return {
+    ok: true,
+    aviso:
+      decisao === "aprovar"
+        ? `${antes.razao_social} aprovada.`
+        : decisao === "reativar"
+          ? `${antes.razao_social} reativada.`
+          : decisao === "bloquear"
+            ? `${antes.razao_social} bloqueada.`
+            : `${antes.razao_social} recusada.`,
+  };
+}

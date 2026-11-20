@@ -789,3 +789,16 @@ produção desde o PR #38.
 1. `CategoryCarousel`: fundo em vidro no tom do setor (`color-mix` da cor com transparente + `backdrop-filter: blur(16px) saturate(160%)`, borda branca translucida); sem cor = rosa `#E084AC`. Prop nova `icone` (chave de `ICONES_GRUPO`) desenha o icone antes do titulo; home/produtos passam o icone do grupo, Lancamentos/Destaques/Ofertas/Combina com usam `estrela`.
 2. "Combina com" (`/produtos/[sku]`) ganhou `.faixa-carrossel`: 5 cards do mesmo tamanho da home e de `/produtos`.
 3. Validado: type-check 0, build ok; E2E lancamento 19/19, vendas 36/36. Sem migration.
+
+## Conta corporativa PJ - pedido e aprovacao (0059, etapa 2 de "Contas do Cliente", 20/11/2026)
+
+1. **Migration `0059_corporativo.sql`** (+preflight/rollback/test, teste 14 checks com `FALHAS = true`):
+   - `corporate_accounts`: 1 por cliente (`customer_id` unique) e por CNPJ (unique tenant+cnpj); status `pendente|ativa|bloqueada|recusada`; `limite_credito` nasce **0** (fail-closed: a gestao define na aprovacao); `prazo_dias` 0-120; `motivo` ate 500; check `ativa` exige `aprovado_em`.
+   - `corporate_buyers`: logins da empresa (`auth_user_id` unique = um login, uma empresa), papel `comprador|financeiro|admin`, `ativo`.
+   - `corporate_alerts`: 1 alerta por pedido (unique `order_id`) - usado na etapa 4.
+   - `orders.corporate_account_id` + `orders_origem_check` aceita `corporativo`.
+   - RLS: select so `authenticated` (o comprador ve a propria empresa; gestao ve tudo); anon nada; escrita so service_role.
+2. **Pedido da conta** (`/corporativo`, `src/app/corporativo/actions.ts` -> `solicitarContaCorporativa`): valida razao social, CNPJ (DV), telefone. **Visitante**: cria login (`email_confirm`) + `customers` com o CNPJ + empresa `pendente` + comprador `admin`, rollback em cascata se algo falhar, e abre a sessao. **Logado** (cliente da loja): usa o cadastro dele (recusa se ja tem empresa, se e login da equipe ou se o cadastro tem outro CPF/CNPJ). Audit `corporativo.solicitado`. `/login?next=/corporativo` volta para a pagina.
+3. **Aprovacao** em Cadastros > Revenda, secao `Contas corporativas` (`decidirContaCorporativa` em `configuracoes/cadastro/actions.ts`, gestao): aprovar (pendente -> ativa, com limite e prazo), recusar (pendente), bloquear (ativa), reativar (bloqueada/recusada). Recusar/bloquear exigem motivo >= 5 letras. Update guardado pelo status de origem; audit `corporativo.<decisao>`.
+4. **Etiqueta** no topo da `/conta`: login ligado a empresa mostra `Corporativo · <razao>` (ativa) / `aguardando aprovacao` / status, com link para `/corporativo`, no lugar de PF/PJ; a do Clube continua ao lado.
+5. **Validado (20/11)**: staging preflight 6/6 -> migration -> teste 14/14; type-check 0, lint 0, build ok; E2E nova `e2e/corporativo.cjs` **17/17** (no fim da chain: pedido do visitante, CNPJ repetido, etiqueta, aprovacao com limite/prazo, bloqueio com motivo, cliente ve o bloqueio; limpa o que cria); `vendas` 36/36, `f2` 15/15, `cadastro-basico` 26/26, `clientes` 26/26. Pegadinha: `.ct-pill` e `uppercase` - comparar texto em minusculas. **Proximas etapas**: 3 = painel do comprador + pedido no atacado com checagem de credito (limite - parcelas em aberto >= total); 4 = alertas (e-mail agora; WhatsApp depende de conta Meta Business).
