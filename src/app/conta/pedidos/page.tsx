@@ -122,28 +122,7 @@ export default async function MeusPedidosPage({
   const pedidos = (data ?? []) as unknown as LinhaPedido[];
 
   return (
-    <main className="conta-pagina">
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "flex-start",
-          gap: 12,
-          flexWrap: "wrap",
-          marginBottom: 24,
-        }}
-      >
-        <div>
-          <h1 className="display" style={{ fontSize: 32, marginBottom: 6 }}>
-            Meus pedidos
-          </h1>
-          <p style={{ color: "var(--ink-soft)", fontSize: 14, margin: 0 }}>
-            {pedidos.length} {pedidos.length === 1 ? "pedido" : "pedidos"} · {user.email}
-          </p>
-        </div>
-      </div>
-
-      {searchParams.novo && (
+    <main className="conta-pagina">      {searchParams.novo && (
         <p
           style={{
             background: searchParams.mp === "0" ? "#FFF3CD" : "var(--blue-100)",
@@ -182,127 +161,83 @@ export default async function MeusPedidosPage({
         </p>
       )}
 
-      {pedidos.length === 0 && (
-        <div
-          style={{
-            background: "var(--bg-cloud)",
-            border: "1px solid var(--border)",
-            borderRadius: "var(--radius-card)",
-            padding: 40,
-            textAlign: "center",
-            boxShadow: "var(--shadow-card)",
-          }}
-        >
-          <p style={{ color: "var(--ink-soft)", marginBottom: 20 }}>
-            Você ainda não fez nenhum pedido.
+      {/* Lista unica (19/11/2026): uma caixa so, um pedido por linha, status a direita;
+          clicar no pedido abre os itens (details/summary, sem JS). */}
+      <section className="pedidos-caixa" aria-label="Meus pedidos">
+        <header className="pedidos-caixa-topo">
+          <h1 className="display">Meus pedidos</h1>
+          <p>
+            {pedidos.length} {pedidos.length === 1 ? "pedido" : "pedidos"} · {user.email}
           </p>
-          <Link
-            href="/produtos"
-            style={{
-              background: "var(--pink-600)",
-              color: "#FFF",
-              padding: "12px 24px",
-              borderRadius: 999,
-              fontWeight: 700,
-              textDecoration: "none",
-            }}
-          >
-            Começar a comprar
-          </Link>
-        </div>
-      )}
+        </header>
 
-      <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+        {pedidos.length === 0 && (
+          <div className="pedidos-vazio">
+            <p>Você ainda não fez nenhum pedido.</p>
+            <Link href="/produtos" className="pedidos-vazio-botao">
+              Começar a comprar
+            </Link>
+          </div>
+        )}
+
         {pedidos.map((p) => {
           const st = STATUS[p.status] ?? { label: p.status, bg: "var(--bg-cotton)", fg: "var(--ink-soft)" };
+          const itens = p.order_items ?? [];
+          const qtd = itens.reduce((s, it) => s + Number(it.quantity), 0);
           return (
-            <article
-              key={p.id}
-              style={{
-                background: "var(--bg-cloud)",
-                border: "1px solid var(--border)",
-                borderRadius: "var(--radius-card)",
-                padding: 22,
-                boxShadow: "var(--shadow-card)",
-              }}
-            >
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  gap: 12,
-                  flexWrap: "wrap",
-                  alignItems: "center",
-                  marginBottom: 14,
-                }}
-              >
-                <div>
-                  <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: 0 }}>
-                    Pedido <strong style={{ color: "var(--ink)" }}>{p.id.slice(0, 8).toUpperCase()}</strong>
-                    {" · "}{quando(p.created_at)}
+            <details key={p.id} className="pedido-linha">
+              <summary>
+                <span className="pedido-seta" aria-hidden="true">▸</span>
+                <span className="pedido-info">
+                  <span>
+                    Pedido <strong>{p.id.slice(0, 8).toUpperCase()}</strong> · {quando(p.created_at)}
+                  </span>
+                  <span className="pedido-sub">
+                    {qtd} {qtd === 1 ? "item" : "itens"}
                     {p.address_snapshot?.cidade ? ` · ${p.address_snapshot.cidade}/${p.address_snapshot.uf}` : ""}
                     {p.payment_method ? ` · ${PAGAMENTO[p.payment_method] ?? p.payment_method}` : ""}
-                  </p>
-                </div>
-                <span
-                  style={{
-                    background: st.bg,
-                    color: st.fg,
-                    fontSize: 11.5,
-                    fontWeight: 700,
-                    padding: "4px 12px",
-                    borderRadius: "var(--radius-chip)",
-                  }}
-                >
-                  {st.label}
+                  </span>
                 </span>
-              </div>
-
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
+                <span className="pedido-direita">
+                  <span className="pedido-status" style={{ background: st.bg, color: st.fg }}>
+                    {st.label}
+                  </span>
+                  <strong>{brl(Number(p.total_amount))}</strong>
+                </span>
+              </summary>
+              <table className="pedido-itens">
                 <tbody>
-                  {(p.order_items ?? []).map((it, idx) => (
-                    <tr key={idx} style={{ borderTop: "1px solid var(--border)" }}>
-                      <td style={{ padding: "9px 0", color: "var(--ink)" }}>
+                  {itens.map((it, idx) => (
+                    <tr key={idx}>
+                      <td>
                         {it.quantity}× {it.name}
-                        <span style={{ color: "var(--ink-soft)", fontSize: 12 }}> · {it.sku}</span>
+                        <span className="pedido-sub"> · {it.sku}</span>
                       </td>
-                      <td style={{ padding: "9px 0", textAlign: "right", fontWeight: 600 }}>
-                        {brl(Number(it.total))}
-                      </td>
+                      <td>{brl(Number(it.total))}</td>
                     </tr>
                   ))}
-                </tbody>
-                <tfoot>
-                  {/* frete e desconto explicam a diferenca entre itens e total
-                      (antes o cliente via R$ 15,60 de item e R$ 38,90 de total) */}
                   {Number(p.frete ?? 0) > 0 && (
-                    <tr style={{ borderTop: "1px solid var(--border)" }}>
-                      <td style={{ padding: "9px 0", color: "var(--ink-soft)" }}>Frete</td>
-                      <td style={{ padding: "9px 0", textAlign: "right", fontWeight: 600 }}>
-                        {brl(Number(p.frete))}
-                      </td>
+                    <tr>
+                      <td className="pedido-sub">Frete</td>
+                      <td>{brl(Number(p.frete))}</td>
                     </tr>
                   )}
                   {Number(p.discount_amount ?? 0) > 0 && (
-                    <tr style={{ borderTop: "1px solid var(--border)" }}>
-                      <td style={{ padding: "9px 0", color: "var(--ink-soft)" }}>Desconto</td>
-                      <td style={{ padding: "9px 0", textAlign: "right", fontWeight: 600 }}>
-                        − {brl(Number(p.discount_amount))}
-                      </td>
+                    <tr>
+                      <td className="pedido-sub">Desconto</td>
+                      <td>− {brl(Number(p.discount_amount))}</td>
                     </tr>
                   )}
-                  <tr>
-                    <td style={{ paddingTop: 12, fontWeight: 700 }}>Total</td>
-                    <td style={{ paddingTop: 12, textAlign: "right", fontWeight: 700 }}>
-                      {brl(Number(p.total_amount))}
-                    </td>
+                  <tr className="pedido-total">
+                    <td>Total</td>
+                    <td>{brl(Number(p.total_amount))}</td>
                   </tr>
-                </tfoot>
+                </tbody>
               </table>
-            </article>
+            </details>
           );
         })}
-      </div>
+      </section>
     </main>
   );
 }

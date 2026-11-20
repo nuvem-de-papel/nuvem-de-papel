@@ -739,3 +739,8 @@ produção desde o PR #38.
 2. **Catalogo admin `/produtos`**: grupos nascem **fechados** (`button[aria-label="Abrir grupo X"]`, `aria-expanded`); clicar no grupo mostra os setores, clicar no setor abre os produtos. O Voltar rosa saiu do `PageHeader` (prop nova `semVoltar`) e virou `.botao-vidro-voltar` na barra de filtros, antes da busca (vidro rosa->lilas da barra do topo; com setor aberto volta para os grupos, sem setor vai para `/crm`). `lancamento.cjs` A1/A3 ajustados.
 3. **Setores da home**: etiqueta de vidro com largura fixa 150px (120px no celular) e altura de 2 linhas, texto preto `font-weight 400`; circulo do icone com borda preta 1px.
 4. Validado: type-check 0, lint 0, build ok; E2E clientes 26/26, lancamento 19/19, vendas 36/36, f2 15/15, produtos 27/27. Sem migration. Pendente: AdminShell ainda aparece em `/produtos/[sku]` para a equipe (layout nao sabe a rota).
+
+## Meus pedidos em lista unica (19/11/2026)
+
+1. `/conta/pedidos`: uma caixa so (`section.pedidos-caixa`) com titulo/contagem no topo (alinhada ao topo do menu lateral) e um pedido por linha (`details.pedido-linha`): codigo, data, qtd de itens, cidade e pagamento a esquerda; status + total a direita; clicar abre os itens, frete, desconto e total (sem JS). Cabecalho da conta passou de "aqui é a sua conta" para "sua conta".
+2. Validado: type-check 0, lint 0, build ok; E2E f3 20/20, cadastro-basico 26/26, vendas 36/36. Sem migration.
