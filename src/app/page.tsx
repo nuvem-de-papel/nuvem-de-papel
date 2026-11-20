@@ -58,7 +58,7 @@ export default async function HomePage() {
       )}
 
       {ofertas.length > 0 && (
-        <div className="faixa-carrossel" style={{ width: "100vw", marginLeft: "calc(50% - 50vw)", padding: "18px 56px 72px", boxSizing: "border-box" }}>
+        <div id="ofertas" className="faixa-carrossel" style={{ scrollMarginTop: 140, width: "100vw", marginLeft: "calc(50% - 50vw)", padding: "18px 56px 72px", boxSizing: "border-box" }}>
           <CategoryCarousel title="Ofertas" products={ofertas} intensidadeCor={10} encaixar />
         </div>
       )}
