@@ -72,7 +72,7 @@ export function Header() {
   const destinoPainel = !logado
     ? "/login"
     : cliente
-      ? "/conta/pedidos"
+      ? "/conta"
       : role === "revenda"
         ? "/produtos"
         : role === "fornecedor"

@@ -27,7 +27,7 @@ export default async function ContaLayout({ children }: { children: ReactNode })
       .from("club_subscriptions")
       .select("status, club_plans (name)")
       .eq("tenant_id", NUVEM_DE_PAPEL_TENANT_ID)
-      .eq("user_id", user.id)
+      .eq("profile_id", user.id)
       .in("status", ["ativa", "pendente"])
       .maybeSingle(),
   ]);
