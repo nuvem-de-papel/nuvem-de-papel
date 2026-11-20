@@ -139,7 +139,7 @@ export default async function ProdutosPage() {
       {groups.map((group, i) => (
         <Fragment key={group.slug}>
           <div id={group.slug} className="faixa-carrossel" style={{ ...PONTA_A_PONTA, padding: i === 0 ? "34px 56px 0" : "18px 56px 0", scrollMarginTop: OFFSET_SECAO }}>
-            <CategoryCarousel title={group.title} products={group.items} cor={group.cor} corTitulo={group.corTitulo} intensidadeCor={10} encaixar />
+            <CategoryCarousel title={group.title} icone={group.icone} products={group.items} cor={group.cor} corTitulo={group.corTitulo} intensidadeCor={10} encaixar />
           </div>
           {midBanners[i] && (
             <div className="faixa-carrossel" style={PONTA_A_PONTA}>
