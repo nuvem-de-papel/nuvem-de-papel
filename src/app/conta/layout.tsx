@@ -5,7 +5,7 @@ import { NUVEM_DE_PAPEL_TENANT_ID } from "@/lib/tenant";
 import { ContaMenu } from "@/components/conta/ContaMenu";
 
 // Area do cliente da loja (19/11/2026): um shell so para a conta PF/PJ e para
-// o Clube. Menu lateral + cabecalho "ola, aqui e a sua conta". Sem sessao, as
+// o Clube. Menu lateral + cabecalho "ola, sua conta". Sem sessao, as
 // paginas filhas redirecionam para o login (o shell nao aparece).
 export default async function ContaLayout({ children }: { children: ReactNode }) {
   const supabase = createClient();
@@ -40,7 +40,7 @@ export default async function ContaLayout({ children }: { children: ReactNode })
     <div className="conta-shell">
       <header className="conta-topo">
         <p className="conta-ola">olá, {nome || "cliente"}</p>
-        <p className="display conta-titulo">aqui é a sua conta</p>
+        <p className="display conta-titulo">sua conta</p>
         <div className="conta-etiquetas">
           <span>{pj ? "Conta revenda (PJ)" : "Conta pessoa física"}</span>
           {plano && <span className="conta-etiqueta-clube">Clube · {plano}</span>}
