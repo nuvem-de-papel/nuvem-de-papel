@@ -2084,6 +2084,9 @@ button.header-entrar { background: none; border: 0; padding: 0; font: inherit; f
 }
 .header-links {
   justify-content: center;
+  /* quebra em 2 linhas quando os atalhos nao cabem (antes estourava a tela em 1366px) */
+  flex-wrap: wrap;
+  row-gap: 6px;
 }
 .header-links-espaco {
   display: none;
@@ -2335,11 +2338,18 @@ body:has(.admin-shell) .wchat { display: none; }
 .corp-linha-senha { grid-template-columns: 1fr 1fr 2fr; align-items: end; }
 .corp-acoes-senha { margin: 0; align-self: end; }
 .corp-botao-cadastrar { border: 1.5px solid #000000; }
-/* Aba "Ja tenho conta": as duas caixas uma embaixo da outra, 60% da largura e
-   centralizadas (pedido do Joaquim, 21/11/2026). */
-.corp-acesso-entrar { grid-template-columns: minmax(0, 1fr); width: 60%; margin: 0 auto; }
+/* Aba "Ja tenho conta": as duas caixas uma embaixo da outra, centralizadas e
+   compactas - metade da largura de antes (~390px) e letra/espaco menores
+   (pedido do Joaquim, 21/11/2026: "dava impressao de mal configurado"). */
+.corp-acesso-entrar { grid-template-columns: minmax(0, 1fr); width: min(100%, 390px); margin: 0 auto; gap: 14px; }
+.corp-acesso-entrar .corp-info, .corp-acesso-entrar .corp-caixa { padding: 16px 18px; border-radius: 14px; }
+.corp-acesso-entrar .corp-info h1 { font-size: 21px; margin: 0 0 8px; }
+.corp-acesso-entrar .corp-info p, .corp-acesso-entrar .corp-info ul { font-size: 13.5px; }
+.corp-acesso-entrar .corp-info ul { line-height: 1.6; }
+.corp-acesso-entrar .corp-escolha { margin: 0 0 12px; }
+.corp-acesso-entrar .corp-escolha button { font-size: 13px; padding: 7px 12px; }
 @media (max-width: 1100px) { .corp-linha-2 { grid-template-columns: 1fr 2fr 1fr; } }
-@media (max-width: 860px) { .corp-acesso { grid-template-columns: minmax(0, 1fr); } .corp-acesso-entrar { width: 100%; } .corp-linha-senha { grid-template-columns: 1fr 1fr; } .corp-acoes-senha { grid-column: 1 / -1; } .corp-linha-1, .corp-linha-3 { grid-template-columns: minmax(0, 1fr); } .corp-linha-2 { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 860px) { .corp-acesso { grid-template-columns: minmax(0, 1fr); } .corp-linha-senha { grid-template-columns: 1fr 1fr; } .corp-acoes-senha { grid-column: 1 / -1; } .corp-linha-1, .corp-linha-3 { grid-template-columns: minmax(0, 1fr); } .corp-linha-2 { grid-template-columns: 1fr 1fr; } }
 .conta-form-acoes { grid-column: 1 / -1; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .conta-botao { background: #E084AC; color: #FFFFFF; border: 0; border-radius: 10px; padding: 10px 18px; font-weight: 700; cursor: pointer; }
 .conta-botao:hover { background: #D06A97; }
@@ -2471,6 +2481,14 @@ body:has(.admin-shell) .wchat { display: none; }
 .a11y-botao:hover { background: #0B4F66; }
 .a11y-botao svg { width: 22px; height: 22px; }
 #vlibras-access-wrapper { display: none !important; }
+/* Computador: Libras + Acessibilidade colados na borda direita da TELA (nao
+   do miolo de 1240px), na linha do logo. A .site-header (sticky) e a base do
+   absolute; o miolo ganha folga a direita so quando a tela e estreita o
+   bastante para os botoes encostarem no Entrar (pedido 21/11/2026). */
+@media (min-width: 769px) {
+  .site-header-inner { padding-right: clamp(24px, calc(130px - (100vw - 1240px) / 2), 130px); }
+  .header-a11y { position: absolute; right: 16px; top: 10px; height: 52px; }
+}
 @media (max-width: 768px) {
   .header-a11y { gap: 8px; }
   .header-vlibras, .a11y-botao { width: 34px; height: 34px; }
