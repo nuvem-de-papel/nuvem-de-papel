@@ -3,12 +3,22 @@
 import { useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { fazerPedidoCorporativo } from "@/app/corporativo/actions";
+import { ProductImage } from "@/components/ProductImage";
 
 // Novo pedido corporativo (0060 - etapa 3, 20/11/2026). O preco mostrado e a
 // base do atacado (faixa 1) so como estimativa: o valor final, o credito e o
 // estoque sao conferidos no servidor (corporate_place_order).
 
-export type ProdutoCorporativo = { id: string; sku: string; nome: string; preco: number; estoque: number | null };
+export type ProdutoCorporativo = {
+  id: string;
+  sku: string;
+  nome: string;
+  categoria: string | null;
+  descricao: string | null;
+  foto: string | null;
+  preco: number;
+  estoque: number | null;
+};
 export type EnderecoPadrao = {
   cep: string;
   logradouro: string;
@@ -49,7 +59,12 @@ export function PedidoCorporativoForm({
   const achados = useMemo(() => {
     const q = semAcento(busca.trim());
     if (q.length < 2) return [];
-    return produtos.filter((p) => semAcento(p.nome).includes(q) || semAcento(p.sku).includes(q)).slice(0, 12);
+    // nome/codigo primeiro; quem casa so na descricao vem depois (21/11/2026)
+    const principais = produtos.filter((p) => semAcento(p.nome).includes(q) || semAcento(p.sku).includes(q));
+    const pelaDescricao = produtos.filter(
+      (p) => !principais.includes(p) && !!p.descricao && semAcento(p.descricao).includes(q)
+    );
+    return [...principais, ...pelaDescricao].slice(0, 12);
   }, [busca, produtos]);
 
   const linhas = Object.entries(carrinho)
@@ -123,7 +138,7 @@ export function PedidoCorporativoForm({
           type="search"
           value={busca}
           onChange={(e) => setBusca(e.target.value)}
-          placeholder="nome ou código (mínimo 2 letras)"
+          placeholder="nome, código ou descrição (mínimo 2 letras)"
           aria-label="Buscar produto do pedido"
         />
       </label>
@@ -131,6 +146,13 @@ export function PedidoCorporativoForm({
         <ul className="corp-achados">
           {achados.map((p) => (
             <li key={p.id}>
+              <ProductImage
+                fotoUrl={p.foto}
+                category={p.categoria}
+                name={p.nome}
+                iconSize={28}
+                style={{ width: 64, height: 64, borderRadius: 8, background: "#FFFFFF" }}
+              />
               <span>
                 <b>{p.sku}</b> · {p.nome}
               </span>

@@ -66,6 +66,10 @@ type LinhaItem = {
   id: string;
   sku: string;
   name: string;
+  category: string | null;
+  description: string | null;
+  foto_url: string | null;
+  item_images: { url: string; position: number }[] | null;
   item_stock: unknown;
   item_prices: { channel: string; price: number | string; min_quantity: number; valid_from: string | null; valid_until: string | null }[] | null;
 };
@@ -90,6 +94,10 @@ function produtosAtacado(linhas: LinhaItem[]): ProdutoCorporativo[] {
       id: r.id,
       sku: r.sku,
       nome: r.name,
+      categoria: r.category,
+      descricao: r.description,
+      // foto principal = posicao 0 da galeria (0048), senao a foto_url antiga (0032)
+      foto: (r.item_images ?? []).find((i) => i.position === 0)?.url ?? r.foto_url ?? null,
       preco: Number(preco.price),
       estoque: est?.stock_available ?? null,
     });
@@ -109,7 +117,7 @@ async function painel(admin: ReturnType<typeof createAdminClient>, empresa: Empr
       .limit(30),
     admin
       .from("catalog_items")
-      .select("id, sku, name, item_stock(stock_available), item_prices(channel, price, min_quantity, valid_from, valid_until)")
+      .select("id, sku, name, category, description, foto_url, item_images(url, position), item_stock(stock_available), item_prices(channel, price, min_quantity, valid_from, valid_until)")
       .eq("tenant_id", NUVEM_DE_PAPEL_TENANT_ID)
       .eq("active", true)
       .order("name", { ascending: true }),

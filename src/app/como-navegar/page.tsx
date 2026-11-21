@@ -39,8 +39,9 @@ const TOPICOS: Topico[] = [
     pergunta: "Como procurar um produto?",
     respostas: [
       "No meio da barra do topo existe o campo Buscar na loja.",
-      "Escreva o nome do produto. Escreva pelo menos duas letras.",
+      "Escreva o nome, o código ou uma palavra da descrição do produto. Escreva pelo menos duas letras.",
       "Uma lista de produtos aparece embaixo do campo.",
+      "Cada produto da lista mostra a foto, o nome e o preço.",
       "Clique no produto que você quer.",
     ],
   },
