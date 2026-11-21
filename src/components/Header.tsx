@@ -41,6 +41,24 @@ export function Header() {
       window.removeEventListener("keydown", esc);
     };
   }, [setoresAberto]);
+  // "Entrar" deslogado abre a escolha: conta da loja ou corporativa (20/11/2026)
+  const [entrarAberto, setEntrarAberto] = useState(false);
+  const entrarRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!entrarAberto) return;
+    const fora = (e: MouseEvent) => {
+      if (entrarRef.current && !entrarRef.current.contains(e.target as Node)) setEntrarAberto(false);
+    };
+    const esc = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setEntrarAberto(false);
+    };
+    window.addEventListener("mousedown", fora);
+    window.addEventListener("keydown", esc);
+    return () => {
+      window.removeEventListener("mousedown", fora);
+      window.removeEventListener("keydown", esc);
+    };
+  }, [entrarAberto]);
   const [logado, setLogado] = useState(false);
   // undefined = ainda carregando; null = logado sem profile (cliente da loja)
   const [role, setRole] = useState<string | null | undefined>(undefined);
@@ -78,6 +96,12 @@ export function Header() {
         : role === "fornecedor"
           ? "/portal/fornecedor"
           : "/crm";
+  const iconePessoa = (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="12" cy="8" r="4" />
+      <path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7" />
+    </svg>
+  );
   const rotuloPainel = !logado ? "Entrar" : cliente ? "Minha conta" : "Painel";
 
   const naBarra = grupos.filter((g) => g.naBarra);
@@ -124,13 +148,37 @@ export function Header() {
             </svg>
             {totalItens > 0 && <span className="header-carrinho-qtd">{totalItens}</span>}
           </a>
-          <a href={destinoPainel} className="header-entrar">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <circle cx="12" cy="8" r="4" />
-              <path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7" />
-            </svg>
-            <span className="header-entrar-txt">{rotuloPainel}</span>
-          </a>
+          {logado ? (
+            <a href={destinoPainel} className="header-entrar">
+              {iconePessoa}
+              <span className="header-entrar-txt">{rotuloPainel}</span>
+            </a>
+          ) : (
+            <div className="header-entrar-escolha" ref={entrarRef}>
+              <button
+                type="button"
+                className="header-entrar"
+                aria-expanded={entrarAberto}
+                aria-controls="header-entrar-menu"
+                onClick={() => setEntrarAberto((v) => !v)}
+              >
+                {iconePessoa}
+                <span className="header-entrar-txt">Entrar</span>
+              </button>
+              {entrarAberto && (
+                <nav id="header-entrar-menu" className="header-entrar-menu" aria-label="Tipo de conta">
+                  <a href="/login">
+                    <b>Minha conta</b>
+                    <small>Compras na loja e no Clube</small>
+                  </a>
+                  <a href="/corporativo">
+                    <b>Corporativo</b>
+                    <small>Empresas: atacado e faturamento</small>
+                  </a>
+                </nav>
+              )}
+            </div>
+          )}
           <button
             type="button"
             onClick={() => setMenuOpen(!menuOpen)}

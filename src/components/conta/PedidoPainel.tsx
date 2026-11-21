@@ -64,7 +64,12 @@ export function PedidoPainel({
 
   return (
     <>
-      <button type="button" className="pedido-abrir-painel" aria-label={`Acompanhar pedido ${codigo}`} onClick={() => setAberto(true)}>
+      <button type="button" className="pedido-abrir-painel" aria-label={`Acompanhar pedido ${codigo}`} onClick={(e) => {
+          // o botao mora dentro do <summary>: sem isto o clique tambem abriria os itens
+          e.preventDefault();
+          e.stopPropagation();
+          setAberto(true);
+        }}>
         Acompanhar
       </button>
       {aberto && slot && createPortal(

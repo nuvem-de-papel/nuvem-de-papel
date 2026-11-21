@@ -6,10 +6,15 @@ import { NUVEM_DE_PAPEL_TENANT_ID } from "@/lib/tenant";
 import { cnpjValido } from "@/lib/documento";
 import { revalidatePath } from "next/cache";
 
-// Conta corporativa (0059 - 20/11/2026). A empresa nasce 'pendente' e so
-// compra depois que a gestao aprova em Cadastros > Revenda. O login que
-// solicita vira o 'admin' da empresa (corporate_buyers). Escrita so pela
+// Conta corporativa (0059 - 20/11/2026). Desde 20/11 (pedido do Joaquim) a
+// empresa nasce 'ativa', sem fila de aprovacao: o cliente corporativo chega
+// por link ou CNPJ ja conhecido da loja. Limite e prazo nascem com o padrao
+// abaixo e a gestao ajusta/bloqueia em Cadastros > Revenda. O login que
+// cadastra vira o 'admin' da empresa (corporate_buyers). Escrita so pela
 // service_role, sempre com audit_log.
+
+const LIMITE_PADRAO = 1000;
+const PRAZO_PADRAO = 30;
 
 export type ResultadoCorporativo = { ok: true; destino: string } | { ok: false; erro: string; jaCadastrado?: true };
 
@@ -20,6 +25,14 @@ type Entrada = {
   email: string;
   telefone: string;
   senha: string;
+  confirmarSenha?: string;
+  cep?: string;
+  logradouro?: string;
+  numero?: string;
+  complemento?: string;
+  bairro?: string;
+  cidade?: string;
+  uf?: string;
   // Logado: a tela mostra "logado como X" e exige esta confirmacao, para a
   // empresa nao cair no cadastro de outra pessoa (teste de producao 20/11).
   confirmoLogado?: boolean;
@@ -33,11 +46,30 @@ function validar(e: Entrada, logado: boolean): string | null {
   if (!cnpjValido(e.cnpj)) return "CNPJ inválido (confira os dígitos).";
   const tel = soDigitos(e.telefone);
   if (tel.length < 10 || tel.length > 11) return "Telefone inválido (DDD + número).";
+  const cep = soDigitos(e.cep ?? "");
+  if (cep.length !== 8) return "CEP inválido (8 dígitos).";
+  if ((e.numero ?? "").trim().length < 1) return "Informe o número do endereço.";
+  if ((e.cidade ?? "").trim().length < 2) return "Informe a cidade.";
+  if (!/^[A-Za-z]{2}$/.test((e.uf ?? "").trim())) return "Informe o estado (UF).";
   if (logado) return e.confirmoLogado ? null : "Confirme que a empresa fica ligada ao cadastro com que você está logado.";
   if ((e.contato ?? "").trim().length < 3) return "Informe o nome de quem vai comprar (mínimo 3 letras).";
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test((e.email ?? "").trim())) return "E-mail inválido.";
   if (!e.senha || e.senha.length < 6) return "A senha deve ter pelo menos 6 caracteres.";
+  if (e.senha !== e.confirmarSenha) return "A confirmação não bate com a senha.";
   return null;
+}
+
+function endereco(e: Entrada) {
+  const t = (v: string | undefined, max: number) => ((v ?? "").trim().slice(0, max) || null);
+  return {
+    cep: soDigitos(e.cep ?? ""),
+    logradouro: t(e.logradouro, 160),
+    numero: t(e.numero, 20),
+    complemento: t(e.complemento, 80),
+    bairro: t(e.bairro, 80),
+    cidade: t(e.cidade, 80),
+    uf: (e.uf ?? "").trim().toUpperCase(),
+  };
 }
 
 async function cnpjJaUsado(admin: ReturnType<typeof createAdminClient>, cnpj: string): Promise<boolean> {
@@ -59,7 +91,16 @@ async function criarEmpresa(
 ): Promise<{ ok: true; accountId: string } | { ok: false; erro: string }> {
   const { data: conta, error } = await admin
     .from("corporate_accounts")
-    .insert({ tenant_id: NUVEM_DE_PAPEL_TENANT_ID, customer_id: customerId, razao_social: razao, cnpj })
+    .insert({
+      tenant_id: NUVEM_DE_PAPEL_TENANT_ID,
+      customer_id: customerId,
+      razao_social: razao,
+      cnpj,
+      status: "ativa",
+      aprovado_em: new Date().toISOString(),
+      limite_credito: LIMITE_PADRAO,
+      prazo_dias: PRAZO_PADRAO,
+    })
     .select("id")
     .single();
   if (error || !conta) {
@@ -78,10 +119,17 @@ async function criarEmpresa(
   await admin.from("audit_log").insert({
     tenant_id: NUVEM_DE_PAPEL_TENANT_ID,
     actor_user_id: userId,
-    action: "corporativo.solicitado",
+    action: "corporativo.cadastrado",
     entity: "corporate_accounts",
     entity_id: conta.id,
-    after: { razao_social: razao, cnpj, customer_id: customerId, status: "pendente" },
+    after: {
+      razao_social: razao,
+      cnpj,
+      customer_id: customerId,
+      status: "ativa",
+      limite_credito: LIMITE_PADRAO,
+      prazo_dias: PRAZO_PADRAO,
+    },
   });
   return { ok: true, accountId: conta.id };
 }
@@ -98,6 +146,7 @@ export async function solicitarContaCorporativa(entrada: Entrada): Promise<Resul
   const razao = entrada.razaoSocial.trim();
   const cnpj = soDigitos(entrada.cnpj);
   const telefone = soDigitos(entrada.telefone);
+  const end = endereco(entrada);
   if (await cnpjJaUsado(admin, cnpj)) {
     return {
       ok: false,
@@ -113,7 +162,7 @@ export async function solicitarContaCorporativa(entrada: Entrada): Promise<Resul
       admin.from("profiles").select("id").eq("id", user.id).maybeSingle(),
       admin
         .from("customers")
-        .select("id, documento, telefone")
+        .select("id, documento, telefone, cep, logradouro, numero, complemento, bairro, cidade, uf")
         .eq("tenant_id", NUVEM_DE_PAPEL_TENANT_ID)
         .eq("auth_user_id", user.id)
         .maybeSingle(),
@@ -130,7 +179,7 @@ export async function solicitarContaCorporativa(entrada: Entrada): Promise<Resul
     }
     const { error: errUp } = await admin
       .from("customers")
-      .update({ documento: cnpj, telefone: cliente.telefone ?? telefone })
+      .update({ documento: cnpj, telefone: cliente.telefone ?? telefone, ...end })
       .eq("id", cliente.id);
     if (errUp) {
       console.error("customers update corporativo:", errUp);
@@ -139,7 +188,20 @@ export async function solicitarContaCorporativa(entrada: Entrada): Promise<Resul
     const r = await criarEmpresa(admin, user.id, cliente.id, razao, cnpj);
     if (!r.ok) {
       // Devolve o cadastro como estava: a empresa nao ficou de pe.
-      await admin.from("customers").update({ documento: cliente.documento, telefone: cliente.telefone }).eq("id", cliente.id);
+      await admin
+        .from("customers")
+        .update({
+          documento: cliente.documento,
+          telefone: cliente.telefone,
+          cep: cliente.cep,
+          logradouro: cliente.logradouro,
+          numero: cliente.numero,
+          complemento: cliente.complemento,
+          bairro: cliente.bairro,
+          cidade: cliente.cidade,
+          uf: cliente.uf,
+        })
+        .eq("id", cliente.id);
       return r;
     }
     return { ok: true, destino: "/corporativo" };
@@ -171,6 +233,7 @@ export async function solicitarContaCorporativa(entrada: Entrada): Promise<Resul
       email,
       telefone,
       documento: cnpj,
+      ...end,
       tier: "bronze",
       points: 0,
       ativo: true,
