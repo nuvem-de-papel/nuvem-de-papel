@@ -10,8 +10,8 @@ import { createClient } from "@/lib/supabase/client";
 //   * grupos ("Vendas" reúne PDV + Vendas Detalhada);
 //   * Cadastros FECHADO por padrao - o clique abre os modulos (Clientes,
 //     Produtos, Fornecedores, Revendas); "Empresa" mora no Configuracoes;
-//   * rodapé com a engrenagem "Configurações" (Empresa, Usuários, Clube,
-//     Auditoria) e apenas Sair (o botão "Ver loja" foi removido).
+//   * depois de Publicações: risco, engrenagem "Configurações" (Empresa,
+//     Usuários, Clube, Auditoria...), quem está logado e Sair (21/11/2026).
 // Os ícones são os mesmos da barra antiga para não mudar a linguagem visual.
 
 type Sub = { tela: string; label: string };
@@ -263,6 +263,15 @@ const CONFIG: Link[] = [
   },
 ];
 
+const PAPEL_ROTULO: Record<string, string> = {
+  master: "Master",
+  gerente: "Gerente",
+  operador: "Operador",
+  vendedor: "Vendedor",
+  fornecedor: "Fornecedor",
+  revenda: "Revenda",
+};
+
 // link ativo: casa o caminho base e, quando o link aponta para uma tela
 // especifica (?tela=), exige que a tela atual seja aquela.
 function linkAtivo(link: Link, pathname: string, telaAtual: string): boolean {
@@ -308,6 +317,27 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
       setCadastrosAberto(true);
     }
   }, [pathname, telaAtual]);
+
+  // 21/11/2026: quem esta logado aparece embaixo de Configuracoes.
+  const [usuario, setUsuario] = useState<{ nome: string; papel: string } | null>(null);
+  useEffect(() => {
+    let vivo = true;
+    (async () => {
+      const sb = createClient();
+      const {
+        data: { user },
+      } = await sb.auth.getUser();
+      if (!user || !vivo) return;
+      const { data } = await sb.from("profiles").select("full_name, role").eq("id", user.id).maybeSingle();
+      if (!vivo) return;
+      const nome = String(data?.full_name ?? "").trim() || user.email || "Usuário";
+      const papel = PAPEL_ROTULO[String(data?.role ?? "")] ?? String(data?.role ?? "");
+      setUsuario({ nome, papel });
+    })();
+    return () => {
+      vivo = false;
+    };
+  }, []);
 
   async function sair() {
     await createClient().auth.signOut();
@@ -393,50 +423,58 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
                 {gi < GRUPOS.length - 1 && <div className="admin-gap" />}
               </div>
             ))}
-          </nav>
 
-          <button
-            type="button"
-            className={configAberto ? "admin-gear admin-gear--on" : "admin-gear"}
-            aria-expanded={configAberto}
-            aria-controls="admin-config-sub"
-            onClick={() => setConfigAberto((v) => !v)}
-          >
-            <svg {...ICONE_PADRAO} width={17} height={17}>
-              <circle cx="12" cy="12" r="3" />
-              <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" />
-            </svg>
-            <span className="admin-gear-label">Configurações</span>
-            <svg
-              className="gear-chevron"
-              width={14}
-              height={14}
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={2.2}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden="true"
+            {/* 21/11/2026 (pedido do Joaquim): depois de Publicações vem um risco,
+                Configurações, quem está logado e Sair - na sequência do menu. */}
+            <div className="admin-divisor" aria-hidden="true" />
+            <button
+              type="button"
+              className={configAberto ? "admin-gear admin-gear--on" : "admin-gear"}
+              aria-expanded={configAberto}
+              aria-controls="admin-config-sub"
+              onClick={() => setConfigAberto((v) => !v)}
             >
-              <polyline points="9 18 15 12 9 6" />
-            </svg>
-          </button>
+              <svg {...ICONE_PADRAO} width={17} height={17}>
+                <circle cx="12" cy="12" r="3" />
+                <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" />
+              </svg>
+              <span className="admin-gear-label">Configurações</span>
+              <svg
+                className="gear-chevron"
+                width={14}
+                height={14}
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2.2}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <polyline points="9 18 15 12 9 6" />
+              </svg>
+            </button>
 
-          {configAberto && (
-            <div className="admin-sub" id="admin-config-sub">
-              {CONFIG.map((link) => (
-                <Item
-                  key={link.tela ? `${link.href}?tela=${link.tela}` : link.href}
-                  link={link}
-                  pathname={pathname}
-                  telaAtual={telaAtual}
-                />
-              ))}
-            </div>
-          )}
+            {configAberto && (
+              <div className="admin-sub" id="admin-config-sub">
+                {CONFIG.map((link) => (
+                  <Item
+                    key={link.tela ? `${link.href}?tela=${link.tela}` : link.href}
+                    link={link}
+                    pathname={pathname}
+                    telaAtual={telaAtual}
+                  />
+                ))}
+              </div>
+            )}
 
-          <div className="admin-foot">
+            {usuario && (
+              <div className="admin-usuario">
+                <span className="admin-usuario-nome">{usuario.nome}</span>
+                {usuario.papel && <span className="admin-usuario-papel">{usuario.papel}</span>}
+              </div>
+            )}
+
             <button type="button" className="admin-sair" onClick={sair}>
               <svg {...ICONE_PADRAO} width={14} height={14}>
                 <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
@@ -445,7 +483,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
               </svg>
               Sair
             </button>
-          </div>
+          </nav>
         </div>
       </aside>
 

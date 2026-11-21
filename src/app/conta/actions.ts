@@ -81,6 +81,33 @@ export async function atualizarCadastro(d: DadosCliente): Promise<R> {
   return { ok: true };
 }
 
+// Senha (21/11/2026): cria ou troca a senha do proprio login — vale tambem
+// para quem entrou pelo Google e quer entrar com e-mail + senha. A senha
+// nunca vai para o audit_log, so o fato de ter sido alterada.
+export async function trocarSenha(senha: string, repetir: string): Promise<R> {
+  const user = await usuario();
+  if (!user) return { ok: false, erro: "Entre na sua conta." };
+  const s = String(senha ?? "");
+  if (s.length < 6) return { ok: false, erro: "A senha precisa ter pelo menos 6 caracteres." };
+  if (s.length > 72) return { ok: false, erro: "A senha pode ter no máximo 72 caracteres." };
+  if (s !== String(repetir ?? "")) return { ok: false, erro: "As duas senhas não são iguais." };
+
+  const admin = createAdminClient();
+  const { data: cli } = await admin
+    .from("customers")
+    .select("id")
+    .eq("tenant_id", T)
+    .eq("auth_user_id", user.id)
+    .maybeSingle();
+  if (!cli) return { ok: false, erro: "Cadastro não encontrado." };
+
+  const up = await admin.auth.admin.updateUserById(user.id, { password: s });
+  if (up.error) return { ok: false, erro: "Não foi possível salvar a senha. Tente outra senha." };
+  await auditar(user.id, "cliente.senha_alterada", "customers", cli.id, null, { senha: "alterada" });
+  revalidatePath("/conta/cadastro");
+  return { ok: true };
+}
+
 // ---------- Enderecos ----------
 export type Endereco = {
   id?: string;

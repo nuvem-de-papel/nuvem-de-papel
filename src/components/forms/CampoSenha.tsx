@@ -15,6 +15,7 @@ export function CampoSenha({
   placeholder,
   className = "conta-campo",
   inputStyle,
+  required = true,
 }: {
   rotulo?: string;
   value: string;
@@ -25,6 +26,7 @@ export function CampoSenha({
   placeholder?: string;
   className?: string;
   inputStyle?: React.CSSProperties;
+  required?: boolean;
 }) {
   const id = useId();
   const [ver, setVer] = useState(false);
@@ -41,7 +43,7 @@ export function CampoSenha({
           minLength={minLength}
           disabled={disabled}
           placeholder={placeholder}
-          required
+          required={required}
           style={inputStyle}
         />
         <button
