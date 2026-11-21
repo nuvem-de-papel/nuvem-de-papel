@@ -163,7 +163,7 @@
     </svg>
     <h1>Nuvem de Papel<small>Mapa estrutural do sistema</small></h1>
     <span class="badge-gov">Documento de governança</span>
-    <span class="versao">v1.15 · atualizado em 21/11/2026</span>
+    <span class="versao">v1.16 · atualizado em 21/11/2026</span>
   </div>
   <p class="regra">
     <b>Regra:</b> este mapa é atualizado <b>sempre que houver mudança estrutural</b> — rota nova ou
@@ -689,6 +689,7 @@
         <tr><th style="width:70px">Versão</th><th style="width:110px">Data</th><th>Mudança estrutural</th></tr>
       </thead>
       <tbody>
+        <tr><td class="v">v1.16</td><td>21/11/2026</td><td>Login com Google tambem em /login (clientes da loja); /auth/callback cria ou liga o cadastro em customers (src/lib/cliente-login.ts, audit cadastro.criado_google / cadastro.vinculado_google); equipe volta ao /login; E2E login-google.cjs 16/16.</td></tr>
         <tr><td class="v">v1.15</td><td>21/11/2026</td><td>Corporativo nasce ativo (limite R$ 1.000, prazo 30 dias, audit corporativo.cadastrado; sem migration) com endereco completo e confirmacao de senha no cadastro; "Entrar" do cabecalho escolhe Minha conta (/login) ou Corporativo (/corporativo); login com Google atras de NEXT_PUBLIC_LOGIN_GOOGLE=1 (rota nova /auth/callback); /conta/pedidos em colunas (numero, data, hora, Acompanhar, situacao, valor) com painel ao lado do menu.</td></tr>
         <tr><td class="v">v1.14</td><td>20/11/2026</td><td>Acessibilidade (padrao comum I:\Projetos\_libras\PADRAO-ACESSIBILIDADE-VLIBRAS.md): painel proprio no canto inferior esquerdo (tamanho do texto 80-150%, espacamento entre linhas, alto contraste, destacar links, guia de leitura, pausar animacoes; preferencia no localStorage np-a11y, aplicada por script no head antes da hidratacao) + VLibras do gov.br no lado esquerdo; ambos escondidos no painel administrativo e na impressao. src/lib/acessibilidade.ts, src/components/acessibilidade/*. E2E acessibilidade.cjs. Sem migration.</td></tr>
         <tr><td class="v">v1.13</td><td>20/11/2026</td><td>Entrada do /corporativo: abas "Ja tenho conta corporativa" (entra com e-mail OU CNPJ + senha - entrarCorporativo acha o admin ativo da empresa; erro sempre generico) e "Cadastrar minha empresa"; logado ve com quem esta logado + Sair e precisa confirmar (checkbox, conferido no servidor) antes de ligar o CNPJ ao cadastro; campo de senha com Mostrar/Ocultar (src/components/forms/CampoSenha.tsx). Sem migration.</td></tr>
