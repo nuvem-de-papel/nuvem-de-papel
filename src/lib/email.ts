@@ -391,3 +391,66 @@ export function templatePedidoCompra(
     ].join(""),
   };
 }
+
+// Aviso interno de pedido corporativo (etapa 4 de "Contas do Cliente" -
+// 21/11/2026): cada pedido PJ avisa a loja para o atendimento acompanhar de
+// perto. E-mail agora; WhatsApp fica para quando houver conta Meta Business.
+export type DadosAlertaCorporativo = {
+  razaoSocial: string;
+  cnpj: string;
+  comprador: string;
+  vendaNumero: string | null;
+  pedidoId: string;
+  total: number;
+  condicao: string | null;
+  vencimento: string | null;
+  itens: { sku: string; nome: string; quantidade: number; total: number }[];
+  entrega: { logradouro?: string | null; numero?: string | null; bairro?: string | null; cidade?: string | null; uf?: string | null; cep?: string | null } | null;
+  observacao: string | null;
+  linkPainel: string | null;
+};
+
+function cnpjFormatado(cnpj: string): string {
+  const d = cnpj.replace(/\D/g, "");
+  if (d.length !== 14) return cnpj;
+  return `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5, 8)}/${d.slice(8, 12)}-${d.slice(12)}`;
+}
+
+export function templateAlertaPedidoCorporativo(d: DadosAlertaCorporativo): { assunto: string; html: string } {
+  const numero = d.vendaNumero || codigoPedido(d.pedidoId);
+  const vence = d.vencimento ? d.vencimento.split("-").reverse().join("/") : null;
+  const linhas = d.itens
+    .map(
+      (i) =>
+        `<tr><td style="padding:4px 8px">${escaparHtml(i.sku)}</td><td style="padding:4px 8px">${escaparHtml(i.nome)}</td>` +
+        `<td style="padding:4px 8px;text-align:right">${i.quantidade}</td><td style="padding:4px 8px;text-align:right">${brl(i.total)}</td></tr>`
+    )
+    .join("");
+  const e = d.entrega;
+  const entrega = e
+    ? escaparHtml(
+        [[e.logradouro, e.numero].filter(Boolean).join(", "), e.bairro, [e.cidade, e.uf].filter(Boolean).join("/"), e.cep]
+          .filter(Boolean)
+          .join(" - ")
+      )
+    : "Retirada na loja";
+  return {
+    assunto: `Pedido corporativo ${numero} - ${d.razaoSocial} - ${brl(d.total)}`,
+    html: [
+      "<p>Olá,</p>",
+      `<p>Novo <strong>pedido corporativo</strong> de <strong>${escaparHtml(d.razaoSocial)}</strong> (CNPJ ${cnpjFormatado(d.cnpj)}), feito por ${escaparHtml(d.comprador)}.</p>`,
+      `<p>Pedido <strong>${escaparHtml(numero)}</strong> · total <strong>${brl(d.total)}</strong>` +
+        (d.condicao ? ` · ${escaparHtml(d.condicao)}` : "") +
+        (vence ? ` · vence em ${vence}` : "") +
+        "</p>",
+      '<table style="border-collapse:collapse;font-size:14px"><thead><tr>' +
+        '<th style="padding:4px 8px;text-align:left">SKU</th><th style="padding:4px 8px;text-align:left">Produto</th>' +
+        '<th style="padding:4px 8px;text-align:right">Qtd</th><th style="padding:4px 8px;text-align:right">Total</th>' +
+        `</tr></thead><tbody>${linhas}</tbody></table>`,
+      `<p><strong>Entrega:</strong> ${entrega}</p>`,
+      d.observacao ? `<p><strong>Observação:</strong> ${escaparHtml(d.observacao)}</p>` : "",
+      d.linkPainel ? `<p><a href="${escaparHtml(d.linkPainel)}">Abrir em Vendas</a></p>` : "<p>Veja o pedido em Vendas.</p>",
+      rodape(),
+    ].join(""),
+  };
+}
