@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { PAPEIS } from "@/lib/rbac";
+import { BotaoGoogle } from "@/components/login/BotaoGoogle";
 
 // Aceita apenas caminhos internos (evita open redirect via ?next=).
 function destinoPadrao(): string {
@@ -35,6 +36,15 @@ export function LoginForm() {
   const [erro, setErro] = useState<string | null>(null);
   const [carregando, setCarregando] = useState(false);
   const [mostrarSenha, setMostrarSenha] = useState(false);
+  // destino do Google: calculado no cliente (window) para nao divergir na hidratacao
+  const [destinoGoogle, setDestinoGoogle] = useState("/conta");
+
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search);
+    if (q.get("erro") === "google") setErro("Não foi possível entrar com o Google. Tente de novo ou use e-mail e senha.");
+    const raw = q.get("next");
+    if (raw && (raw.startsWith("/conta") || raw.startsWith("/checkout") || raw.startsWith("/corporativo"))) setDestinoGoogle(raw);
+  }, []);
 
   useEffect(() => {
     const supabase = createClient();
@@ -118,6 +128,7 @@ export function LoginForm() {
         </a>
 
         <form onSubmit={handleSubmit} style={{ padding: "28px 32px 32px" }}>
+          <BotaoGoogle destino={destinoGoogle} />
           <label
             htmlFor="email"
             style={{ display: "block", fontSize: 13, fontWeight: 700, color: "#000", marginBottom: 6 }}
