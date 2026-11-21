@@ -98,6 +98,7 @@ const TOPICOS: Topico[] = [
       "No menu da sua conta, clique em Pedidos.",
       "Clique em Acompanhar para ver a situação do pedido.",
       "Na sua conta você também muda o seu cadastro e os seus endereços.",
+      "Em Meu cadastro você também cria ou muda a sua senha.",
     ],
     link: { href: "/conta", texto: "Abrir a minha conta" },
   },

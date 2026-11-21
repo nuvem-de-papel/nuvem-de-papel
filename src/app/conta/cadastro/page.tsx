@@ -16,6 +16,7 @@ const ROTULO: Record<string, string> = {
 };
 const ACAO: Record<string, string> = {
   "cliente.dados_alterados": "Dados alterados",
+  "cliente.senha_alterada": "Senha alterada",
   "cliente.foto_alterada": "Foto alterada",
   "cliente.endereco_criado": "Endereço incluído",
   "cliente.endereco_alterado": "Endereço alterado",
