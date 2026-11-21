@@ -22,9 +22,9 @@ export function CategoryCarousel({
   icone?: string;
   title: string;
   products: VarejoProduct[];
-  /** cor do setor (paleta). Sem cor = visual padrao rosa. */
+  /** cor do setor (paleta). Sem cor = navy da marca. */
   cor?: string;
-  /** cor do titulo do setor, diferente do fundo */
+  /** cor do titulo (padrao = cor do setor; titulo, setas e vidro usam a mesma) */
   corTitulo?: string;
   /** % da cor do setor misturada ao branco (menor = mais claro) */
   intensidadeCor?: number;
@@ -39,6 +39,9 @@ export function CategoryCarousel({
   const [encaixe, setEncaixe] = useState<{ n: number; w: number } | null>(null);
   const [pausado, setPausado] = useState(false);
   const semAnimacao = useSemAnimacao();
+  // 21/11/2026: titulo, icone, setas e vidro na MESMA cor (a do setor).
+  // Sem cor (Lancamentos, Destaques, Ofertas, Combina com) = navy da marca.
+  const tom = corTitulo ?? cor ?? "#073B4C";
   const [busca, setBusca] = useState("");
   const normBusca = (texto: string) => texto.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
   const termo = normBusca(busca.trim());
@@ -65,16 +68,99 @@ export function CategoryCarousel({
     return () => ro.disconnect();
   }, [encaixar, lista.length]);
 
-  // Loop: no fim, a seta direita volta ao inicio; no inicio, a esquerda vai ao fim.
+  // 21/11/2026 (pedido do Joaquim): rolagem ~2x mais lenta que o "smooth"
+  // nativo e em CIRCULO. Chegando ao fim, os cards que ja sairam pela esquerda
+  // passam para o fim da fila (sem mexer no que esta na tela) e a rolagem
+  // continua: depois do ultimo vem o primeiro. Para a esquerda, o mesmo ao
+  // contrario. Nunca volta tudo de uma vez. Cada produto continua aparecendo
+  // uma vez so no DOM (sem clones - os E2E acham o card pelo link).
+  const DURACAO_MS = 900;
+  const [giro, setGiro] = useState(0); // indice de `lista` que aparece primeiro
+  const animandoRef = useRef(false);
+  const rafRef = useRef(0);
+  const pendenteRef = useRef<{ ajuste: number; dir: 1 | -1 } | null>(null);
+  const exibidos = lista.length > 1 && giro % lista.length ? [...lista.slice(giro % lista.length), ...lista.slice(0, giro % lista.length)] : lista;
+
+  const larguraItem = (t: HTMLDivElement) => {
+    const a = t.children[0] as HTMLElement | undefined;
+    const b = t.children[1] as HTMLElement | undefined;
+    return a && b ? b.offsetLeft - a.offsetLeft : a ? a.offsetWidth + GAP : 0;
+  };
+  const passoDe = (t: HTMLDivElement) => (encaixar && encaixe ? encaixe.n * (encaixe.w + GAP) : Math.max(larguraItem(t), 520));
+
+  const animar = (t: HTMLDivElement, destino: number) => {
+    const max = t.scrollWidth - t.clientWidth;
+    const fim = Math.max(0, Math.min(max, destino));
+    const inicio = t.scrollLeft;
+    cancelAnimationFrame(rafRef.current);
+    if (semAnimacao || Math.abs(fim - inicio) < 1) {
+      t.scrollLeft = fim;
+      animandoRef.current = false;
+      return;
+    }
+    animandoRef.current = true;
+    t.style.scrollSnapType = "none";
+    const t0 = performance.now();
+    const quadro = (agora: number) => {
+      const p = Math.min(1, (agora - t0) / DURACAO_MS);
+      const e = p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2; // ease-in-out
+      t.scrollLeft = inicio + (fim - inicio) * e;
+      if (p < 1) rafRef.current = requestAnimationFrame(quadro);
+      else {
+        t.style.scrollSnapType = "";
+        animandoRef.current = false;
+      }
+    };
+    rafRef.current = requestAnimationFrame(quadro);
+  };
+
   const scroll = (dir: 1 | -1) => {
     const t = trackRef.current;
-    if (!t) return;
-    const passo = encaixar && encaixe ? encaixe.n * (encaixe.w + GAP) : 520;
+    if (!t || animandoRef.current) return;
+    const L = exibidos.length;
+    const item = larguraItem(t);
+    const passo = passoDe(t);
     const max = t.scrollWidth - t.clientWidth;
-    if (dir === 1 && t.scrollLeft >= max - 4) t.scrollTo({ left: 0, behavior: "smooth" });
-    else if (dir === -1 && t.scrollLeft <= 4) t.scrollTo({ left: max, behavior: "smooth" });
-    else t.scrollBy({ left: dir * passo, behavior: "smooth" });
+    if (max <= 2 || item <= 0 || L < 2) return; // tudo cabe na tela
+    const pos = t.scrollLeft;
+    if (dir === 1 && max - pos < passo - 2) {
+      // fim da fila: cards escondidos a esquerda vao para o fim
+      const falta = Math.ceil((passo - (max - pos)) / item);
+      const k = Math.min(falta, Math.floor((pos + 2) / item));
+      if (k > 0) {
+        animandoRef.current = true;
+        pendenteRef.current = { ajuste: -k * item, dir };
+        setGiro((g) => (g + k) % L);
+        return;
+      }
+    }
+    if (dir === -1 && pos < passo - 2) {
+      // inicio da fila: cards escondidos a direita vem para a frente
+      const falta = Math.ceil((passo - pos) / item);
+      const k = Math.min(falta, Math.floor((max - pos + 2) / item));
+      if (k > 0) {
+        animandoRef.current = true;
+        pendenteRef.current = { ajuste: k * item, dir };
+        setGiro((g) => (g - k + L * 2) % L);
+        return;
+      }
+    }
+    animar(t, pos + dir * passo);
   };
+
+  // depois de girar a fila: compensa a posicao (a tela nao pisca) e anima
+  useLayoutEffect(() => {
+    const p = pendenteRef.current;
+    const t = trackRef.current;
+    if (!p || !t) return;
+    pendenteRef.current = null;
+    t.style.scrollSnapType = "none";
+    t.scrollLeft = t.scrollLeft + p.ajuste;
+    animar(t, t.scrollLeft + p.dir * passoDe(t));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [giro]);
+
+  useEffect(() => () => cancelAnimationFrame(rafRef.current), []);
 
   const scrollRef = useRef(scroll);
   scrollRef.current = scroll;
@@ -90,7 +176,7 @@ export function CategoryCarousel({
       onMouseLeave={() => setPausado(false)}
       style={{
         // 20/11/2026: vidro no tom do setor (cor translucida + blur)
-        background: `color-mix(in srgb, ${cor ?? "#E084AC"} ${Math.max(intensidadeCor * 2.4, 22)}%, transparent)`,
+        background: `color-mix(in srgb, ${tom} ${Math.max(intensidadeCor * 2.4, 22)}%, transparent)`,
         backdropFilter: "blur(16px) saturate(160%)",
         WebkitBackdropFilter: "blur(16px) saturate(160%)",
         border: "1px solid rgba(255,255,255,0.55)",
@@ -102,7 +188,7 @@ export function CategoryCarousel({
       className="carrossel-caixa"
     >
       <div className="carrossel-topo" style={{ display: "flex", alignItems: "center", gap: 12, margin: "8px 0 14px" }}>
-        <h2 className="display" style={{ fontSize: 21, margin: 0, color: corTitulo ?? "var(--navy)", display: "flex", alignItems: "center", gap: 8 }}>
+        <h2 className="display" style={{ fontSize: 21, margin: 0, color: tom, display: "flex", alignItems: "center", gap: 8 }}>
           {icone && <IconeGrupo icone={icone} tamanho={22} />}
           {title}
         </h2>
@@ -137,7 +223,10 @@ export function CategoryCarousel({
           <input
             type="search"
             value={busca}
-            onChange={(e) => setBusca(e.target.value)}
+            onChange={(e) => {
+              setBusca(e.target.value);
+              setGiro(0);
+            }}
             placeholder="Buscar nesta faixa"
             aria-label="Buscar nesta faixa"
             style={{
@@ -174,11 +263,11 @@ export function CategoryCarousel({
               height: 42,
               borderRadius: "50%",
               border: "none",
-              background: corTitulo ?? "var(--navy)",
+              background: tom,
               color: "#FFFFFF",
               fontSize: 20,
               cursor: "pointer",
-              boxShadow: "0 4px 14px rgba(0, 107, 225,0.3)",
+              boxShadow: `0 4px 14px color-mix(in srgb, ${tom} 35%, transparent)`,
               zIndex: 5,
             }}
           >
@@ -186,7 +275,7 @@ export function CategoryCarousel({
           </button>
 
           <div ref={trackRef} className="carousel-track">
-            {lista.map((p) => (
+            {exibidos.map((p) => (
               <div key={p.id} className="carousel-item" style={encaixar && encaixe ? { flex: `0 0 ${encaixe.w}px`, minWidth: 0, maxWidth: encaixe.w } : undefined}>
                 <ProductCard produto={p} />
               </div>
@@ -205,11 +294,11 @@ export function CategoryCarousel({
               height: 42,
               borderRadius: "50%",
               border: "none",
-              background: corTitulo ?? "var(--navy)",
+              background: tom,
               color: "#FFFFFF",
               fontSize: 20,
               cursor: "pointer",
-              boxShadow: "0 4px 14px rgba(0, 107, 225,0.3)",
+              boxShadow: `0 4px 14px color-mix(in srgb, ${tom} 35%, transparent)`,
               zIndex: 5,
             }}
           >

@@ -7,6 +7,7 @@ import { useCart } from "@/components/carrinho/CartProvider";
 import { BuscaProdutos } from "@/components/busca/BuscaProdutos";
 import { IconeGrupo } from "@/components/catalogo/IconeGrupo";
 import { CepEntrega } from "@/components/loja/CepEntrega";
+import { PainelAcessibilidade } from "@/components/acessibilidade/PainelAcessibilidade";
 import { carregarGrupos, tituloGrupo, type GrupoCatalogo } from "@/lib/gruposSetores";
 
 // Barra do topo (18/11/2026, referencia enviada pelo Joaquim): logo + nome com
@@ -179,6 +180,29 @@ export function Header() {
               )}
             </div>
           )}
+          {/* VLibras + acessibilidade (21/11/2026): os dois na barra, depois do
+              Entrar. O botao oficial do VLibras fica escondido (CSS) e este
+              clica nele por dentro do shadow DOM, que abre o avatar. */}
+          <div className="header-a11y">
+            <button
+              type="button"
+              className="header-vlibras"
+              aria-label="Libras (VLibras)"
+              title="Traduzir para Libras"
+              onClick={() => {
+                const w = document.getElementById("vlibras-access-wrapper");
+                (w?.shadowRoot?.getElementById("vlibras-button") as HTMLElement | null)?.click();
+              }}
+            >
+              <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M7 11V5.5a1.5 1.5 0 0 1 3 0V10" />
+                <path d="M10 9.5V4a1.5 1.5 0 0 1 3 0v6" />
+                <path d="M13 6.5a1.5 1.5 0 0 1 3 0V11" />
+                <path d="M16 9a1.5 1.5 0 0 1 3 0v4.5a7 7 0 0 1-7 7h-.6a6 6 0 0 1-4.7-2.3L3.4 14.6a1.5 1.5 0 0 1 2.3-2l1.3 1.4V11" />
+              </svg>
+            </button>
+            <PainelAcessibilidade />
+          </div>
           <button
             type="button"
             onClick={() => setMenuOpen(!menuOpen)}

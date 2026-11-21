@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { createPortal } from "react-dom";
 import {
   CHAVE_A11Y,
   EVENTO_A11Y,
@@ -18,8 +19,11 @@ import {
 
 // Painel proprio de acessibilidade (padrao comum 20/11/2026, ver
 // I:\Projetos\_libras\PADRAO-ACESSIBILIDADE-VLIBRAS.md): fonte, espacamento,
-// contraste, links, guia de leitura e pausa de animacoes. Botao no canto
-// inferior ESQUERDO (o direito e do atendimento). Preferencias so no
+// contraste, links, guia de leitura e pausa de animacoes. Desde 21/11/2026 o
+// botao mora na barra do topo (Header.tsx), ao lado do botao do VLibras. O
+// painel e a guia de leitura vao por portal para o <body>: o .site-header tem
+// backdrop-filter, que prenderia o position:fixed dentro da barra, e o zoom de
+// fonte nao pode empurrar o painel para fora da tela. Preferencias so no
 // localStorage; o script do <head> (SCRIPT_PREFS_A11Y) aplica antes da
 // primeira pintura e este componente so sincroniza.
 
@@ -47,6 +51,24 @@ export function PainelAcessibilidade() {
   const botaoRef = useRef<HTMLButtonElement | null>(null);
   const painelRef = useRef<HTMLElement | null>(null);
   const guiaRef = useRef<HTMLDivElement | null>(null);
+  const [posicao, setPosicao] = useState<CSSProperties>({});
+
+  // painel fixo logo abaixo do botao, alinhado pela direita
+  useEffect(() => {
+    if (!aberto) return;
+    const medir = () => {
+      const r = botaoRef.current?.getBoundingClientRect();
+      if (!r) return;
+      setPosicao({ top: Math.round(r.bottom + 8), right: Math.max(8, Math.round(window.innerWidth - r.right)) });
+    };
+    medir();
+    window.addEventListener("resize", medir);
+    window.addEventListener("scroll", medir, { passive: true });
+    return () => {
+      window.removeEventListener("resize", medir);
+      window.removeEventListener("scroll", medir);
+    };
+  }, [aberto, prefs.zoom]);
 
   // carrega o que o script do <head> ja aplicou
   useEffect(() => {
@@ -132,8 +154,10 @@ export function PainelAcessibilidade() {
         </svg>
       </button>
 
+      {carregado && createPortal(
+        <div className="a11y-raiz a11y-camada">
       {aberto && (
-        <section ref={painelRef} id="a11y-painel" className="a11y-painel" aria-label="Opções de acessibilidade">
+        <section ref={painelRef} id="a11y-painel" className="a11y-painel" style={posicao} aria-label="Opções de acessibilidade">
           <h2 className="a11y-titulo">Acessibilidade</h2>
 
           <div className="a11y-linha" role="group" aria-label="Tamanho do texto">
@@ -160,11 +184,17 @@ export function PainelAcessibilidade() {
           <button type="button" className="a11y-restaurar" onClick={() => setPrefs({ ...PREFS_PADRAO })} disabled={ehPadrao(prefs)}>
             Restaurar padrão
           </button>
-          <p className="a11y-nota">Libras: use o botão do VLibras na lateral esquerda da tela.</p>
+          <p className="a11y-nota">Libras: use o botão Libras ao lado, na barra do topo.</p>
+          <p className="a11y-nota">
+            <a href="/como-navegar">Como navegar no site</a>
+          </p>
         </section>
       )}
 
       {prefs.guiaLeitura && <div ref={guiaRef} className="a11y-guia-barra" aria-hidden="true" />}
+        </div>,
+        document.body
+      )}
     </div>
   );
 }

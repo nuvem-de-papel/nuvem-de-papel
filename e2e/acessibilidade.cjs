@@ -4,7 +4,8 @@
  * (B) cada opcao liga a classe no <html> e muda a tela
  * (C) preferencia sobrevive ao reload ANTES da hidratacao (script do <head>)
  * (D) restaurar padrao limpa tudo
- * (E) VLibras carrega e fica no lado ESQUERDO (o direito e do atendimento)
+ * (E) VLibras carrega; botao "Libras" na barra do topo, ao lado do de
+ *     acessibilidade, abre o avatar (21/11/2026: os dois sairam do canto)
  * (F) celular 390px sem rolagem lateral · (G) painel administrativo sem os botoes
  * So leitura: nao grava nada no banco. (E) depende de internet (vlibras.gov.br).
  */
@@ -46,7 +47,7 @@ const classes = (page) => page.evaluate(() => [...document.documentElement.class
     await botao.waitFor({ state: "visible", timeout: 20000 });
     check("A1 botao Acessibilidade visivel na home", await botao.isVisible());
     const caixa = await botao.boundingBox();
-    check("A2 botao no canto inferior esquerdo", caixa && caixa.x < 100 && caixa.y > 800 - 120, caixa && `${Math.round(caixa.x)},${Math.round(caixa.y)}`);
+    check("A2 botao na barra do topo, lado direito", caixa && caixa.y < 120 && caixa.x > 683, caixa && `${Math.round(caixa.x)},${Math.round(caixa.y)}`);
     check("A3 painel nasce fechado", (await botao.getAttribute("aria-expanded")) === "false");
     await botao.focus();
     await page.keyboard.press("Enter");
@@ -159,15 +160,36 @@ const classes = (page) => page.evaluate(() => [...document.documentElement.class
       vlibras = null;
     }
     check("E1 VLibras carregou (script do gov.br)", vlibras && vlibras.temVLibras, vlibras ? "ok" : "sem rede ou bloqueado");
-    check("E2 botao do VLibras no lado esquerdo", vlibras && vlibras.visivel && vlibras.x < 120, vlibras && Math.round(vlibras.x));
-    // VLibras usa z-index maximo: o painel aberto nao pode ficar embaixo dele
+    // botao oficial escondido; o nosso fica na barra, a esquerda do de acessibilidade
+    const libras = page.locator('header button[aria-label="Libras (VLibras)"]');
+    const lBox = await libras.boundingBox().catch(() => null);
+    const aBox = await page.locator('header button[aria-label="Acessibilidade"]').boundingBox().catch(() => null);
+    check(
+      "E2 botao Libras na barra, antes do de acessibilidade, oficial escondido",
+      lBox && aBox && lBox.y < 120 && lBox.x + lBox.width <= aBox.x && vlibras && !vlibras.visivel,
+      lBox && aBox && `${Math.round(lBox.x)} < ${Math.round(aBox.x)}`
+    );
+    let avatar = false;
+    if (vlibras && vlibras.temVLibras) {
+      await libras.click();
+      avatar = await page
+        .waitForFunction(() => {
+          const pw = document.querySelector("[vw-plugin-wrapper]");
+          return !!pw && (pw.classList.contains("active") || pw.getBoundingClientRect().width > 0);
+        }, null, { timeout: 15000 })
+        .then(() => true)
+        .catch(() => false);
+    }
+    check("E2b clicar em Libras abre o avatar do VLibras", avatar);
+    await page.goto(BASE + "/", { waitUntil: "domcontentloaded" });
     await page.click('button[aria-label="Acessibilidade"]');
     await painel.waitFor({ state: "visible", timeout: 5000 });
     const pAberto = await painel.boundingBox();
+    const bTopo = await page.locator('header button[aria-label="Acessibilidade"]').boundingBox();
     check(
-      "E3 painel aberto nao fica embaixo do botao do VLibras",
-      vlibras && pAberto && pAberto.x >= vlibras.x + vlibras.w,
-      pAberto && vlibras && `${Math.round(vlibras.x + vlibras.w)} <= ${Math.round(pAberto.x)}`
+      "E3 painel abre logo abaixo do botao e dentro da tela",
+      pAberto && bTopo && pAberto.y >= bTopo.y + bTopo.height && pAberto.x + pAberto.width <= 1366,
+      pAberto && `${Math.round(pAberto.x)},${Math.round(pAberto.y)}`
     );
     await page.keyboard.press("Escape");
 
@@ -181,6 +203,61 @@ const classes = (page) => page.evaluate(() => [...document.documentElement.class
     const pBox = await pc.locator('section[aria-label="Opções de acessibilidade"]').boundingBox();
     check("F1 celular 390px: painel cabe e sem rolagem lateral", larg <= 390 && pBox && pBox.x >= 0 && pBox.x + pBox.width <= 390, `${larg}px`);
     await cel.close();
+
+    // (H) guia "Como navegar" + chat + VLibras por cima de tudo (21/11/2026)
+    await page.goto(BASE + "/como-navegar", { waitUntil: "load" });
+    const g = await page.evaluate(() => {
+      const h1 = document.querySelectorAll("main.guia-navegar h1").length;
+      const secoes = [...document.querySelectorAll("main.guia-navegar section h2")].length;
+      const ps = [...document.querySelectorAll("main.guia-navegar section > p")];
+      const soTexto = ps.every((p) => p.querySelectorAll("span").length === 0);
+      const semUserSelect = ps.every((p) => getComputedStyle(p).userSelect !== "none");
+      return { h1, secoes, ps: ps.length, soTexto, semUserSelect, lang: document.documentElement.lang, larg: document.documentElement.scrollWidth };
+    });
+    check("H1 guia tem 1 h1 e pelo menos 10 perguntas em h2", g.h1 === 1 && g.secoes >= 10, `${g.h1}/${g.secoes}`);
+    check("H2 respostas em <p> de texto puro, sem span e sem user-select none", g.ps >= 30 && g.soTexto && g.semUserSelect, `${g.ps} p`);
+    check("H3 pagina em pt-BR", g.lang === "pt-BR", g.lang);
+    const celG = await browser.newContext({ viewport: { width: 390, height: 800 }, isMobile: true, hasTouch: true });
+    const pg = await celG.newPage();
+    await pg.goto(BASE + "/como-navegar", { waitUntil: "load" });
+    const largG = await pg.evaluate(() => document.documentElement.scrollWidth);
+    check("H4 guia no celular 390px sem rolagem lateral", largG <= 390, `${largG}px`);
+    await celG.close();
+
+    await page.goto(BASE + "/", { waitUntil: "load" });
+    const linkRodape = await page.locator('footer a[href="/como-navegar"]').count();
+    check("H5 rodape tem link Como navegar no site", linkRodape === 1, String(linkRodape));
+    await page.click('button[aria-label="Acessibilidade"]');
+    await painel.waitFor({ state: "visible", timeout: 5000 });
+    const linkPainel = await painel.locator('a[href="/como-navegar"]').count();
+    check("H6 painel de acessibilidade tem link para o guia", linkPainel === 1, String(linkPainel));
+    const zs = await page.evaluate(() => {
+      const raiz = document.createElement("div");
+      raiz.id = "vlibras-app-root";
+      document.body.appendChild(raiz);
+      const zv = Number(getComputedStyle(raiz).zIndex);
+      raiz.remove();
+      const zp = Number(getComputedStyle(document.querySelector(".a11y-painel")).zIndex);
+      return { zv, zp };
+    });
+    check("H7 camada do VLibras fica acima do painel e de qualquer modal", zs.zv === 2147483647 && zs.zv > zs.zp, `${zs.zv} > ${zs.zp}`);
+    await page.keyboard.press("Escape");
+
+    await page.click('button[aria-label="Abrir atendimento"]');
+    await page.locator(".wchat-opcoes").getByRole("button", { name: "Como navegar no site" }).click({ timeout: 10000 });
+    await page.waitForSelector('.wchat a[href="/como-navegar"]', { timeout: 10000 }).catch(() => null);
+    const chat = await page.evaluate(() => {
+      const msgs = [...document.querySelectorAll(".wchat-log p.wchat-msg")];
+      const ult = msgs[msgs.length - 1];
+      return {
+        texto: ult ? ult.textContent : "",
+        semSpan: ult ? ult.querySelectorAll("span").length === 0 : false,
+        sel: ult ? getComputedStyle(ult).userSelect : "none",
+        link: !!document.querySelector('.wchat a[href="/como-navegar"]'),
+      };
+    });
+    check("H8 resposta do chat em <p> legivel pelo VLibras", chat.texto.includes("guia") && chat.semSpan && chat.sel !== "none", chat.sel);
+    check("H9 chat leva ao guia", chat.link);
 
     // (G) painel administrativo sem os botoes
     await page.goto(BASE + "/login", { waitUntil: "domcontentloaded" });
