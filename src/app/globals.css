@@ -2395,3 +2395,88 @@ body:has(.admin-shell) .wchat { display: none; }
   .corp-achados li > span:first-child { grid-column: 1 / -1; }
   .corp-tabela { display: block; overflow-x: auto; }
 }
+
+/* ===== Acessibilidade - painel proprio + VLibras (20/11/2026) =====
+   Padrao comum: I:\Projetos\_libras\PADRAO-ACESSIBILIDADE-VLIBRAS.md.
+   As classes a11y-* entram no <html> pelo script do <head>
+   (SCRIPT_PREFS_A11Y) e pelo PainelAcessibilidade. VLibras fica no lado
+   esquerdo, no meio da tela; o botao do painel no canto inferior esquerdo
+   (o direito e do atendimento e do flutuante social). */
+.a11y-botao {
+  position: fixed; left: 16px; bottom: 16px; z-index: 60;
+  width: 52px; height: 52px; border-radius: 50%;
+  display: grid; place-items: center; cursor: pointer;
+  background: #073B4C; color: #fff; border: 2px solid #FC99D3;
+  box-shadow: 0 6px 18px rgba(0,0,0,.25);
+}
+.a11y-botao:hover { background: #0B4F66; }
+.a11y-raiz button:focus-visible { outline: 3px solid #ffb300; outline-offset: 2px; }
+.a11y-painel {
+  position: fixed; left: 60px; /* 10..50px = botao do VLibras (z-index maximo), nao cobrir */ bottom: 80px; z-index: 61;
+  width: 290px; max-width: calc(100vw - 76px); max-height: calc(100vh - 110px); overflow-y: auto;
+  background: #fff; color: #1a1a1a; border-radius: 14px; padding: 16px;
+  box-shadow: 0 12px 32px rgba(0,0,0,.28); display: grid; gap: 8px;
+  font-size: 15px; line-height: 1.4;
+}
+.a11y-titulo { margin: 0 0 4px; font-size: 17px; color: #073B4C; }
+.a11y-linha { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.a11y-linha button {
+  min-width: 52px; padding: 8px 10px; border-radius: 8px; cursor: pointer;
+  background: #073B4C; color: #fff; border: 0; font-weight: 700; font-size: 15px;
+}
+.a11y-linha button:disabled { opacity: .4; cursor: not-allowed; }
+.a11y-linha output { font-weight: 700; min-width: 56px; text-align: center; }
+.a11y-alternar {
+  display: flex; justify-content: space-between; align-items: center; gap: 8px;
+  padding: 9px 12px; border-radius: 8px; cursor: pointer; text-align: left;
+  background: #F2F2F2; color: #1a1a1a; border: 1px solid #C9C9C9; font-size: 15px;
+}
+.a11y-alternar[aria-pressed="true"] { background: #073B4C; color: #fff; border-color: #073B4C; }
+.a11y-estado { font-size: 12px; opacity: .8; }
+.a11y-restaurar {
+  padding: 9px 12px; border-radius: 8px; cursor: pointer;
+  background: #fff; color: #073B4C; border: 1px solid #073B4C; font-weight: 600; font-size: 15px;
+}
+.a11y-restaurar:disabled { opacity: .45; cursor: not-allowed; }
+.a11y-nota { margin: 2px 0 0; font-size: 12px; color: #555; }
+.a11y-guia-barra {
+  position: fixed; left: 0; right: 0; top: 0; height: 28px; z-index: 2147483000;
+  pointer-events: none; background: rgba(255, 234, 0, .28);
+  border-top: 2px solid #ffb300; border-bottom: 2px solid #ffb300;
+}
+
+/* fonte: zoom em cada filho do body (o CSS do site e em px). O painel e o
+   VLibras ficam fora para os controles nao fugirem da tela. */
+html.a11y-zoom body > :not(.a11y-raiz):not(#vlibras-access-wrapper):not(script) { zoom: var(--a11y-zoom, 1); }
+
+html.a11y-espaco-linhas body :not(.a11y-raiz *) { line-height: 1.8 !important; letter-spacing: .01em; }
+
+html.a11y-links a {
+  text-decoration: underline !important; text-underline-offset: 3px;
+  outline: 2px solid #ffb300 !important; outline-offset: 2px;
+}
+
+html.a11y-contraste body,
+html.a11y-contraste body *:not(img):not(video):not(svg):not(svg *):not(.a11y-guia-barra) {
+  background-color: #000 !important; background-image: none !important;
+  color: #ffea00 !important; border-color: #ffea00 !important;
+  box-shadow: none !important; text-shadow: none !important;
+  backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
+}
+html.a11y-contraste body a, html.a11y-contraste body a * { color: #7fd3ff !important; }
+html.a11y-contraste body button:disabled { opacity: .5; }
+
+html.a11y-sem-animacao *, html.a11y-sem-animacao *::before, html.a11y-sem-animacao *::after {
+  animation-play-state: paused !important; transition: none !important; scroll-behavior: auto !important;
+}
+
+/* painel administrativo: tela operacional, sem os dois botoes (mesma regra
+   do atendimento). As preferencias continuam valendo. */
+body:has(.admin-shell) .a11y-botao,
+body:has(.admin-shell) .a11y-painel,
+body:has(.admin-shell) #vlibras-access-wrapper,
+body:has(.admin-shell) [vw] { display: none !important; }
+
+@media print {
+  .a11y-raiz, #vlibras-access-wrapper, [vw] { display: none !important; }
+}

@@ -12,6 +12,7 @@
 */
 
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type MouseEvent, type PointerEvent } from "react";
+import { useSemAnimacao } from "@/components/acessibilidade/useSemAnimacao";
 import type { VarejoProduct } from "@/lib/products";
 import { ProductCard } from "@/components/ProductCard";
 import { ProductActions } from "@/components/produtos/ProductActions";
@@ -59,6 +60,7 @@ export function HeroVitrine({ produtos }: { produtos: VarejoProduct[] }) {
   const [inicio, setInicio] = useState(0);
   const [virada, setVirada] = useState(false);
   const [pausado, setPausado] = useState(false);
+  const semAnimacao = useSemAnimacao();
   const [arrastando, setArrastando] = useState(false);
   const [dx, setDx] = useState(0);
   const [saida, setSaida] = useState<Saida | null>(null);
@@ -93,10 +95,10 @@ export function HeroVitrine({ produtos }: { produtos: VarejoProduct[] }) {
 
   // troca automática: pausa com o mouse em cima, com a carta virada ou durante o arraste
   useEffect(() => {
-    if (total < 2 || pausado || virada || arrastando) return;
+    if (total < 2 || pausado || semAnimacao || virada || arrastando) return;
     const t = window.setInterval(() => proxima(1), INTERVALO_MS);
     return () => window.clearInterval(t);
-  }, [total, pausado, virada, arrastando, proxima]);
+  }, [total, pausado, semAnimacao, virada, arrastando, proxima]);
 
   // remove a carta que saiu depois da animação
   useEffect(() => {
