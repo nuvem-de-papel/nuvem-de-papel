@@ -145,7 +145,7 @@ export function LoginForm() {
             style={{
               width: "100%",
               padding: "12px 14px",
-              border: "1.5px solid rgba(0,0,0,0.18)", background: "rgba(255,255,255,0.75)",
+              border: "1.5px solid #FC99D3", background: "rgba(255,255,255,0.75)",
               borderRadius: 10,
               fontSize: 15,
               fontFamily: "'Open Sans', sans-serif",
@@ -171,7 +171,7 @@ export function LoginForm() {
               style={{
                 width: "100%",
                 padding: "12px 64px 12px 14px",
-                border: "1.5px solid rgba(0,0,0,0.18)", background: "rgba(255,255,255,0.75)",
+                border: "1.5px solid #FC99D3", background: "rgba(255,255,255,0.75)",
                 borderRadius: 10,
                 fontSize: 15,
                 fontFamily: "'Open Sans', sans-serif",

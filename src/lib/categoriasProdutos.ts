@@ -17,22 +17,27 @@ export const SLUG_OUTROS = "outros";
 
 type VisualGrupo = { cor: string; corTitulo: string; descricao: string };
 
+// 21/11/2026 (pedido do Joaquim): UMA cor por grupo, sem repetir. O titulo,
+// o icone, as setas e o vidro do carrossel usam essa mesma cor (corTitulo =
+// cor). Tons escuros o bastante para o titulo ser lido sobre o vidro claro.
 const VISUAL_PADRAO: VisualGrupo = {
-  cor: "#E9761C",
-  corTitulo: "#100D0D",
+  cor: "#5A6B7B",
+  corTitulo: "#5A6B7B",
   descricao: "Mais itens da papelaria para o dia a dia",
 };
 
+const visual = (cor: string, descricao: string): VisualGrupo => ({ cor, corTitulo: cor, descricao });
+
 const VISUAL: Record<string, VisualGrupo> = {
-  cadernos: { cor: "#0CCAFD", corTitulo: "#006BE1", descricao: "Cadernos inteligentes, espirais, brochuras, fichários e planners" },
-  "papeis-e-agendas": { cor: "#24F1FC", corTitulo: "#100D0D", descricao: "Agendas, blocos, post-its e papéis para organizar a rotina" },
-  "lapis-e-canetas": { cor: "#006BE1", corTitulo: "#E9761C", descricao: "Canetas, lápis, marca-textos e borrachas para escrever e decorar" },
-  "arte-e-pintura": { cor: "#FC99D3", corTitulo: "#006BE1", descricao: "Tintas, pincéis e materiais para colorir e criar" },
-  "material-escolar": { cor: "#FECD01", corTitulo: "#100D0D", descricao: "Estojos, mochilas, réguas e tudo para o ano letivo" },
-  "escritorio-e-organizacao": { cor: "#03BF01", corTitulo: "#E9761C", descricao: "Organizadores, pastas e acessórios para a mesa de trabalho" },
-  "adesivos-e-presentes": { cor: "#FC99D3", corTitulo: "#100D0D", descricao: "Adesivos, chaveiros e mimos fofos para presentear" },
-  "infantil-e-livros": { cor: "#24F1FC", corTitulo: "#006BE1", descricao: "Livros, brinquedos e atividades para os pequenos" },
-  "datas-comemorativas": { cor: "#E9761C", corTitulo: "#100D0D", descricao: "Natal, Páscoa e itens de época" },
+  cadernos: visual("#006BE1", "Cadernos inteligentes, espirais, brochuras, fichários e planners"),
+  "papeis-e-agendas": visual("#00939E", "Agendas, blocos, post-its e papéis para organizar a rotina"),
+  "lapis-e-canetas": visual("#E9761C", "Canetas, lápis, marca-textos e borrachas para escrever e decorar"),
+  "arte-e-pintura": visual("#D6338A", "Tintas, pincéis e materiais para colorir e criar"),
+  "material-escolar": visual("#B88A00", "Estojos, mochilas, réguas e tudo para o ano letivo"),
+  "escritorio-e-organizacao": visual("#1E9E2E", "Organizadores, pastas e acessórios para a mesa de trabalho"),
+  "adesivos-e-presentes": visual("#8A4FD8", "Adesivos, chaveiros e mimos fofos para presentear"),
+  "infantil-e-livros": visual("#E5484D", "Livros, brinquedos e atividades para os pequenos"),
+  "datas-comemorativas": visual("#100D0D", "Natal, Páscoa e itens de época"),
 };
 
 export type GrupoSetor = {
