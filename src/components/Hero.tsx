@@ -357,65 +357,16 @@ export function Hero({ vitrine = [] }: { vitrine?: VarejoProduct[] }) {
             perfeito aos acessórios certos para o seu dia a dia.
           </p>
 
-          <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
-            <a
-              href="/produtos"
-              style={{
-                display: "inline-block",
-                textDecoration: "none",
-                background: "var(--cta)",
-                color: "#000000",
-                padding: "16px 32px",
-                borderRadius: "var(--radius-control)",
-                fontWeight: 700,
-                fontSize: 16,
-                boxShadow: "0 4px 16px rgba(252, 153, 211,0.35)",
-              }}
-            >
+          {/* 21/11/2026: os dois botoes tem borda rosa; o que esta sob o
+              ponteiro (ou com foco) fica rosa cheio e o outro vira so borda.
+              Os numeros de teste (+12 mil / 4,9 / 48h) sairam - nao eram reais. */}
+          <div className="hero-ctas">
+            <a href="/produtos" className="hero-cta hero-cta-principal">
               Ver produtos
             </a>
-            <button
-              style={{
-                background: "transparent",
-                color: "#000000",
-                padding: "14px 28px",
-                borderRadius: "var(--radius-control)",
-                fontWeight: 600,
-                fontSize: 16,
-                border: "2px solid rgba(255,255,255,0.3)",
-              }}
-            >
+            <a href="/clube" className="hero-cta">
               Conhecer o Clube
-            </button>
-          </div>
-
-          <div
-            style={{
-              display: "flex",
-              gap: 28,
-              marginTop: 40,
-              paddingTop: 24,
-              borderTop: "1px solid rgba(255,255,255,0.15)",
-            }}
-          >
-            <div>
-              <div className="display" style={{ fontSize: 22, color: "#000000", fontWeight: 700 }}>
-                +12 mil
-              </div>
-              <div style={{ fontSize: 12, color: "#000000", fontWeight: 700 }}>clientes ativos</div>
-            </div>
-            <div>
-              <div className="display" style={{ fontSize: 22, color: "#000000", fontWeight: 700 }}>
-                4,9 ★
-              </div>
-              <div style={{ fontSize: 12, color: "#000000", fontWeight: 700 }}>avaliação média</div>
-            </div>
-            <div>
-              <div className="display" style={{ fontSize: 22, color: "#000000", fontWeight: 700 }}>
-                48h
-              </div>
-              <div style={{ fontSize: 12, color: "#000000", fontWeight: 700 }}>envio expresso</div>
-            </div>
+            </a>
           </div>
         </div>
 

@@ -1,18 +1,21 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { ProductImage } from "@/components/ProductImage";
 
-type Item = { sku: string; name: string; price: number; category: string | null };
+type Item = { sku: string; name: string; price: number; category: string | null; foto: string | null };
 
 function moeda(valor: number) {
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(valor);
 }
 
 // Campo de busca fixo no meio da barra do topo (18/11/2026 - antes era uma
-// lupa que abria um painel). Nome ou SKU; os resultados abrem numa lista
+// lupa que abria um painel). Nome, SKU ou descricao; os resultados abrem numa lista
 // flutuante embaixo do campo. Enter abre o primeiro achado; Esc ou clique
 // fora fecha. aria-label "Buscar na loja" de proposito: "Buscar produto" e o
 // campo do PDV/venda manual e o cabecalho aparece no painel tambem (E2E).
+// 21/11/2026: cada achado mostra a foto principal do produto a esquerda
+// (72px), o nome/SKU no meio e o preco a direita.
 export function BuscaProdutos() {
   const [q, setQ] = useState("");
   const [itens, setItens] = useState<Item[]>([]);
@@ -111,26 +114,23 @@ export function BuscaProdutos() {
                   <a
                     href={`/produtos/${it.sku}`}
                     onClick={() => setAberto(false)}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      gap: 12,
-                      padding: "10px 14px",
-                      borderRadius: 12,
-                      textDecoration: "none",
-                      color: "var(--ink)",
-                      background: "var(--pink-100)",
-                    }}
+                    className="busca-item"
                   >
-                    <span style={{ minWidth: 0 }}>
-                      <span style={{ display: "block", fontWeight: 700, fontSize: 15 }}>{it.name}</span>
-                      <span style={{ display: "block", fontSize: 12, color: "var(--ink-soft)" }}>
+                    <ProductImage
+                      fotoUrl={it.foto}
+                      category={it.category}
+                      name={it.name}
+                      iconSize={30}
+                      style={{ width: 72, height: 72, flex: "0 0 72px", borderRadius: 10, background: "#FFFFFF" }}
+                    />
+                    <span className="busca-item-texto">
+                      <span className="busca-item-nome">{it.name}</span>
+                      <span className="busca-item-sku">
                         SKU {it.sku}
                         {it.category ? ` · ${it.category}` : ""}
                       </span>
                     </span>
-                    <span style={{ fontWeight: 700, fontSize: 15, whiteSpace: "nowrap" }}>{moeda(it.price)}</span>
+                    <span className="busca-item-preco">{moeda(it.price)}</span>
                   </a>
                 </li>
               ))}
