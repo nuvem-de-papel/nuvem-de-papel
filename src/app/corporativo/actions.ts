@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { NUVEM_DE_PAPEL_TENANT_ID } from "@/lib/tenant";
 import { cnpjValido } from "@/lib/documento";
+import { alertarPedidoCorporativo } from "@/lib/alerta-corporativo";
 import { revalidatePath } from "next/cache";
 
 // Conta corporativa (0059 - 20/11/2026). Desde 20/11 (pedido do Joaquim) a
@@ -430,6 +431,14 @@ export async function fazerPedidoCorporativo(entrada: {
         itens: somados.size,
         entrega: !!entrega,
       },
+    });
+    // aviso para a loja (etapa 4): best-effort, nunca derruba o pedido
+    await alertarPedidoCorporativo(admin, {
+      orderId: r.order_id,
+      accountId: r.account_id ?? null,
+      comprador: user.email ?? user.id,
+      observacao: observacao || null,
+      actorUserId: user.id,
     });
   }
   revalidatePath("/corporativo");

@@ -6,6 +6,7 @@
  * (I) credito consumido · (J) pedido acima do limite recusado
  * (K) idempotencia + entrega pela RPC · (L) financeiro so ve
  * (M) parcela vencida trava · limpeza no fim (so staging).
+ * 21/11/2026 (etapa 4): H7-H9 alerta de pedido PJ por e-mail; K4 RPC direta nao avisa.
  */
 const fs = require("fs");
 const path = require("path");
@@ -211,6 +212,27 @@ async function main() {
       .eq("action", "corporativo.pedido")
       .eq("entity_id", p1?.id ?? "");
     check("H6 auditoria corporativo.pedido", aud === 1);
+    // alerta para a loja (etapa 4 - 21/11/2026)
+    const { data: alertas } = await db.from("corporate_alerts").select("id, canal, status, erro, account_id").eq("order_id", p1?.id ?? "");
+    const al = (alertas ?? [])[0];
+    check(
+      "H7 um alerta por e-mail gravado (enviado, ou falhou com motivo)",
+      (alertas ?? []).length === 1 && al.canal === "email" && al.account_id === contaId &&
+        (al.status === "enviado" || (al.status === "falhou" && !!al.erro)),
+      JSON.stringify(alertas)
+    );
+    if (ENV.RESEND_API_KEY) {
+      const { data: msgs } = await db.from("email_messages").select("subject").eq("related_entity", "orders").eq("related_id", p1?.id ?? "");
+      check(
+        "H8 e-mail do alerta registrado com o numero do pedido",
+        (msgs ?? []).length === 1 && msgs[0].subject.includes(p1?.venda_numero ?? "??") && msgs[0].subject.includes(RAZAO),
+        JSON.stringify(msgs)
+      );
+    } else {
+      check("H8 sem RESEND_API_KEY: nenhum e-mail esperado", true);
+    }
+    const dup = await db.from("corporate_alerts").insert({ tenant_id: TENANT, order_id: p1?.id, account_id: contaId, canal: "email" });
+    check("H9 segundo alerta do mesmo pedido recusado (23505)", dup.error?.code === "23505", dup.error?.code);
 
     // I) credito consumido -------------------------------------------------------
     const { data: cred } = await db.rpc("corporate_credit", { p_account: contaId });
@@ -254,6 +276,8 @@ async function main() {
     check("K2 entrega aguardando criada", (ent ?? []).length === 1 && ent[0].status === "aguardando", JSON.stringify(ent));
     const { data: cred2 } = await db.rpc("corporate_credit", { p_account: contaId });
     check("K3 credito: disponivel 55", Number(cred2?.disponivel) === 55, JSON.stringify(cred2));
+    const { count: alK } = await db.from("corporate_alerts").select("id", { count: "exact", head: true }).eq("order_id", r1.data?.order_id ?? "");
+    check("K4 RPC direta nao avisa (alerta mora na action)", alK === 0);
 
     // L) financeiro so ve -----------------------------------------------------------
     const ctxF = await browser.newContext();
@@ -298,6 +322,7 @@ async function main() {
           await db.from("financial_installments").delete().in("title_id", tIds);
           await db.from("financial_titles").delete().in("id", tIds);
         }
+        await db.from("email_messages").delete().eq("related_entity", "orders").in("related_id", ids);
         await db.from("orders").delete().in("id", ids);
       }
       await db.from("corporate_buyers").delete().eq("account_id", contaId);
