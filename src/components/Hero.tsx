@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { VarejoProduct } from "@/lib/products";
 import { HeroVitrine } from "@/components/hero/HeroVitrine";
+import { EVENTO_A11Y, semAnimacaoAtivo } from "@/lib/acessibilidade";
 
 const CLIPS = [
   "/videos/7744310-hd_1366_720_25fps.mp4",
@@ -152,7 +153,8 @@ export function Hero({ vitrine = [] }: { vitrine?: VarejoProduct[] }) {
     let heroVisible = true;
     let disposed = false;
 
-    const shouldPlay = () => heroVisible && !document.hidden;
+    // "Pausar animações" do painel de acessibilidade tambem para o video
+    const shouldPlay = () => heroVisible && !document.hidden && !semAnimacaoAtivo();
     const sync = () => {
       if (shouldPlay()) {
         const p = active.play();
@@ -211,12 +213,14 @@ export function Hero({ vitrine = [] }: { vitrine?: VarejoProduct[] }) {
     io.observe(sec);
     const onVis = () => sync();
     document.addEventListener("visibilitychange", onVis);
+    window.addEventListener(EVENTO_A11Y, onVis);
     sync();
 
     return () => {
       disposed = true;
       io.disconnect();
       document.removeEventListener("visibilitychange", onVis);
+      window.removeEventListener(EVENTO_A11Y, onVis);
       a.removeEventListener("ended", onEnded);
       b.removeEventListener("ended", onEnded);
       a.pause();

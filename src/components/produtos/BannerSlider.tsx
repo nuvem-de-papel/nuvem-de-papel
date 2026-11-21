@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSemAnimacao } from "@/components/acessibilidade/useSemAnimacao";
 import type { ReactNode } from "react";
 import { PROMO_ICONS } from "@/components/produtos/PromoStrip";
 import { claro } from "@/lib/cores";
@@ -55,11 +56,13 @@ const SLIDES: Slide[] = [
 
 export function BannerSlider() {
   const [slide, setSlide] = useState(0);
+  const semAnimacao = useSemAnimacao();
 
   useEffect(() => {
+    if (semAnimacao) return;
     const id = setInterval(() => setSlide((s) => (s + 1) % SLIDES.length), 4500);
     return () => clearInterval(id);
-  }, []);
+  }, [semAnimacao]);
 
   return (
     <section style={{ position: "relative", overflow: "hidden" }}>
