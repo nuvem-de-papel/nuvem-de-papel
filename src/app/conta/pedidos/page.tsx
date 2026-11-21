@@ -33,14 +33,13 @@ function brl(v: number) {
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
 }
 
-function quando(iso: string) {
-  return new Date(iso).toLocaleString("pt-BR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+// fuso fixo: no Vercel o servidor roda em UTC e a hora sairia 3 h adiantada
+const FUSO = "America/Sao_Paulo";
+function dataDe(iso: string) {
+  return new Date(iso).toLocaleDateString("pt-BR", { timeZone: FUSO, day: "2-digit", month: "2-digit", year: "numeric" });
+}
+function horaDe(iso: string) {
+  return new Date(iso).toLocaleTimeString("pt-BR", { timeZone: FUSO, hour: "2-digit", minute: "2-digit" });
 }
 
 type LinhaPedido = {
@@ -169,10 +168,10 @@ export default async function MeusPedidosPage({
         </p>
       )}
 
-      {/* Lista unica (19/11/2026): uma caixa so, um pedido por linha, status a direita;
-          clicar no pedido abre os itens (details/summary, sem JS). */}
-      {/* 20/11/2026: o "Acompanhar" abre numa caixa a direita, na mesma altura
-          (portal em #pedido-painel-slot); a lista mostra 5 pedidos e rola o resto. */}
+      {/* Lista unica (19/11/2026) + colunas (20/11/2026): Pedido nº, data, hora,
+          Acompanhar, situação e valor numa linha; clicar na linha abre os itens
+          (details/summary). O Acompanhar abre o painel ao lado do menu (portal em
+          #pedido-painel-slot, que só aparece com um pedido aberto). */}
       <div className="pedidos-layout">
       <section className="pedidos-caixa" aria-label="Meus pedidos">
         <header className="pedidos-caixa-topo">
@@ -181,6 +180,18 @@ export default async function MeusPedidosPage({
             {pedidos.length} {pedidos.length === 1 ? "pedido" : "pedidos"} · {user.email}
           </p>
         </header>
+
+        {pedidos.length > 0 && (
+          <div className="pedidos-colunas" aria-hidden="true">
+            <span />
+            <span>Pedido nº</span>
+            <span>Data</span>
+            <span>Hora</span>
+            <span />
+            <span>Situação</span>
+            <span>Valor</span>
+          </div>
+        )}
 
         {pedidos.length === 0 && (
           <div className="pedidos-vazio">
@@ -200,34 +211,34 @@ export default async function MeusPedidosPage({
             <details key={p.id} className="pedido-linha">
               <summary>
                 <span className="pedido-seta" aria-hidden="true">▸</span>
-                <span className="pedido-info">
-                  <span>
-                    Pedido <strong>{p.id.slice(0, 8).toUpperCase()}</strong> · {quando(p.created_at)}
-                  </span>
-                  <span className="pedido-sub">
-                    {qtd} {qtd === 1 ? "item" : "itens"}
-                    {p.address_snapshot?.cidade ? ` · ${p.address_snapshot.cidade}/${p.address_snapshot.uf}` : ""}
-                    {p.payment_method ? ` · ${PAGAMENTO[p.payment_method] ?? p.payment_method}` : ""}
-                  </span>
+                <span className="pedido-col-num">
+                  Pedido <strong>{p.id.slice(0, 8).toUpperCase()}</strong>
                 </span>
-                <span className="pedido-direita">
+                <span className="pedido-col-data">{dataDe(p.created_at)}</span>
+                <span className="pedido-col-hora">{horaDe(p.created_at)}</span>
+                <span className="pedido-col-acao">
+                  <PedidoPainel
+                    id={p.id}
+                    codigo={p.id.slice(0, 8).toUpperCase()}
+                    status={p.status}
+                    criadoEm={p.created_at}
+                    temLink={!!p.mp_init_point}
+                    nfSolicitada={nfSet.has(p.id)}
+                    itens={itens.map((it) => ({ item_id: it.item_id, sku: it.sku, name: it.name, unit_price: Number(it.unit_price), quantity: Number(it.quantity) }))}
+                  />
+                </span>
+                <span className="pedido-col-status">
                   <span className="pedido-status" style={{ background: st.bg, color: st.fg }}>
                     {st.label}
                   </span>
-                  <strong>{brl(Number(p.total_amount))}</strong>
                 </span>
+                <strong className="pedido-col-valor">{brl(Number(p.total_amount))}</strong>
               </summary>
-              <div className="pedido-painel-linha">
-                <PedidoPainel
-                  id={p.id}
-                  codigo={p.id.slice(0, 8).toUpperCase()}
-                  status={p.status}
-                  criadoEm={p.created_at}
-                  temLink={!!p.mp_init_point}
-                  nfSolicitada={nfSet.has(p.id)}
-                  itens={itens.map((it) => ({ item_id: it.item_id, sku: it.sku, name: it.name, unit_price: Number(it.unit_price), quantity: Number(it.quantity) }))}
-                />
-              </div>
+              <p className="pedido-detalhe-sub">
+                {qtd} {qtd === 1 ? "item" : "itens"}
+                {p.address_snapshot?.cidade ? ` · ${p.address_snapshot.cidade}/${p.address_snapshot.uf}` : ""}
+                {p.payment_method ? ` · ${PAGAMENTO[p.payment_method] ?? p.payment_method}` : ""}
+              </p>
               <table className="pedido-itens">
                 <tbody>
                   {itens.map((it, idx) => (
@@ -262,9 +273,7 @@ export default async function MeusPedidosPage({
         })}
         </div>
       </section>
-      <aside id="pedido-painel-slot" className="pedido-painel-slot" aria-label="Acompanhamento do pedido">
-        <p className="pedido-painel-dica">Clique em <strong>Acompanhar</strong> num pedido para ver a linha do tempo e as ações aqui.</p>
-      </aside>
+      <aside id="pedido-painel-slot" className="pedido-painel-slot" aria-label="Acompanhamento do pedido" />
       </div>
     </main>
   );

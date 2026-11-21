@@ -17,8 +17,9 @@ export const metadata: Metadata = {
   description: "Atendimento a empresas com compras recorrentes.",
 };
 
-// Corporativo (0059 - 20/11/2026): pedido de conta PJ. A empresa nasce
-// 'pendente' e a gestao aprova em Cadastros > Revenda (limite e prazo).
+// Corporativo (0059 - 20/11/2026): conta PJ. Desde 20/11/2026 a empresa nasce
+// 'ativa' (limite R$ 1.000, prazo 30 dias) sem fila de aprovacao; a gestao
+// ajusta limite/prazo ou bloqueia em Cadastros > Revenda.
 // Etapa 3 (0060 - 20/11/2026): conta ativa ganha o painel do comprador -
 // credito (limite, em aberto, disponivel, vencido), pedidos da empresa e
 // novo pedido no atacado (corporate_place_order decide preco/credito/estoque).
@@ -43,10 +44,9 @@ type PedidoEmpresa = {
 };
 
 const TEXTO_STATUS: Record<string, string> = {
-  pendente: "Recebemos o pedido da sua empresa. A equipe confere o CNPJ e libera a conta em até 1 dia útil.",
-  ativa: "Conta aprovada. Faça pedidos no atacado com faturamento no prazo da empresa.",
+  ativa: "Conta ativa. Faça pedidos no atacado com faturamento no prazo da empresa.",
   bloqueada: "Conta bloqueada. Fale com nosso atendimento pelo botão do canto da tela.",
-  recusada: "Pedido não aprovado. Fale com nosso atendimento pelo botão do canto da tela.",
+  recusada: "Conta recusada. Fale com nosso atendimento pelo botão do canto da tela.",
 };
 
 const STATUS_PEDIDO: Record<string, string> = {
@@ -206,18 +206,10 @@ export default async function CorporativoPage() {
 
   return (
     <main className="conta-shell">
-      <section className="conta-secao">
-        <h1 className="display">Atendimento corporativo</h1>
-        <p>
-          Empresas com compras recorrentes contam com condições comerciais próprias: prazos de pagamento,
-          faturamento por CNPJ, acompanhamento de pedidos em aberto e promoções exclusivas.
-        </p>
-      </section>
-
       {empresa ? (
         <>
           <section className="conta-secao" aria-label="Situação da conta corporativa">
-            <h2>{empresa.razao_social}</h2>
+            <h1 className="corp-titulo">{empresa.razao_social}</h1>
             <p>
               <span className={`ct-pill-corp ct-pill-corp-${empresa.status}`}>{empresa.status}</span>
             </p>
@@ -305,18 +297,11 @@ export default async function CorporativoPage() {
         </>
       ) : equipe ? (
         <section className="conta-secao">
-          <p>Você está logado com um acesso da equipe. As contas corporativas são aprovadas em Cadastros → Revenda.</p>
+          <h1 className="corp-titulo">Atendimento corporativo</h1>
+          <p>Você está logado com um acesso da equipe. As contas corporativas são geridas em Cadastros → Revenda.</p>
         </section>
       ) : (
-        <section className="conta-secao">
-          <h2>Acesso corporativo</h2>
-          <p>
-            {user
-              ? "Cadastre a empresa no seu login atual: ele vira o acesso de administrador dela."
-              : "Já tem conta corporativa? Entre com o e-mail ou o CNPJ e a senha. Primeira vez? Cadastre a empresa e o acesso de quem vai comprar."}
-          </p>
-          <SolicitarCorporativoForm logadoComo={user ? { nome: nomeCliente, email: user.email ?? "" } : null} />
-        </section>
+        <SolicitarCorporativoForm logadoComo={user ? { nome: nomeCliente, email: user.email ?? "" } : null} />
       )}
     </main>
   );

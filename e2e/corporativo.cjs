@@ -1,7 +1,8 @@
 /* E2E Corporativo (0059 - 20/11/2026): pedido de conta PJ e decisao da gestao.
- * (A) visitante pede conta -> empresa 'pendente', limite 0, login vira admin
+ * (A) visitante cadastra -> empresa 'ativa' na hora (R$ 1.000 / 30 dias),
+ *     endereco no cadastro, login vira admin (sem fila de aprovacao desde 20/11)
  * (B) CNPJ repetido recusado · (C) etiqueta na /conta
- * (D) gestao aprova com limite/prazo · (E) bloqueio exige motivo
+ * (D) gestao ve a conta ativa com a condicao padrao · (E) bloqueio exige motivo
  * (F) cliente ve a situacao nova
  * (G) entrar pelo CNPJ (senha errada recusa, certa entra) e botao Mostrar senha
  * (H) logado sem empresa: tela diz quem esta logado e exige confirmacao
@@ -75,34 +76,54 @@ async function conta() {
   return data;
 }
 
+// preenche o form "Cadastrar empresa" (visitante: com comprador/e-mail/senha)
+async function preencherCadastro(form, { razao, cnpj, visitante, contato, email }) {
+  await form.getByLabel("Razão social").fill(razao);
+  await form.getByLabel("CNPJ").fill(cnpj);
+  // CEP primeiro: o blur busca o ViaCEP; depois os campos sao fixados a mao
+  await form.getByLabel("CEP").fill("01310100");
+  await form.getByLabel("Número").click();
+  await form.page().waitForTimeout(2000);
+  await form.getByLabel("Logradouro").fill("Avenida Paulista");
+  await form.getByLabel("Número").fill("1000");
+  await form.getByLabel("Bairro").fill("Bela Vista");
+  await form.getByLabel("Cidade").fill("São Paulo");
+  await form.getByLabel("Estado").fill("SP");
+  await form.getByLabel("Telefone").fill("11988776655");
+  if (visitante) {
+    await form.getByLabel("Comprador").fill(contato);
+    await form.getByLabel("E-mail de acesso").fill(email);
+    await form.getByLabel("Senha", { exact: true }).fill(SENHA);
+    await form.getByLabel("Confirmar senha").fill(SENHA);
+  }
+}
+
 async function main() {
   const browser = await chromium.launch({ headless: true, channel: "msedge" });
   let userId = null;
   let userIdH = null;
   try {
-    // A) visitante pede a conta
+    // A) visitante cadastra a empresa
     const ctxC = await browser.newContext();
     const pc = await ctxC.newPage();
     await pc.goto(BASE + "/corporativo", { waitUntil: "domcontentloaded" });
-    const abaEntrar = pc.getByRole("tab", { name: "Já tenho conta corporativa" });
+    const abaEntrar = pc.getByRole("tab", { name: "Já tenho conta" });
     await abaEntrar.waitFor({ timeout: 15000 });
     check("A0 visitante abre em \"Já tenho conta\"", (await abaEntrar.getAttribute("aria-selected")) === "true");
-    await pc.getByRole("tab", { name: "Cadastrar minha empresa" }).click();
-    const form = pc.locator('form[aria-label="Solicitar conta corporativa"]');
-    await form.getByLabel("Razão social").fill(RAZAO);
-    await form.getByLabel("CNPJ").fill(CNPJ);
-    await form.getByLabel("Telefone da empresa").fill("11988776655");
-    await form.getByLabel("Nome de quem compra").fill("Comprador E2E");
-    await form.getByLabel("E-mail de acesso").fill(EMAIL);
-    await form.getByLabel("Senha").fill(SENHA);
+    await pc.getByRole("tab", { name: "Cadastrar" }).click();
+    const form = pc.locator('form[aria-label="Cadastrar empresa"]');
+    await preencherCadastro(form, { razao: RAZAO, cnpj: CNPJ, visitante: true, contato: "Comprador E2E", email: EMAIL });
     await form.locator('button[type="submit"]').click();
     const secao = pc.locator('section[aria-label="Situação da conta corporativa"]');
     await secao.waitFor({ timeout: 25000 });
-    check("A1 pedido mostra a situacao da conta", (await secao.innerText()).includes(RAZAO));
-    check("A2 status pendente na tela", (await secao.locator(".ct-pill-corp-pendente").count()) === 1);
+    check("A1 cadastro abre o painel da empresa", (await secao.innerText()).includes(RAZAO));
+    check(
+      "A2 status ativa na tela, com credito",
+      (await secao.locator(".ct-pill-corp-ativa").count()) === 1 && (await pc.locator('[aria-label="Crédito da empresa"]').count()) === 1
+    );
     const c1 = await esperar(conta);
-    check("A3 empresa gravada pendente", c1?.status === "pendente");
-    check("A4 limite nasce zero", Number(c1?.limite_credito) === 0);
+    check("A3 empresa gravada ativa com aprovado_em", c1?.status === "ativa" && !!c1?.aprovado_em);
+    check("A4 limite R$ 1.000 e prazo 30 dias", Number(c1?.limite_credito) === 1000 && c1?.prazo_dias === 30);
     const { data: buyer } = await db
       .from("corporate_buyers")
       .select("auth_user_id, papel, ativo")
@@ -110,41 +131,50 @@ async function main() {
       .maybeSingle();
     userId = buyer?.auth_user_id ?? null;
     check("A5 login vira admin da empresa", buyer?.papel === "admin" && buyer?.ativo === true);
-    const { data: cli } = await db.from("customers").select("documento, auth_user_id").eq("id", c1?.customer_id ?? "").maybeSingle();
-    check("A6 cadastro do cliente com o CNPJ", cli?.documento === CNPJ && cli?.auth_user_id === userId);
+    const { data: cli } = await db
+      .from("customers")
+      .select("documento, auth_user_id, cep, numero, cidade, uf")
+      .eq("id", c1?.customer_id ?? "")
+      .maybeSingle();
+    check(
+      "A6 cadastro do cliente com CNPJ e endereco",
+      cli?.documento === CNPJ && cli?.auth_user_id === userId && cli?.cep === "01310100" && cli?.numero === "1000" && cli?.uf === "SP",
+      JSON.stringify(cli)
+    );
     const { count: audA } = await db
       .from("audit_log")
       .select("id", { count: "exact", head: true })
-      .eq("action", "corporativo.solicitado")
+      .eq("action", "corporativo.cadastrado")
       .eq("entity_id", c1?.id ?? "");
-    check("A7 auditoria corporativo.solicitado", audA === 1);
+    check("A7 auditoria corporativo.cadastrado", audA === 1);
 
     // B) CNPJ repetido (outro visitante)
     const ctxB = await browser.newContext();
     const pb = await ctxB.newPage();
     await pb.goto(BASE + "/corporativo", { waitUntil: "domcontentloaded" });
-    await pb.getByRole("tab", { name: "Cadastrar minha empresa" }).click();
-    const fb = pb.locator('form[aria-label="Solicitar conta corporativa"]');
-    await fb.getByLabel("Razão social").fill("OUTRA EMPRESA E2E");
-    await fb.getByLabel("CNPJ").fill(CNPJ);
-    await fb.getByLabel("Telefone da empresa").fill("11988776655");
-    await fb.getByLabel("Nome de quem compra").fill("Outro E2E");
-    await fb.getByLabel("E-mail de acesso").fill(`corp2.${EPOCH}@teste.local`);
-    await fb.getByLabel("Senha").fill(SENHA);
+    await pb.getByRole("tab", { name: "Cadastrar" }).click();
+    const fb = pb.locator('form[aria-label="Cadastrar empresa"]');
+    await preencherCadastro(fb, {
+      razao: "OUTRA EMPRESA E2E",
+      cnpj: CNPJ,
+      visitante: true,
+      contato: "Outro E2E",
+      email: `corp2.${EPOCH}@teste.local`,
+    });
     await fb.locator('button[type="submit"]').click();
     const erroB = pb.locator('[role="alert"]', { hasText: "já tem conta corporativa" });
     await erroB.waitFor({ timeout: 15000 });
     check("B1 CNPJ repetido recusado", (await erroB.count()) === 1);
-    const abaB = pb.getByRole("tab", { name: "Já tenho conta corporativa" });
+    const abaB = pb.getByRole("tab", { name: "Já tenho conta" });
     check("B2 recusa leva para \"Já tenho conta\"", (await abaB.getAttribute("aria-selected")) === "true");
     await ctxB.close();
 
     // C) etiqueta na area da conta
     await pc.goto(BASE + "/conta", { waitUntil: "domcontentloaded" });
     const etiqueta = await pc.locator(".conta-etiquetas").innerText();
-    check("C1 /conta mostra corporativo aguardando", etiqueta.includes("Corporativo · aguardando aprovação"));
+    check("C1 /conta mostra corporativo com a razao", etiqueta.includes(`Corporativo · ${RAZAO}`), etiqueta);
 
-    // D) gestao aprova
+    // D) gestao ve a conta ja ativa
     const ctxM = await browser.newContext();
     const pm = await ctxM.newPage();
     await pm.goto(BASE + "/login", { waitUntil: "domcontentloaded" });
@@ -155,21 +185,13 @@ async function main() {
     await pm.goto(BASE + "/configuracoes/cadastro?tela=revenda", { waitUntil: "domcontentloaded" });
     const linha = pm.locator('[aria-label="Contas corporativas"] tr', { hasText: RAZAO });
     await linha.waitFor({ timeout: 20000 });
-    check("D1 empresa aparece para a gestao", (await linha.innerText()).toLowerCase().includes("aguardando aprovação"));
-    await linha.getByRole("button", { name: "Aprovar" }).click();
-    await linha.getByLabel(`Limite de crédito ${RAZAO}`).fill("1.500,00");
-    await linha.getByLabel(`Prazo em dias ${RAZAO}`).fill("30");
-    await linha.getByRole("button", { name: "Confirmar" }).click();
-    const c2 = await esperar(async () => {
-      const c = await conta();
-      return c?.status === "ativa" ? c : null;
-    });
-    check("D2 aprovada com limite e prazo", c2?.status === "ativa" && Number(c2.limite_credito) === 1500 && c2.prazo_dias === 30);
-    check("D3 aprovado_em gravado", !!c2?.aprovado_em);
-    // a linha so muda depois do router.refresh() da action
-    await esperar(async () => (await linha.innerText()).includes("30 dias"));
-    const txtD4 = (await linha.innerText()).toLowerCase();
-    check("D4 tela mostra ativa com a condicao", txtD4.includes("ativa") && txtD4.includes("30 dias"), txtD4.replace(/\s+/g, " ").slice(0, 200));
+    const txtD = (await linha.innerText()).toLowerCase().replace(/\s+/g, " ");
+    check(
+      "D1 gestao ve a conta ja ativa, sem Aprovar",
+      txtD.includes("ativa") && (await linha.getByRole("button", { name: "Aprovar" }).count()) === 0,
+      txtD.slice(0, 200)
+    );
+    check("D2 linha mostra R$ 1.000,00 e 30 dias", txtD.includes("1.000,00") && txtD.includes("30 dias"), txtD.slice(0, 200));
 
     // E) bloqueio exige motivo
     await linha.getByRole("button", { name: "Bloquear" }).click();
@@ -184,7 +206,7 @@ async function main() {
     check("E2 bloqueada com motivo", c3?.status === "bloqueada" && c3.motivo === "Cadastro em revisao E2E");
     const { data: audD } = await db.from("audit_log").select("action").eq("entity_id", c1?.id ?? "");
     const acoes = (audD ?? []).map((a) => a.action);
-    check("E3 auditoria aprovado + bloqueado", acoes.includes("corporativo.aprovado") && acoes.includes("corporativo.bloqueado"));
+    check("E3 auditoria cadastrado + bloqueado", acoes.includes("corporativo.cadastrado") && acoes.includes("corporativo.bloqueado"));
     await ctxM.close();
 
     // F) cliente ve a situacao nova
@@ -199,7 +221,7 @@ async function main() {
     await pg.goto(BASE + "/corporativo", { waitUntil: "domcontentloaded" });
     const fg = pg.locator('form[aria-label="Entrar na conta corporativa"]');
     await fg.waitFor({ timeout: 15000 });
-    const senhaG = fg.getByLabel("Senha");
+    const senhaG = fg.getByLabel("Senha", { exact: true });
     await senhaG.fill("senha-errada-1");
     await fg.getByRole("button", { name: "Mostrar" }).click();
     const tipoVisivel = await senhaG.getAttribute("type");
@@ -233,16 +255,14 @@ async function main() {
     await ph.goto(BASE + "/corporativo", { waitUntil: "domcontentloaded" });
     const fe = ph.locator('form[aria-label="Entrar na conta corporativa"]');
     await fe.getByLabel("E-mail ou CNPJ").fill(EMAIL_H);
-    await fe.getByLabel("Senha").fill(SENHA);
+    await fe.getByLabel("Senha", { exact: true }).fill(SENHA);
     await fe.locator('button[type="submit"]').click();
     const caixaH = ph.locator('[aria-label="Cadastro logado"]');
     await caixaH.waitFor({ timeout: 25000 });
     const txtH = await caixaH.innerText();
     check("H1 tela diz com quem esta logado", txtH.includes("Cliente Logado E2E") && txtH.includes(EMAIL_H));
-    const fh = ph.locator('form[aria-label="Solicitar conta corporativa"]');
-    await fh.getByLabel("Razão social").fill(`E2E CORP H ${EPOCH} LTDA`);
-    await fh.getByLabel("CNPJ").fill(CNPJ_H);
-    await fh.getByLabel("Telefone da empresa").fill("11988776655");
+    const fh = ph.locator('form[aria-label="Cadastrar empresa"]');
+    await preencherCadastro(fh, { razao: `E2E CORP H ${EPOCH} LTDA`, cnpj: CNPJ_H, visitante: false });
     const botaoH = fh.locator('button[type="submit"]');
     check("H2 sem confirmar o botao fica travado", await botaoH.isDisabled());
     await fh.getByRole("checkbox").check();

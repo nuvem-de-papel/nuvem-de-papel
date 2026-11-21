@@ -50,9 +50,7 @@ export default async function ContaLayout({ children }: { children: ReactNode })
   const rotuloCorp = corp
     ? corp.status === "ativa"
       ? `Corporativo · ${corp.razao_social}`
-      : corp.status === "pendente"
-        ? "Corporativo · aguardando aprovação"
-        : `Corporativo · ${corp.status}`
+      : `Corporativo · ${corp.status}`
     : null;
 
   return (
