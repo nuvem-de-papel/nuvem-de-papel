@@ -167,6 +167,16 @@ export function SolicitarCorporativoForm({ logadoComo }: { logadoComo: { nome: s
     </p>
   );
 
+  const botaoCadastrar = (
+    <button
+      type="submit"
+      className="conta-botao corp-botao-cadastrar"
+      disabled={pendente || cnpjRuim || senhaDiferente || (logado && !confirmo)}
+    >
+      {pendente ? "Cadastrando..." : "Cadastrar"}
+    </button>
+  );
+
   const formCadastro = (
     <form className="corp-form-cadastro" onSubmit={enviar} aria-label="Cadastrar empresa">
       <div className="corp-linha corp-linha-1">
@@ -250,8 +260,10 @@ export function SolicitarCorporativoForm({ logadoComo }: { logadoComo: { nome: s
         </label>
       </div>
 
+      {/* Senha e Confirmar com a largura do Telefone (1fr de 4) e o botao
+          Cadastrar na mesma linha (pedido do Joaquim, 21/11/2026). */}
       {!logado && (
-        <div className="corp-linha corp-linha-1">
+        <div className="corp-linha corp-linha-senha">
           <CampoSenha value={senha} onChange={setSenha} autoComplete="new-password" minLength={6} />
           <CampoSenha
             rotulo="Confirmar senha"
@@ -261,6 +273,11 @@ export function SolicitarCorporativoForm({ logadoComo }: { logadoComo: { nome: s
             minLength={6}
             inputStyle={senhaDiferente ? { borderColor: "#B3261E" } : undefined}
           />
+          <div className="conta-form-acoes corp-acoes-senha">
+            {botaoCadastrar}
+            {cnpjRuim && <span className="conta-erro">CNPJ inválido.</span>}
+            {senhaDiferente && <span className="conta-erro">A confirmação não bate com a senha.</span>}
+          </div>
         </div>
       )}
 
@@ -271,17 +288,12 @@ export function SolicitarCorporativoForm({ logadoComo }: { logadoComo: { nome: s
         </label>
       )}
 
-      <div className="conta-form-acoes">
-        <button
-          type="submit"
-          className="conta-botao"
-          disabled={pendente || cnpjRuim || senhaDiferente || (logado && !confirmo)}
-        >
-          {pendente ? "Cadastrando..." : "Cadastrar"}
-        </button>
-        {cnpjRuim && <span className="conta-erro">CNPJ inválido.</span>}
-        {senhaDiferente && <span className="conta-erro">A confirmação não bate com a senha.</span>}
-      </div>
+      {logado && (
+        <div className="conta-form-acoes">
+          {botaoCadastrar}
+          {cnpjRuim && <span className="conta-erro">CNPJ inválido.</span>}
+        </div>
+      )}
       {avisoErro}
     </form>
   );
@@ -305,7 +317,7 @@ export function SolicitarCorporativoForm({ logadoComo }: { logadoComo: { nome: s
   }
 
   return (
-    <div className={`corp-acesso${modo === "cadastrar" ? " corp-acesso-cheio" : ""}`}>
+    <div className={`corp-acesso${modo === "cadastrar" ? " corp-acesso-cheio" : " corp-acesso-entrar"}`}>
       {modo === "entrar" && <QuadroInfo />}
       <div className="corp-caixa">
         <div className="corp-escolha" role="tablist" aria-label="Acesso corporativo">

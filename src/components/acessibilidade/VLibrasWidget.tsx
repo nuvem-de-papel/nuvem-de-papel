@@ -7,8 +7,9 @@ import Script from "next/script";
 // So roda no navegador. O loader atual (v7) cria o proprio botao num shadow
 // DOM (#vlibras-access-wrapper) e so baixa o app do avatar no clique; a
 // marcacao [vw] abaixo e a do guia oficial e fica por compatibilidade com o
-// loader antigo. 4o argumento "L" = botao no lado ESQUERDO: no direito ele
-// cairia em cima do flutuante social (meio da tela) e do atendimento.
+// loader antigo. Desde 21/11/2026 o botao oficial fica escondido (CSS
+// #vlibras-access-wrapper) e quem abre o avatar e o botao azul "Libras" da
+// barra do topo (Header.tsx), que clica no #vlibras-button do shadow DOM.
 
 declare global {
   interface Window {

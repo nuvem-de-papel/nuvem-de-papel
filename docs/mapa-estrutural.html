@@ -163,7 +163,7 @@
     </svg>
     <h1>Nuvem de Papel<small>Mapa estrutural do sistema</small></h1>
     <span class="badge-gov">Documento de governança</span>
-    <span class="versao">v1.17 · atualizado em 21/11/2026</span>
+    <span class="versao">v1.18 · atualizado em 21/11/2026</span>
   </div>
   <p class="regra">
     <b>Regra:</b> este mapa é atualizado <b>sempre que houver mudança estrutural</b> — rota nova ou
@@ -331,6 +331,7 @@
             <li><span class="rota">/produtos/[sku]</span> <span class="folha-nome">Página do produto</span><span class="desc">grade: seletor de cor/modelo das variantes via <code>?v=SKU</code>, galeria do principal, “Combina com”.</span></li>
             <li><span class="rota">/publicacoes</span> <span class="folha-nome">Publicações</span></li>
             <li><span class="rota">/clube</span> <span class="folha-nome">Clube de assinantes</span><span class="desc">planos, checkout de assinatura e painel da conta.</span></li>
+            <li><span class="rota">/como-navegar</span> <span class="folha-nome">Guia de navegacao</span><span class="desc">perguntas e respostas curtas para usar a loja, escritas para o VLibras ler bem (link no rodape, no painel de acessibilidade e no atendimento).</span></li>
             <li><span class="rota">/seja-revenda</span> <span class="folha-nome">Seja revenda</span></li>
           </ul>
         </div>
@@ -689,6 +690,7 @@
         <tr><th style="width:70px">Versão</th><th style="width:110px">Data</th><th>Mudança estrutural</th></tr>
       </thead>
       <tbody>
+        <tr><td class="v">v1.18</td><td>21/11/2026</td><td>VLibras e Acessibilidade na barra do topo (depois do Entrar; avatar do VLibras com z-index maximo); rota nova /como-navegar (guia para o VLibras) com link no rodape, no painel de acessibilidade e no atendimento; ajustes visuais de /login, /corporativo, rodape (nome fantasia), cor unica por setor e carrossel de produto mais lento e em loop. Sem migration. E2E acessibilidade.cjs 35/35.</td></tr>
         <tr><td class="v">v1.17</td><td>21/11/2026</td><td>Alerta de pedido corporativo por e-mail (etapa 4): fazerPedidoCorporativo chama alertarPedidoCorporativo (src/lib/alerta-corporativo.ts) - 1 linha em corporate_alerts por pedido (unique order_id) + e-mail templateAlertaPedidoCorporativo para EMAIL_AVISOS; best-effort, nunca derruba o pedido. Sem migration. E2E corporativo-pedido.cjs 26/26.</td></tr>
         <tr><td class="v">v1.16</td><td>21/11/2026</td><td>Login com Google tambem em /login (clientes da loja); /auth/callback cria ou liga o cadastro em customers (src/lib/cliente-login.ts, audit cadastro.criado_google / cadastro.vinculado_google); equipe volta ao /login; E2E login-google.cjs 16/16.</td></tr>
         <tr><td class="v">v1.15</td><td>21/11/2026</td><td>Corporativo nasce ativo (limite R$ 1.000, prazo 30 dias, audit corporativo.cadastrado; sem migration) com endereco completo e confirmacao de senha no cadastro; "Entrar" do cabecalho escolhe Minha conta (/login) ou Corporativo (/corporativo); login com Google atras de NEXT_PUBLIC_LOGIN_GOOGLE=1 (rota nova /auth/callback); /conta/pedidos em colunas (numero, data, hora, Acompanhar, situacao, valor) com painel ao lado do menu.</td></tr>

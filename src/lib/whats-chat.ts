@@ -45,6 +45,13 @@ export const OPCOES_CHAT: readonly OpcaoChat[] = [
     resposta: "Ótimo! A equipe passa as condições de atacado pelo WhatsApp.",
   },
   {
+    id: "navegar",
+    rotulo: "Como navegar no site",
+    assunto: "tirar uma dúvida sobre como usar o site",
+    resposta: "O guia explica como buscar, comprar, pagar e usar a Libras. Clique no botão abaixo para abrir o guia.",
+    interno: { rotulo: "Abrir o guia", href: "/como-navegar" },
+  },
+  {
     id: "orcamento",
     rotulo: "Orçamento / lista escolar",
     assunto: "fazer um orçamento",

@@ -6,7 +6,6 @@ import { WhatsChat } from "@/components/WhatsChat";
 import { CartProvider } from "@/components/carrinho/CartProvider";
 import { OrcamentoProvider } from "@/components/orcamento/OrcamentoProvider";
 import { getBrandingCssVars } from "@/lib/branding";
-import { PainelAcessibilidade } from "@/components/acessibilidade/PainelAcessibilidade";
 import { VLibrasWidget } from "@/components/acessibilidade/VLibrasWidget";
 import { SCRIPT_PREFS_A11Y } from "@/lib/acessibilidade";
 
@@ -42,7 +41,6 @@ export default async function RootLayout({
           <Footer />
         </OrcamentoProvider>
         </CartProvider>
-        <PainelAcessibilidade />
         <VLibrasWidget />
       </body>
     </html>

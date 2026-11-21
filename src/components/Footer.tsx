@@ -187,6 +187,9 @@ export function Footer() {
             <li>Trabalhe conosco</li>
             <li>Blog</li>
             <li>Central de ajuda</li>
+            <li>
+              <a href="/como-navegar" style={{ color: "inherit" }}>Como navegar no site</a>
+            </li>
             <li>Trocas e devoluções</li>
             <li>Rastrear pedido</li>
           </ul>
@@ -276,7 +279,7 @@ export function Footer() {
           lineHeight: 1.7,
         }}
       >
-        © 2026 Nuvem de Papel — CR Comércio e Exportação LTDA — CNPJ: 49.163.008/0001-68 — Nome fantasia: Nuvem de Papel
+        © 2026 Nuvem de Papel — CR Comércio e Exportação LTDA — CNPJ: 49.163.008/0001-68 — Nome fantasia: Nuvem de Papel Papelaria
       </div>
     </footer>
   );
