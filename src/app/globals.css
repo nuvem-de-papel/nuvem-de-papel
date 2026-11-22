@@ -2706,3 +2706,34 @@ body:has(.admin-shell) [vw] { display: none !important; }
 .hero-cta:hover,
 .hero-cta:focus-visible,
 .hero-cta:active { color: #000000; }
+
+/* ---------- Logistica - quadro kanban (22/11/2026) ---------- */
+.logistica-topo { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
+.logistica-vista { display: inline-flex; border: 1px solid var(--border); border-radius: 999px; overflow: hidden; background: #FFFFFF; }
+.logistica-vista button { border: none; background: transparent; padding: 6px 14px; font-size: 12.5px; font-weight: 700; color: var(--ink-soft); cursor: pointer; }
+.logistica-vista button[aria-pressed="true"] { background: var(--navy); color: #FFFFFF; }
+.logistica-acoes { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+td .logistica-acoes { margin-top: 0; }
+.kanban-dica { font-size: 12.5px; color: var(--ink-soft); margin: 0 0 12px; }
+.kanban { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; align-items: start; }
+.kanban-col { background: #F4F4F4; border: 1px dashed transparent; border-radius: 12px; padding: 8px; min-height: 160px; transition: border-color .15s, background .15s; }
+.kanban-col.alvo-ok { border-color: #16A34A; background: #ECFDF3; }
+.kanban-col.alvo-nao { border-color: #DC2626; background: #FEF2F2; }
+.kanban-col-head { border-top: 3px solid var(--navy); padding: 6px 4px 8px; margin-bottom: 4px; }
+.kanban-col-head h3 { font-size: 13px; margin: 0; display: flex; align-items: center; gap: 6px; }
+.kanban-col-head small { font-size: 11.5px; color: var(--ink-soft); }
+.kanban-contagem { background: #FFFFFF; border: 1px solid var(--border); border-radius: 999px; padding: 0 7px; font-size: 11px; color: var(--navy); }
+.kanban-cards { display: flex; flex-direction: column; gap: 8px; }
+.kanban-vazio { font-size: 12px; color: var(--ink-soft); margin: 6px 4px; }
+.kanban-card { background: #FFFFFF; border: 1px solid var(--border); border-radius: 10px; padding: 9px 10px; font-size: 12.5px; box-shadow: 0 1px 2px rgba(0,0,0,.06); }
+.kanban-card[draggable="true"] { cursor: grab; }
+.kanban-card[draggable="true"]:active { cursor: grabbing; }
+.kanban-card.arrastando { opacity: .45; }
+.kanban-card-linha { display: flex; justify-content: space-between; gap: 6px; align-items: baseline; }
+.kanban-card-linha strong { color: var(--navy); overflow-wrap: anywhere; }
+.kanban-codigo { font-size: 11px; color: var(--ink-soft); font-family: ui-monospace, monospace; white-space: nowrap; }
+.kanban-card-info { margin-top: 4px; color: var(--ink-soft); }
+.kanban-card-data { font-size: 11px; color: var(--ink-soft); margin-top: 4px; }
+.kanban-card .logistica-acoes button { padding: 5px 10px !important; font-size: 11.5px !important; }
+@media (max-width: 1180px) { .kanban { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 900px) { .kanban { grid-template-columns: 1fr; } .kanban-col { min-height: 0; } }
