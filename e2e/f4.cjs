@@ -283,7 +283,13 @@ async function enviarWebhook(pagId, pedidoId, status) {
   const ctxMaster = await browser.newContext();
   const pageM = await ctxMaster.newPage();
   await login(pageM, EMAIL_MASTER, SENHA_MASTER);
+  // desde o kanban (22/11/2026) a fila abre em quadro; a f4 segue pela lista
+  const verLista = async () => {
+    await pageM.locator('button:has-text("Ver em lista")').click();
+    await pageM.locator('table[aria-label="Lista de expedição"]').waitFor({ timeout: 15000 });
+  };
   await pageM.goto(BASE + "/logistica", { waitUntil: "domcontentloaded" });
+  await verLista();
   const linhaFila = pageM.locator('tr:has-text("Comprador E2E")');
   check("F1 fila mostra os 2 pedidos E2E", (await linhaFila.count()) === 2, `n=${await linhaFila.count()}`);
   await linhaFila.first().locator('button:has-text("Cancelar")').click();
@@ -334,6 +340,7 @@ async function enviarWebhook(pagId, pedidoId, status) {
   // I) expedição: separar → enviar → entregue (TODOS os cliques escopados à
   // linha do pedido E2E — a fila pode conter pedidos reais do staging)
   await pageM.goto(BASE + "/logistica", { waitUntil: "domcontentloaded" });
+  await verLista();
   const rowG = pageM.locator(`tr:has-text("Comprador E2E")`);
   check("I1 pedido pago na fila de expedicao", (await rowG.count()) === 1, `n=${await rowG.count()}`);
   const lerStatus = async () => (await admin.from("orders").select("status").eq("id", pedidoG).maybeSingle()).data?.status;

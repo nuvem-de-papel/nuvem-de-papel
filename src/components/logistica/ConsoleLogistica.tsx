@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { PageHeader } from "@/components/admin/PageHeader";
 import {
@@ -18,6 +18,8 @@ export type PedidoFila = {
   payment_method: string | null;
   cliente: string;
   itens: number;
+  /** so na coluna Entregue: quando a trilha `logistica.avancar` marcou entregue */
+  entregue_em?: string | null;
 };
 
 export type ItemEstoque = {
@@ -38,6 +40,19 @@ const STATUS_BADGE: Record<string, { label: string; bg: string; fg: string }> = 
   entregue: { label: "Entregue", bg: "#DCFCE7", fg: "#166534" },
   cancelado: { label: "Cancelado", bg: "#FEE2E2", fg: "#991B1B" },
 };
+
+// Kanban (22/11/2026): arrastar o cartao faz o MESMO que o botao da etapa —
+// so aceita soltar na proxima coluna; o servidor confere a transicao de novo
+// (`avancarExpedicao` com guarda `.in("status",[de])`).
+const TRANSICAO: Record<string, string> = { pago: "processando", processando: "em_rota", em_rota: "entregue" };
+
+const COLUNAS = (["aguardando_pagamento", "pago", "processando", "em_rota", "entregue"] as const).map((status) => ({
+  status,
+  label: status === "aguardando_pagamento" ? "Aguardando pagamento" : STATUS_BADGE[status].label,
+  fg: STATUS_BADGE[status].fg,
+}));
+
+const VISTA_KEY = "np-logistica-vista";
 
 const PAGAMENTO: Record<string, string> = {
   pix: "Pix",
@@ -63,15 +78,49 @@ function dataCurta(iso: string) {
   return new Date(iso).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
 }
 
-export function ConsoleLogistica({ fila, estoque }: { fila: PedidoFila[]; estoque: ItemEstoque[] }) {
+function rotulo(status: string) {
+  return COLUNAS.find((c) => c.status === status)?.label ?? STATUS_BADGE[status]?.label ?? status;
+}
+
+export function ConsoleLogistica({
+  fila,
+  entregues,
+  estoque,
+}: {
+  fila: PedidoFila[];
+  entregues: PedidoFila[];
+  estoque: ItemEstoque[];
+}) {
   const router = useRouter();
   const [pendente, startTransition] = useTransition();
   const [aviso, setAviso] = useState<{ tipo: "ok" | "erro"; texto: string } | null>(null);
+
+  const [vista, setVista] = useState<"quadro" | "lista">("quadro");
+  const [arrastando, setArrastando] = useState<{ id: string; de: string } | null>(null);
+  const [sobre, setSobre] = useState<string | null>(null);
 
   const [formItem, setFormItem] = useState(estoque[0]?.id ?? "");
   const [formTipo, setFormTipo] = useState("entrada");
   const [formQtd, setFormQtd] = useState(1);
   const [formNotas, setFormNotas] = useState("");
+
+  useEffect(() => {
+    try {
+      const v = window.localStorage.getItem(VISTA_KEY);
+      if (v === "lista" || v === "quadro") setVista(v);
+    } catch {
+      /* sem storage: fica no quadro */
+    }
+  }, []);
+
+  function trocarVista(v: "quadro" | "lista") {
+    setVista(v);
+    try {
+      window.localStorage.setItem(VISTA_KEY, v);
+    } catch {
+      /* ignora */
+    }
+  }
 
   function rodar(acao: () => Promise<{ ok: boolean; erro?: string; msg?: string }>) {
     startTransition(async () => {
@@ -81,11 +130,67 @@ export function ConsoleLogistica({ fila, estoque }: { fila: PedidoFila[]; estoqu
     });
   }
 
+  function soltar(id: string, de: string, para: string) {
+    setArrastando(null);
+    setSobre(null);
+    if (de === para) return;
+    const certo = TRANSICAO[de];
+    if (certo !== para) {
+      setAviso({
+        tipo: "erro",
+        texto: certo
+          ? `Não dá para mover de ${rotulo(de)} para ${rotulo(para)}. A próxima etapa é ${rotulo(certo)}.`
+          : `Pedido em ${rotulo(de)} não avança pelo quadro.`,
+      });
+      return;
+    }
+    rodar(() => avancarExpedicao(id, de, para));
+  }
+
   const proximo: Record<string, { de: string; para: string; label: string; bg: string }> = {
     pago: { de: "pago", para: "processando", label: "Separar", bg: "var(--navy)" },
     processando: { de: "processando", para: "em_rota", label: "Enviar", bg: "var(--blue-600)" },
     em_rota: { de: "em_rota", para: "entregue", label: "Entregue", bg: "#16A34A" },
   };
+
+  function acoes(p: PedidoFila) {
+    const accao = proximo[p.status];
+    const temAlgo = accao || p.status === "aguardando_pagamento";
+    if (!temAlgo) return null;
+    return (
+      <div className="logistica-acoes">
+        {accao && (
+          <button
+            disabled={pendente}
+            onClick={() => rodar(() => avancarExpedicao(p.id, accao.de, accao.para))}
+            style={{ ...BTN, background: accao.bg, color: "#FFF" }}
+          >
+            {accao.label}
+          </button>
+        )}
+        {p.status === "aguardando_pagamento" && p.payment_method && (
+          <button
+            disabled={pendente}
+            aria-label={`Conferir pagamento ${p.id.slice(0, 8)}`}
+            title="Consulta o Mercado Pago e marca como pago se houver pagamento aprovado"
+            onClick={() => rodar(() => conferirPagamentoMP(p.id))}
+            style={{ ...BTN, background: "#E0F2FE", color: "#075985" }}
+          >
+            Conferir pagamento
+          </button>
+        )}
+        {p.status === "aguardando_pagamento" && (
+          <button
+            disabled={pendente}
+            onClick={() => rodar(() => cancelarPedidoNaoPago(p.id))}
+            style={{ ...BTN, background: "#FEE2E2", color: "#991B1B" }}
+          >
+            Cancelar
+          </button>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div style={{ maxWidth: 1240, margin: "0 auto", padding: "26px 24px 60px" }}>
@@ -141,14 +246,118 @@ export function ConsoleLogistica({ fila, estoque }: { fila: PedidoFila[]; estoqu
           marginBottom: 20,
         }}
       >
-        <h2 style={{ fontSize: 16, margin: "0 0 12px", color: "var(--navy)" }}>Fila de expedição</h2>
-        {fila.length === 0 ? (
-          <p style={{ fontSize: 13.5, color: "var(--ink-soft)", margin: 0 }}>
-            Nenhum pedido aguardando separação.
-          </p>
+        <div className="logistica-topo">
+          <h2 style={{ fontSize: 16, margin: 0, color: "var(--navy)" }}>Fila de expedição</h2>
+          <div className="logistica-vista" role="group" aria-label="Modo de exibição">
+            <button type="button" aria-pressed={vista === "quadro"} onClick={() => trocarVista("quadro")}>
+              Quadro
+            </button>
+            <button type="button" aria-pressed={vista === "lista"} onClick={() => trocarVista("lista")}>
+              Ver em lista
+            </button>
+          </div>
+        </div>
+
+        {vista === "quadro" ? (
+          <>
+            <p className="kanban-dica">
+              Arraste o cartão para a próxima coluna ou use o botão do cartão. Só a próxima etapa aceita o pedido.
+            </p>
+            <div className="kanban" aria-label="Quadro de expedição">
+              {COLUNAS.map((col) => {
+                const lista = col.status === "entregue" ? entregues : fila.filter((p) => p.status === col.status);
+                const total = lista.reduce((s, p) => s + p.total_amount, 0);
+                const alvo =
+                  arrastando && sobre === col.status && arrastando.de !== col.status
+                    ? TRANSICAO[arrastando.de] === col.status
+                      ? " alvo-ok"
+                      : " alvo-nao"
+                    : "";
+                return (
+                  <section
+                    key={col.status}
+                    className={`kanban-col${alvo}`}
+                    aria-label={`Coluna ${col.label}`}
+                    data-coluna={col.status}
+                    onDragOver={(e) => {
+                      if (!arrastando) return;
+                      e.preventDefault();
+                      e.dataTransfer.dropEffect = TRANSICAO[arrastando.de] === col.status ? "move" : "none";
+                      if (sobre !== col.status) setSobre(col.status);
+                    }}
+                    onDragLeave={(e) => {
+                      if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setSobre(null);
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      if (arrastando) soltar(arrastando.id, arrastando.de, col.status);
+                    }}
+                  >
+                    <header className="kanban-col-head" style={{ borderTopColor: col.fg }}>
+                      <h3 style={{ color: col.fg }}>
+                        {col.label} <span className="kanban-contagem">{lista.length}</span>
+                      </h3>
+                      <small>
+                        {brl(total)}
+                        {col.status === "entregue" ? " · 7 dias" : ""}
+                      </small>
+                    </header>
+                    <div className="kanban-cards">
+                      {lista.length === 0 ? (
+                        <p className="kanban-vazio">Nenhum pedido.</p>
+                      ) : (
+                        lista.map((p) => {
+                          const arrastavel = Boolean(TRANSICAO[p.status]) && !pendente;
+                          return (
+                            <article
+                              key={p.id}
+                              className={`kanban-card${arrastando?.id === p.id ? " arrastando" : ""}`}
+                              data-pedido={p.id}
+                              data-status={p.status}
+                              aria-label={`Pedido ${p.id.slice(0, 8).toUpperCase()} de ${p.cliente}`}
+                              draggable={arrastavel}
+                              onDragStart={(e) => {
+                                e.dataTransfer.effectAllowed = "move";
+                                e.dataTransfer.setData("text/plain", p.id);
+                                setArrastando({ id: p.id, de: p.status });
+                              }}
+                              onDragEnd={() => {
+                                setArrastando(null);
+                                setSobre(null);
+                              }}
+                            >
+                              <div className="kanban-card-linha">
+                                <strong>{p.cliente}</strong>
+                                <span className="kanban-codigo">#{p.id.slice(0, 8).toUpperCase()}</span>
+                              </div>
+                              <div className="kanban-card-linha kanban-card-info">
+                                <span>
+                                  {p.itens} {p.itens === 1 ? "item" : "itens"} ·{" "}
+                                  {p.payment_method ? PAGAMENTO[p.payment_method] ?? p.payment_method : "—"}
+                                </span>
+                                <strong>{brl(p.total_amount)}</strong>
+                              </div>
+                              <div className="kanban-card-data">
+                                {p.status === "entregue" && p.entregue_em
+                                  ? `Entregue ${dataCurta(p.entregue_em)}`
+                                  : `Criado ${dataCurta(p.created_at)}`}
+                              </div>
+                              {acoes(p)}
+                            </article>
+                          );
+                        })
+                      )}
+                    </div>
+                  </section>
+                );
+              })}
+            </div>
+          </>
+        ) : fila.length === 0 ? (
+          <p style={{ fontSize: 13.5, color: "var(--ink-soft)", margin: 0 }}>Nenhum pedido aguardando separação.</p>
         ) : (
           <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+            <table aria-label="Lista de expedição" style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
               <thead>
                 <tr style={{ textAlign: "left", color: "var(--ink-soft)", fontSize: 11.5, textTransform: "uppercase" }}>
                   <th style={{ padding: "6px 8px" }}>Cliente</th>
@@ -163,9 +372,8 @@ export function ConsoleLogistica({ fila, estoque }: { fila: PedidoFila[]; estoqu
               <tbody>
                 {fila.map((p) => {
                   const badge = STATUS_BADGE[p.status] ?? { label: p.status, bg: "#EEE", fg: "#333" };
-                  const accao = proximo[p.status];
                   return (
-                    <tr key={p.id} style={{ borderTop: "1px solid var(--border)" }}>
+                    <tr key={p.id} data-pedido={p.id} data-status={p.status} style={{ borderTop: "1px solid var(--border)" }}>
                       <td style={{ padding: "9px 8px", fontWeight: 600 }}>{p.cliente}</td>
                       <td style={{ padding: "9px 8px" }}>{p.itens}</td>
                       <td style={{ padding: "9px 8px" }}>{brl(p.total_amount)}</td>
@@ -185,39 +393,7 @@ export function ConsoleLogistica({ fila, estoque }: { fila: PedidoFila[]; estoqu
                         </span>
                       </td>
                       <td style={{ padding: "9px 8px", color: "var(--ink-soft)" }}>{dataCurta(p.created_at)}</td>
-                      <td style={{ padding: "9px 8px" }}>
-                        <div style={{ display: "flex", gap: 8 }}>
-                          {accao && (
-                            <button
-                              disabled={pendente}
-                              onClick={() => rodar(() => avancarExpedicao(p.id, accao.de, accao.para))}
-                              style={{ ...BTN, background: accao.bg, color: "#FFF" }}
-                            >
-                              {accao.label}
-                            </button>
-                          )}
-                          {p.status === "aguardando_pagamento" && p.payment_method && (
-                            <button
-                              disabled={pendente}
-                              aria-label={`Conferir pagamento ${p.id.slice(0, 8)}`}
-                              title="Consulta o Mercado Pago e marca como pago se houver pagamento aprovado"
-                              onClick={() => rodar(() => conferirPagamentoMP(p.id))}
-                              style={{ ...BTN, background: "#E0F2FE", color: "#075985" }}
-                            >
-                              Conferir pagamento
-                            </button>
-                          )}
-                          {p.status === "aguardando_pagamento" && (
-                            <button
-                              disabled={pendente}
-                              onClick={() => rodar(() => cancelarPedidoNaoPago(p.id))}
-                              style={{ ...BTN, background: "#FEE2E2", color: "#991B1B" }}
-                            >
-                              Cancelar
-                            </button>
-                          )}
-                        </div>
-                      </td>
+                      <td style={{ padding: "9px 8px" }}>{acoes(p)}</td>
                     </tr>
                   );
                 })}
@@ -226,6 +402,7 @@ export function ConsoleLogistica({ fila, estoque }: { fila: PedidoFila[]; estoqu
           </div>
         )}
       </section>
+
 
       <section
         style={{
